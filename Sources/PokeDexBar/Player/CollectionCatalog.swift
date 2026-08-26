@@ -28,6 +28,8 @@ enum CollectionCatalog {
         CollectionSet(id: "tao-trio", speciesIDs: [643, 644, 646], rewards: nil),
         CollectionSet(id: "aura-trio", speciesIDs: [716, 717, 718], rewards: nil),
         CollectionSet(id: "sword-shield", speciesIDs: [888, 889, 890], rewards: nil),
+        // 해와 달 — 루나톤·솔록(3세대의 달·해)과 솔가레오·루나아라(7세대의 해·달)를 잇는다.
+        CollectionSet(id: "sun-moon", speciesIDs: [337, 338, 791, 792], rewards: nil),
         // 중간 크기 — 진화가 필요한 세트는 경험치 사탕이 어울린다(그 사탕으로 마저 진화시킨다).
         CollectionSet(id: "eevee-friends",
                       speciesIDs: [133, 134, 135, 136, 196, 197, 470, 471, 700],
@@ -35,6 +37,19 @@ enum CollectionCatalog {
         CollectionSet(id: "kanto-starters",
                       speciesIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9],
                       rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "johto-starters",
+                      speciesIDs: [152, 153, 154, 155, 156, 157, 158, 159, 160],
+                      rewards: [.item(.expCandy, 10)]),
+        // 피카츄 닮은꼴 — 세대마다 하나씩 나오는 "전기 마스코트" 계보(따라큐는 위장으로 합류).
+        CollectionSet(id: "pika-clones",
+                      speciesIDs: [25, 311, 312, 417, 587, 702, 777, 778, 877, 921],
+                      rewards: [.item(.expCandy, 10)]),
+        // 되살린 화석 — 여섯 세대의 화석 25종 전부(복원 라인 포함).
+        CollectionSet(id: "fossils",
+                      speciesIDs: [138, 139, 140, 141, 142, 345, 346, 347, 348,
+                                   408, 409, 410, 411, 564, 565, 566, 567,
+                                   696, 697, 698, 699, 880, 881, 882, 883],
+                      rewards: [.item(.expCandy, 20)]),
         CollectionSet(id: "creation-gods", speciesIDs: [483, 484, 487, 493],
                       rewards: [.item(.expCandy, 20)]),
         // 큰 세트 — 레전더리 여섯·열하나라 확정권이 걸맞다.
@@ -42,6 +57,18 @@ enum CollectionCatalog {
                       rewards: [.eggTicket(.legendary)]),
         CollectionSet(id: "ultra-beasts",
                       speciesIDs: [793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806],
+                      rewards: [.eggTicket(.legendary)]),
+        // 600족 — **최종 진화형만** 센다. "유사 전설" 이라는 이름은 완성형의 것이라,
+        // 미뇽을 잡았다고 이 세트가 차오르면 이름이 거짓말이 된다.
+        CollectionSet(id: "pseudo-legendaries",
+                      speciesIDs: [149, 248, 373, 376, 445, 635, 706, 784, 887, 998],
+                      rewards: [.eggTicket(.legendary)]),
+        // 파라독스 — 고대와 미래를 가른다(본가의 스칼렛/바이올렛 구분 그대로).
+        CollectionSet(id: "paradox-past",
+                      speciesIDs: [984, 985, 986, 987, 988, 989, 1005, 1009, 1020, 1021],
+                      rewards: [.eggTicket(.legendary)]),
+        CollectionSet(id: "paradox-future",
+                      speciesIDs: [990, 991, 992, 993, 994, 995, 1006, 1010, 1022, 1023],
                       rewards: [.eggTicket(.legendary)]),
     ]
 
@@ -66,6 +93,13 @@ enum CollectionCatalog {
         case "tao-trio": names = ("타오 트리오", "Tao Trio", "タオトリオ")
         case "aura-trio": names = ("오라 트리오", "Aura Trio", "オーラトリオ")
         case "sword-shield": names = ("검과 방패", "Sword and Shield", "けんと たて")
+        case "sun-moon": names = ("해와 달", "Sun and Moon", "たいようと つき")
+        case "johto-starters": names = ("성도 스타터", "Johto Starters", "ジョウトの さいしょのポケモン")
+        case "pika-clones": names = ("피카츄 닮은꼴", "The Pika Look-alikes", "ピカチュウの にたものたち")
+        case "fossils": names = ("되살린 화석", "Revived Fossils", "よみがえった カセキ")
+        case "pseudo-legendaries": names = ("600족", "Pseudo-Legendaries", "600ぞく")
+        case "paradox-past": names = ("고대의 포켓몬", "Ancient Paradoxes", "パラドックス（こだい）")
+        case "paradox-future": names = ("미래의 포켓몬", "Future Paradoxes", "パラドックス（みらい）")
         case "eevee-friends": names = ("이브이 프렌즈", "Eevee Friends", "イーブイフレンズ")
         case "kanto-starters": names = ("관동 스타터", "Kanto Starters", "カントーの さいしょのポケモン")
         case "creation-gods": names = ("시공의 신", "Creation Gods", "じくうの かみがみ")

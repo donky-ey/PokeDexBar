@@ -58,6 +58,24 @@ final class CollectionTests: XCTestCase {
         XCTAssertTrue(eevee.speciesIDs.contains(700), "님피아가 빠졌다")
         let ub = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "ultra-beasts" })
         XCTAssertEqual(ub.speciesIDs.count, 11)
+        // 화석 — 여섯 세대 25종(복원 라인 포함). 세대를 하나 빼먹으면 여기서 걸린다.
+        let fossils = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "fossils" })
+        XCTAssertEqual(fossils.speciesIDs.count, 25)
+        XCTAssertTrue(fossils.speciesIDs.contains(142), "프테라가 빠졌다")
+        XCTAssertTrue(fossils.speciesIDs.contains(880), "8세대 화석이 빠졌다")
+        // 600족 — 최종 진화형만. 미뇽(147)이 들어오면 이름이 거짓말이 된다.
+        let pseudo = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "pseudo-legendaries" })
+        XCTAssertEqual(pseudo.speciesIDs.count, 10)
+        XCTAssertTrue(pseudo.speciesIDs.contains(149))
+        XCTAssertFalse(pseudo.speciesIDs.contains(147), "600족에 미진화형이 들어왔다")
+        // 파라독스 — 고대와 미래는 겹치지 않는다(본가 구분 그대로).
+        let past = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "paradox-past" })
+        let future = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "paradox-future" })
+        XCTAssertEqual(past.speciesIDs.count, 10)
+        XCTAssertEqual(future.speciesIDs.count, 10)
+        XCTAssertTrue(Set(past.speciesIDs).isDisjoint(with: future.speciesIDs),
+                      "고대와 미래가 겹친다")
+        XCTAssertTrue(future.speciesIDs.contains(1006), "테츠노브지나(미래)가 빠졌다")
     }
 
     // MARK: 진행과 배지
