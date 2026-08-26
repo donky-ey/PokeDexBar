@@ -72,6 +72,11 @@ enum CollectionCatalog {
                       rewards: [.eggTicket(.legendary)]),
     ]
 
+    /// 이 종이 속한 세트들 — 도감 상세가 "얘는 클론의 진실의 한 조각" 을 말하는 데 쓴다.
+    static func containing(species: Int) -> [CollectionSet] {
+        all.filter { $0.speciesIDs.contains(species) }
+    }
+
     static func progress(of set: CollectionSet, dex: Set<Int>) -> (done: Int, target: Int) {
         (set.speciesIDs.count(where: { dex.contains($0) }), set.speciesIDs.count)
     }

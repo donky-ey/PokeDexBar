@@ -926,6 +926,20 @@ final class ScreenshotGeneratorTests: XCTestCase {
         try write(png(tabChrome(NationalDexView(store: fixture.player, missionsExpanded: true))),
                   "screenshot-dex-missions.png")
 
+        // 도감 상세(종 항목) — 프로필은 네트워크라 실물 모양의 값을 심어 렌더한다.
+        // 피카츄: 도감설명·분류·키·몸무게에 소속 컬렉션(피카츄 닮은꼴)까지 한 장에 나온다.
+        let pikachuProfile = SpeciesProfile(
+            speciesID: 25, nameKo: "피카츄", nameEn: "Pikachu", nameJa: "ピカチュウ",
+            typeSlugs: ["electric"], heightDm: 4, weightHg: 60,
+            genusKo: "쥐포켓몬", genusEn: "Mouse Pokémon", genusJa: "ねずみポケモン",
+            flavorKo: "서로의 꼬리를 붙여서 전기를 흐르게 하는 게 피카츄 사이의 인사법이다.",
+            flavorEn: "Pikachu greet one another by touching tails and exchanging electricity.",
+            flavorJa: "しっぽを あわせて でんきを ながしあうのが ピカチュウどうしの あいさつだ。")
+        try write(png(tabChrome(NationalDexView(store: fixture.player,
+                                                entrySpeciesID: 25,
+                                                entryProfile: pikachuProfile))),
+                  "screenshot-dex-entry.png")
+
         // 컬렉션 — 목록을 펼친 채로. 픽스처에 이브이·전설의 새 일부가 있어 진행 중인 세트와
         // 실루엣이 같이 나온다.
         try write(png(tabChrome(NationalDexView(store: fixture.player,

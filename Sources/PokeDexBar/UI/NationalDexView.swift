@@ -10,6 +10,9 @@ import SwiftUI
 /// 폼 목록 상세가 열리고, 등록한 폼만 그림이 보인다(미등록은 실루엣 + 이름).
 struct NationalDexView: View {
     let store: PlayerStore
+    /// 도감 상세의 프로필(키·몸무게·도감설명)이 네트워크에 산다. 스크린샷·테스트는 안 넘긴다 —
+    /// 그때 상세는 로딩 문구까지만 그린다.
+    let provider: (any PokeProviding)?
 
     nonisolated static let speciesRange = DexKey.speciesRange
 
@@ -34,13 +37,26 @@ struct NationalDexView: View {
 
     /// `detailSpeciesID`·`missionsExpanded` 를 심을 수 있는 이니셜라이저 — 스크린샷 생성기가
     /// 탭 없이 그 장면을 렌더하는 데 쓴다(오프스크린 렌더는 제스처를 못 보낸다).
-    init(store: PlayerStore, detailSpeciesID: Int? = nil, missionsExpanded: Bool = false,
-         collectionsExpanded: Bool = false) {
+    init(store: PlayerStore, provider: (any PokeProviding)? = nil,
+         detailSpeciesID: Int? = nil, missionsExpanded: Bool = false,
+         collectionsExpanded: Bool = false, entrySpeciesID: Int? = nil,
+         entryProfile: SpeciesProfile? = nil) {
         self.store = store
+        self.provider = provider
         _detailSpeciesID = State(initialValue: detailSpeciesID)
         _missionsExpanded = State(initialValue: missionsExpanded)
         _collectionsExpanded = State(initialValue: collectionsExpanded)
+        _entrySpeciesID = State(initialValue: entrySpeciesID)
+        _entryProfile = State(initialValue: entryProfile)
     }
+
+    // MARK: 도감 상세(종 항목)
+
+    /// 열려 있는 종 항목. 폼 목록(`detailSpeciesID`)과 별개의 화면이다.
+    @State private var entrySpeciesID: Int?
+    @State private var entryProfile: SpeciesProfile?
+    @State private var entryFailed = false
+    @State private var entryTask: Task<Void, Never>?
 
     // MARK: 미션
 
@@ -56,6 +72,8 @@ struct NationalDexView: View {
     var body: some View {
         if let speciesID = detailSpeciesID {
             formDetail(speciesID)
+        } else if let speciesID = entrySpeciesID {
+            speciesEntry(speciesID)
         } else {
             grid
         }
@@ -287,7 +305,149 @@ struct NationalDexView: View {
         .background(Color.secondary.opacity(state.caught ? 0.10 : 0.04),
                     in: RoundedRectangle(cornerRadius: 6))
         .contentShape(RoundedRectangle(cornerRadius: 6))
-        .onTapGesture { if hasFormRows { detailSpeciesID = speciesID } }
+        // **모든 칸이 상세를 연다.** 예전에는 모습이 여럿인 종만 폼 목록을 열었고 나머지는
+        // 눌러도 아무 일이 없었다 — 이제 종 항목(도감설명·키·몸무게·컬렉션)이 모두에게 있다.
+        .onTapGesture { openEntry(speciesID) }
+    }
+
+    private func openEntry(_ speciesID: Int) {
+        entryProfile = nil
+        entryFailed = false
+        entrySpeciesID = speciesID
+        entryTask?.cancel()
+        // 미등록 종은 정보를 가리므로 요청도 안 보낸다 — 실루엣에 도감설명을 붙일 일이 없다.
+        guard store.state.dex.contains(speciesID), let provider else { return }
+        entryTask = Task {
+            let profile = try? await provider.speciesProfile(id: speciesID)
+            guard !Task.isCancelled else { return }
+            // 그 사이 다른 종을 열었으면 착지하지 않는다(늦게 온 조회가 새 화면을 덮는 부류).
+            guard entrySpeciesID == speciesID else { return }
+            if let profile { entryProfile = profile } else { entryFailed = true }
+        }
+    }
+
+    // MARK: 종 항목 화면
+
+    /// 한 종의 도감 항목 — 본가 도감 페이지의 축소판. 미등록이면 실루엣 + "???" 로 가린다
+    /// (이 앱의 도감 실루엣 규칙 그대로 — 모습은 보이되 정체는 가린다).
+    private func speciesEntry(_ speciesID: Int) -> some View {
+        let caught = store.state.dex.contains(speciesID)
+        let l = store.l
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Button {
+                    entryTask?.cancel()
+                    entrySpeciesID = nil
+                } label: {
+                    Label(l.collection, systemImage: "chevron.left").font(.system(size: 10))
+                }
+                .buttonStyle(.plain)
+                Spacer()
+                Text("#\(speciesID)")
+                    .font(.system(size: 10).monospacedDigit()).foregroundStyle(.secondary)
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .center, spacing: 10) {
+                        SpriteView(speciesID: speciesID, size: 72, bob: true,
+                                   animated: caught, silhouette: !caught)
+                            .frame(width: 72, height: 72)
+                        VStack(alignment: .leading, spacing: 3) {
+                            // 이름·분류·타입은 전부 프로필(네트워크)에서 온다 — 오기 전엔 번호.
+                            Text(caught ? (entryProfile?.name(store.language) ?? "#\(speciesID)")
+                                        : l.dexEntryUnknown)
+                                .font(.system(size: 13, weight: .semibold))
+                            if caught, let profile = entryProfile {
+                                Text(profile.genus(store.language))
+                                    .font(.system(size: 9)).foregroundStyle(.secondary)
+                                Text(profile.typesText(store.language))
+                                    .font(.system(size: 9)).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                    }
+
+                    if caught {
+                        entryFacts(speciesID)
+                    } else {
+                        // 미등록 — 본가처럼 아무것도 말하지 않는다. 부화가 곧 열쇠다.
+                        Text(l.dexEntryUnknown)
+                            .font(.system(size: 10)).foregroundStyle(.tertiary)
+                    }
+
+                    // 소속 컬렉션 — 이 종이 어느 이야기의 조각인지. 미등록이어도 보인다:
+                    // "얘를 잡으면 클론의 진실이 한 칸 찬다" 가 잡을 이유가 된다.
+                    let memberships = CollectionCatalog.containing(species: speciesID)
+                    if !memberships.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(l.collectionSection)
+                                .font(.system(size: 10, weight: .semibold))
+                            ForEach(memberships) { entry in
+                                let progress = CollectionCatalog.progress(
+                                    of: entry, dex: store.state.dex)
+                                HStack(spacing: 5) {
+                                    if progress.done >= progress.target {
+                                        Image(systemName: "medal.fill")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(Color.yellow)
+                                    }
+                                    Text(CollectionCatalog.label(entry.id, store.language))
+                                        .font(.system(size: 9, weight: .medium))
+                                    Text("\(progress.done)/\(progress.target)")
+                                        .font(.system(size: 8).monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                }
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.secondary.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 8))
+                    }
+
+                    // 모습이 여럿이면 폼 목록으로 — 기존 화면을 그대로 잇는다.
+                    if DexKey.candidates(speciesID: speciesID).count > 1 {
+                        Button(l.dexFormsButton(DexKey.candidates(speciesID: speciesID).count)) {
+                            detailSpeciesID = speciesID
+                        }
+                        .buttonStyle(.bordered).controlSize(.small)
+                    }
+                }
+            }
+            .frame(height: 300)
+        }
+        .onDisappear { entryTask?.cancel() }
+    }
+
+    /// 키·몸무게·도감설명 — 네트워크 프로필이 오기 전엔 로딩, 실패면 안내.
+    @ViewBuilder
+    private func entryFacts(_ speciesID: Int) -> some View {
+        let l = store.l
+        if let profile = entryProfile {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(l.dexHeight).font(.system(size: 8)).foregroundStyle(.tertiary)
+                    Text(profile.heightText)
+                        .font(.system(size: 11, weight: .medium).monospacedDigit())
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(l.dexWeight).font(.system(size: 8)).foregroundStyle(.tertiary)
+                    Text(profile.weightText)
+                        .font(.system(size: 11, weight: .medium).monospacedDigit())
+                }
+                Spacer()
+            }
+            .padding(8)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            Text(profile.flavor(store.language))
+                .font(.system(size: 10))
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if entryFailed {
+            Text(l.dexEntryUnavailable).font(.system(size: 9)).foregroundStyle(.orange)
+        } else {
+            Text(l.dexEntryLoading).font(.system(size: 9)).foregroundStyle(.tertiary)
+        }
     }
 
     // MARK: 폼 상세

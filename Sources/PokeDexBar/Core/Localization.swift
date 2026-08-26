@@ -43,6 +43,20 @@ struct L {
     }
     var missionCompletion: String { t("전국도감 완성", "Complete the National Dex", "ぜんこくずかん かんせい") }
     var collectionSection: String { t("컬렉션", "Collections", "コレクション") }
+    // MARK: 도감 상세
+    var dexHeight: String { t("키", "Height", "たかさ") }
+    var dexWeight: String { t("몸무게", "Weight", "おもさ") }
+    var dexEntryLoading: String { t("도감을 펼치는 중…", "Opening the Dex…", "ずかんを ひらいています…") }
+    var dexEntryUnavailable: String {
+        t("도감 정보를 받지 못했어요. 잠시 뒤 다시 열어 주세요.",
+          "Couldn't fetch the Dex entry. Try again shortly.",
+          "ずかんの じょうほうを とれませんでした。しばらくして ひらいてください。")
+    }
+    /// 미등록 종 — 본가처럼 정보를 가린다.
+    var dexEntryUnknown: String { t("???", "???", "???") }
+    func dexFormsButton(_ n: Int) -> String {
+        t("모습 \(n)종 보기", "See \(n) forms", "すがた \(n)しゅを みる")
+    }
     var collectionCompleteBadge: String { t("완성", "Complete", "かんせい") }
     var missionClaimedToBag: String {
         t("가방에 담았어요", "Added to your Bag", "バッグに いれました")
