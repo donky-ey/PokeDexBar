@@ -214,6 +214,29 @@ struct NationalDexView: View {
         .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 
+    /// 세트 구성원 띠 — 잡은 종은 컬러, 못 잡은 종은 실루엣. **목록과 도감 상세가 같이 쓴다**
+    /// (한쪽만 고쳐지는 부류를 구조로 막는다). `highlight` 는 지금 보고 있는 종 — 상세에서
+    /// "이 무리 안의 내 위치" 를 테두리로 표시한다.
+    private func collectionMembers(_ entry: CollectionSet, highlight: Int? = nil) -> some View {
+        let dex = store.state.dex
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 20), spacing: 2)],
+                         alignment: .leading, spacing: 2) {
+            ForEach(entry.speciesIDs, id: \.self) { species in
+                SpriteView(speciesID: species, size: 18, silhouette: !dex.contains(species))
+                    .frame(width: 20, height: 20)
+                    .opacity(dex.contains(species) ? 1 : 0.55)
+                    .overlay {
+                        if species == highlight {
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.accentColor, lineWidth: 1)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { openEntry(species) }
+            }
+        }
+    }
+
     private func collectionRow(_ status: PlayerStore.CollectionStatus) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 5) {
@@ -241,19 +264,8 @@ struct NationalDexView: View {
                 }
             }
             // 구성원은 **항상 보인다** — 처음엔 줄을 눌러야 펼쳐졌는데, 숨은 기능은 없는
-            // 기능이다(사용자 지적). 못 잡은 종이 실루엣으로 서서 "다음 목표" 를 말하고,
-            // 칩을 누르면 그 종의 도감 항목이 열린다. 큰 세트(화석 25종)는 줄바꿈으로 흐른다.
-            let dex = store.state.dex
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 20), spacing: 2)],
-                      alignment: .leading, spacing: 2) {
-                ForEach(status.collection.speciesIDs, id: \.self) { species in
-                    SpriteView(speciesID: species, size: 18, silhouette: !dex.contains(species))
-                        .frame(width: 20, height: 20)
-                        .opacity(dex.contains(species) ? 1 : 0.55)
-                        .contentShape(Rectangle())
-                        .onTapGesture { openEntry(species) }
-                }
-            }
+            // 기능이다(사용자 지적). 큰 세트(화석 25종)는 줄바꿈으로 흐른다.
+            collectionMembers(status.collection)
         }
         .padding(.vertical, 2)
     }
@@ -382,18 +394,23 @@ struct NationalDexView: View {
                             ForEach(memberships) { entry in
                                 let progress = CollectionCatalog.progress(
                                     of: entry, dex: store.state.dex)
-                                HStack(spacing: 5) {
-                                    if progress.done >= progress.target {
-                                        Image(systemName: "medal.fill")
-                                            .font(.system(size: 9))
-                                            .foregroundStyle(Color.yellow)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack(spacing: 5) {
+                                        if progress.done >= progress.target {
+                                            Image(systemName: "medal.fill")
+                                                .font(.system(size: 9))
+                                                .foregroundStyle(Color.yellow)
+                                        }
+                                        Text(CollectionCatalog.label(entry.id, store.language))
+                                            .font(.system(size: 9, weight: .medium))
+                                        Text("\(progress.done)/\(progress.target)")
+                                            .font(.system(size: 8).monospacedDigit())
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
                                     }
-                                    Text(CollectionCatalog.label(entry.id, store.language))
-                                        .font(.system(size: 9, weight: .medium))
-                                    Text("\(progress.done)/\(progress.target)")
-                                        .font(.system(size: 8).monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
+                                    // 목록과 같은 구성원 띠 — 지금 보는 종이 테두리로 서고,
+                                    // 다른 칩을 누르면 그 종의 항목으로 건너간다.
+                                    collectionMembers(entry, highlight: speciesID)
                                 }
                             }
                         }
