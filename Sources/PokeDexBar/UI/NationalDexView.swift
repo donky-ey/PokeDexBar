@@ -64,8 +64,6 @@ struct NationalDexView: View {
 
     @State private var missionsExpanded = false
     @State private var collectionsExpanded = false
-    /// 펼쳐 둔 컬렉션 — 구성원(잡은 건 그림, 못 잡은 건 실루엣)을 그 자리에서 보인다.
-    @State private var openedCollectionID: String?
     @State private var justClaimedCollectionID: String?
     /// 방금 받은 미션 id — "가방에 담았어요" 확인을 그 자리에 잠깐 남긴다. 보상이 전부
     /// 아이템이라 알 연출은 여기 없다 — 확정권의 개봉은 상점의 알 뽑기에서 일어난다.
@@ -218,50 +216,46 @@ struct NationalDexView: View {
 
     private func collectionRow(_ status: PlayerStore.CollectionStatus) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    openedCollectionID = openedCollectionID == status.id ? nil : status.id
+            HStack(spacing: 5) {
+                if status.completed {
+                    Image(systemName: "medal.fill")
+                        .font(.system(size: 9)).foregroundStyle(Color.yellow)
                 }
-            } label: {
-                HStack(spacing: 5) {
-                    if status.completed {
-                        Image(systemName: "medal.fill")
-                            .font(.system(size: 9)).foregroundStyle(Color.yellow)
-                    }
-                    Text(CollectionCatalog.label(status.id, store.language))
-                        .font(.system(size: 9, weight: .medium))
-                    Text("\(status.done)/\(status.target)")
-                        .font(.system(size: 8).monospacedDigit()).foregroundStyle(.secondary)
-                    Spacer()
-                    if status.id == justClaimedCollectionID {
-                        Text(store.l.missionClaimedToBag)
-                            .font(.system(size: 8, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
-                    } else if status.claimable {
-                        Button(store.l.missionClaim) {
-                            guard store.claimCollection(status.collection) else { return }
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                justClaimedCollectionID = status.id
-                            }
+                Text(CollectionCatalog.label(status.id, store.language))
+                    .font(.system(size: 9, weight: .medium))
+                Text("\(status.done)/\(status.target)")
+                    .font(.system(size: 8).monospacedDigit()).foregroundStyle(.secondary)
+                Spacer()
+                if status.id == justClaimedCollectionID {
+                    Text(store.l.missionClaimedToBag)
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                } else if status.claimable {
+                    Button(store.l.missionClaim) {
+                        guard store.claimCollection(status.collection) else { return }
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            justClaimedCollectionID = status.id
                         }
-                        .buttonStyle(.borderedProminent).controlSize(.mini)
                     }
+                    .buttonStyle(.borderedProminent).controlSize(.mini)
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            if openedCollectionID == status.id {
-                // 구성원 — 못 잡은 종이 실루엣으로 서서 "다음 목표" 를 그 자리에서 말한다.
-                let dex = store.state.dex
-                HStack(spacing: 3) {
-                    ForEach(status.collection.speciesIDs, id: \.self) { species in
-                        SpriteView(speciesID: species, size: 20, silhouette: !dex.contains(species))
-                    }
-                    Spacer()
+            // 구성원은 **항상 보인다** — 처음엔 줄을 눌러야 펼쳐졌는데, 숨은 기능은 없는
+            // 기능이다(사용자 지적). 못 잡은 종이 실루엣으로 서서 "다음 목표" 를 말하고,
+            // 칩을 누르면 그 종의 도감 항목이 열린다. 큰 세트(화석 25종)는 줄바꿈으로 흐른다.
+            let dex = store.state.dex
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 20), spacing: 2)],
+                      alignment: .leading, spacing: 2) {
+                ForEach(status.collection.speciesIDs, id: \.self) { species in
+                    SpriteView(speciesID: species, size: 18, silhouette: !dex.contains(species))
+                        .frame(width: 20, height: 20)
+                        .opacity(dex.contains(species) ? 1 : 0.55)
+                        .contentShape(Rectangle())
+                        .onTapGesture { openEntry(species) }
                 }
             }
         }
-        .padding(.vertical, 1)
+        .padding(.vertical, 2)
     }
 
     // MARK: 그리드
