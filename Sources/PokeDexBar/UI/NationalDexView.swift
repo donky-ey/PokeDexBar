@@ -34,15 +34,21 @@ struct NationalDexView: View {
 
     /// `detailSpeciesID`·`missionsExpanded` 를 심을 수 있는 이니셜라이저 — 스크린샷 생성기가
     /// 탭 없이 그 장면을 렌더하는 데 쓴다(오프스크린 렌더는 제스처를 못 보낸다).
-    init(store: PlayerStore, detailSpeciesID: Int? = nil, missionsExpanded: Bool = false) {
+    init(store: PlayerStore, detailSpeciesID: Int? = nil, missionsExpanded: Bool = false,
+         collectionsExpanded: Bool = false) {
         self.store = store
         _detailSpeciesID = State(initialValue: detailSpeciesID)
         _missionsExpanded = State(initialValue: missionsExpanded)
+        _collectionsExpanded = State(initialValue: collectionsExpanded)
     }
 
     // MARK: 미션
 
     @State private var missionsExpanded = false
+    @State private var collectionsExpanded = false
+    /// 펼쳐 둔 컬렉션 — 구성원(잡은 건 그림, 못 잡은 건 실루엣)을 그 자리에서 보인다.
+    @State private var openedCollectionID: String?
+    @State private var justClaimedCollectionID: String?
     /// 방금 받은 미션 id — "가방에 담았어요" 확인을 그 자리에 잠깐 남긴다. 보상이 전부
     /// 아이템이라 알 연출은 여기 없다 — 확정권의 개봉은 상점의 알 뽑기에서 일어난다.
     @State private var justClaimedID: String?
@@ -151,6 +157,93 @@ struct NationalDexView: View {
         withAnimation(.easeInOut(duration: 0.15)) { justClaimedID = status.id }
     }
 
+    // MARK: 컬렉션 섹션
+
+    /// 주제별 수집 세트 — 배지는 도감에서 파생되고, 보상 있는 세트만 받기가 있다.
+    /// 줄을 누르면 구성원이 펼쳐진다: 잡은 종은 그림, 못 잡은 종은 실루엣 — "뭐가 빠졌나" 가
+    /// 이 화면의 존재 이유다.
+    @ViewBuilder
+    private var collectionsSection: some View {
+        let statuses = store.collectionStatuses()
+        let claimable = statuses.count(where: \.claimable)
+        let badges = statuses.count(where: \.completed)
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { collectionsExpanded.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: collectionsExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary)
+                    Text(store.l.collectionSection).font(.system(size: 10, weight: .semibold))
+                    Text("\(badges)/\(statuses.count)")
+                        .font(.system(size: 9).monospacedDigit()).foregroundStyle(.secondary)
+                    if claimable > 0 {
+                        Text(store.l.missionClaimableBadge(claimable))
+                            .font(.system(size: 8, weight: .bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Color.accentColor, in: Capsule())
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if collectionsExpanded {
+                ForEach(statuses) { status in collectionRow(status) }
+            }
+        }
+        .padding(8)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func collectionRow(_ status: PlayerStore.CollectionStatus) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    openedCollectionID = openedCollectionID == status.id ? nil : status.id
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    if status.completed {
+                        Image(systemName: "medal.fill")
+                            .font(.system(size: 9)).foregroundStyle(Color.yellow)
+                    }
+                    Text(CollectionCatalog.label(status.id, store.language))
+                        .font(.system(size: 9, weight: .medium))
+                    Text("\(status.done)/\(status.target)")
+                        .font(.system(size: 8).monospacedDigit()).foregroundStyle(.secondary)
+                    Spacer()
+                    if status.id == justClaimedCollectionID {
+                        Text(store.l.missionClaimedToBag)
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(Color.accentColor)
+                    } else if status.claimable {
+                        Button(store.l.missionClaim) {
+                            guard store.claimCollection(status.collection) else { return }
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                justClaimedCollectionID = status.id
+                            }
+                        }
+                        .buttonStyle(.borderedProminent).controlSize(.mini)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if openedCollectionID == status.id {
+                // 구성원 — 못 잡은 종이 실루엣으로 서서 "다음 목표" 를 그 자리에서 말한다.
+                let dex = store.state.dex
+                HStack(spacing: 3) {
+                    ForEach(status.collection.speciesIDs, id: \.self) { species in
+                        SpriteView(speciesID: species, size: 20, silhouette: !dex.contains(species))
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .padding(.vertical, 1)
+    }
+
     // MARK: 그리드
 
     private var grid: some View {
@@ -166,6 +259,7 @@ struct NationalDexView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
                     missionsSection
+                    collectionsSection
                     LazyVGrid(columns: columns, spacing: 6) {
                         ForEach(Self.speciesRange, id: \.self) { id in
                             cell(id, dexForms: dexForms)

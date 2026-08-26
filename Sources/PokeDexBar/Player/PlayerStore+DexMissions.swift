@@ -37,21 +37,27 @@ extension PlayerStore {
     func claimDexMission(_ mission: DexMission) -> Bool {
         guard canClaimDexMission(mission) else { return false }
         mutate { s in
-            for reward in mission.rewards {
-                switch reward {
-                case .eggTicket(let grade):
-                    if let ticket = ShopItem.eggTicket(for: grade) {
-                        s.inventory[ticket.rawValue, default: 0] += 1
-                    }
-                case .item(let item, let n):
-                    s.inventory[item.rawValue, default: 0] += n
-                case .rainbowCharm:
-                    s.ownsRainbowCharm = true
-                }
-            }
+            Self.grant(mission.rewards, into: &s)
             s.claimedDexMissions.insert(mission.id)
         }
         return true
+    }
+
+    /// 보상 묶음을 상태에 얹는다 — 미션과 컬렉션이 **같은 지급 경로**를 쓴다. 갈라 두면
+    /// 한쪽만 고쳐지는 부류(두 화면이 각자 고르던 결함)가 여기서도 난다.
+    nonisolated static func grant(_ rewards: [DexMissionReward], into s: inout PlayerState) {
+        for reward in rewards {
+            switch reward {
+            case .eggTicket(let grade):
+                if let ticket = ShopItem.eggTicket(for: grade) {
+                    s.inventory[ticket.rawValue, default: 0] += 1
+                }
+            case .item(let item, let n):
+                s.inventory[item.rawValue, default: 0] += n
+            case .rainbowCharm:
+                s.ownsRainbowCharm = true
+            }
+        }
     }
 
     /// 확정권으로 알을 뽑는다 — **무료이고 등급이 확정**이라는 점만 다르고, 나머지(빈 슬롯

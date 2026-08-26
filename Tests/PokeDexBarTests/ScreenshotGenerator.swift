@@ -926,6 +926,12 @@ final class ScreenshotGeneratorTests: XCTestCase {
         try write(png(tabChrome(NationalDexView(store: fixture.player, missionsExpanded: true))),
                   "screenshot-dex-missions.png")
 
+        // 컬렉션 — 목록을 펼친 채로. 픽스처에 이브이·전설의 새 일부가 있어 진행 중인 세트와
+        // 실루엣이 같이 나온다.
+        try write(png(tabChrome(NationalDexView(store: fixture.player,
+                                                collectionsExpanded: true))),
+                  "screenshot-collections.png")
+
         // 폼 도감 — 종 칸을 누르면 그 종의 무늬가 행으로 펼쳐진다. **그리드만 찍으면 이 기능이
         // 그림에 한 번도 안 담긴다**(칸 겉모습은 예전과 같다). 비비용을 고른 것은 18개 무늬로
         // 후보가 가장 많아, 모은 것과 안 모은 것이 한 화면에 같이 보이기 때문이다.

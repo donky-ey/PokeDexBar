@@ -42,6 +42,8 @@ struct L {
         t("\(n)세대 완성", "Complete Gen \(n)", "だい\(n)せだい かんせい")
     }
     var missionCompletion: String { t("전국도감 완성", "Complete the National Dex", "ぜんこくずかん かんせい") }
+    var collectionSection: String { t("컬렉션", "Collections", "コレクション") }
+    var collectionCompleteBadge: String { t("완성", "Complete", "かんせい") }
     var missionClaimedToBag: String {
         t("가방에 담았어요", "Added to your Bag", "バッグに いれました")
     }
