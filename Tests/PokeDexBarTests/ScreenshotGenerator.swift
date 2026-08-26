@@ -932,9 +932,18 @@ final class ScreenshotGeneratorTests: XCTestCase {
             speciesID: 25, nameKo: "피카츄", nameEn: "Pikachu", nameJa: "ピカチュウ",
             typeSlugs: ["electric"], heightDm: 4, weightHg: 60,
             genusKo: "쥐포켓몬", genusEn: "Mouse Pokémon", genusJa: "ねずみポケモン",
-            flavorKo: "서로의 꼬리를 붙여서 전기를 흐르게 하는 게 피카츄 사이의 인사법이다.",
-            flavorEn: "Pikachu greet one another by touching tails and exchanging electricity.",
-            flavorJa: "しっぽを あわせて でんきを ながしあうのが ピカチュウどうしの あいさつだ。")
+            flavors: [
+                FlavorRecord(version: "red", language: "en",
+                             text: "When several of these POKeMON gather, their electricity could build and cause lightning storms."),
+                FlavorRecord(version: "x", language: "en",
+                             text: "It occasionally uses an electric shock to recharge a fellow Pikachu that is in a weakened state."),
+                FlavorRecord(version: "x", language: "ko",
+                             text: "약해진 동료 피카츄에게 전기를 나눠주며 충전해 주기도 한다."),
+                FlavorRecord(version: "sword", language: "en",
+                             text: "Pikachu greet one another by touching tails and exchanging electricity."),
+                FlavorRecord(version: "sword", language: "ko",
+                             text: "서로의 꼬리를 붙여서 전기를 흐르게 하는 게 피카츄 사이의 인사법이다."),
+            ])
         try write(png(tabChrome(NationalDexView(store: fixture.player,
                                                 entrySpeciesID: 25,
                                                 entryProfile: pikachuProfile))),

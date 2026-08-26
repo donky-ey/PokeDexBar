@@ -25,10 +25,13 @@ final class SpeciesProfileTests: XCTestCase {
         {"genus": "Mouse Pokémon", "language": {"name": "en", "url": null}}
       ],
       "flavor_text_entries": [
-        {"flavor_text": "옛날 문장.", "language": {"name": "ko", "url": null}},
-        {"flavor_text": "Old entry.", "language": {"name": "en", "url": null}},
+        {"flavor_text": "Old entry.", "language": {"name": "en", "url": null},
+         "version": {"name": "red", "url": null}},
+        {"flavor_text": "X 문장.", "language": {"name": "ko", "url": null},
+         "version": {"name": "x", "url": null}},
         {"flavor_text": "서로의 꼬리를 붙여서\\n전기를 흐르게 하는 게\\u000c피카츄 사이의 인사법이다.",
-         "language": {"name": "ko", "url": null}}
+         "language": {"name": "ko", "url": null},
+         "version": {"name": "sword", "url": null}}
       ]
     }
     """.data(using: .utf8)!
@@ -48,25 +51,50 @@ final class SpeciesProfileTests: XCTestCase {
         let species = try JSONDecoder().decode(SpeciesDTO.self, from: speciesJSON)
         XCTAssertEqual(species.genera?.first?.genus, "쥐포켓몬")
         XCTAssertEqual(species.flavor_text_entries?.count, 3)
+        XCTAssertEqual(species.flavor_text_entries?.last?.version?.name, "sword")
         let size = try JSONDecoder().decode(PokemonSizeDTO.self, from: pokemonJSON)
         XCTAssertEqual(size.height, 4)
         XCTAssertEqual(size.weight, 60)
         XCTAssertEqual(size.types.first?.type.name, "electric")
     }
 
-    /// **같은 언어의 마지막 항목**을 고른다 — 배열이 버전 순이라 마지막이 최신 게임 문장이다.
-    /// 제어문자(`\n`·페이지 넘김)는 공백으로 접는다.
-    func testPickTakesTheNewestEntryAndCleansIt() {
-        let entries: [(language: String, text: String)] = [
-            ("ko", "옛날 문장."),
-            ("en", "Old entry."),
-            ("ko", "서로의 꼬리를 붙여서\n전기를 흐르게 하는 게\u{0C}피카츄 사이의 인사법이다."),
-        ]
-        XCTAssertEqual(SpeciesProfile.pick(entries: entries, language: "ko"),
-                       "서로의 꼬리를 붙여서 전기를 흐르게 하는 게 피카츄 사이의 인사법이다.")
-        // 없는 언어는 영어로 떨어진다 — 빈 칸보다 낫다.
-        XCTAssertEqual(SpeciesProfile.pick(entries: entries, language: "ja"), "Old entry.")
-        XCTAssertEqual(SpeciesProfile.pick(entries: [], language: "ko"), "")
+    /// **버전 → 세대 표가 아홉 세대를 다 안다.** 모르는 버전(미래 게임)은 nil —
+    /// 그 항목만 조용히 빠지고 화면은 선다.
+    func testEveryKnownVersionMapsToItsGeneration() {
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "red"), 1)
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "crystal"), 2)
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "firered"), 3)
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "soulsilver"), 4)
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "black-2"), 5)
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "alpha-sapphire"), 6)
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "lets-go-eevee"), 7)
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "legends-arceus"), 8)
+        XCTAssertEqual(SpeciesProfile.generation(ofVersion: "violet"), 9)
+        XCTAssertNil(SpeciesProfile.generation(ofVersion: "future-game"))
+    }
+
+    /// 세대 목록과 세대별 문장 — 그 언어에 있는 세대만 뜨고(한국어는 6세대부터),
+    /// 세대 안에 버전이 여럿이면 최신 것, 그 언어에 없으면 영어로 떨어진다.
+    func testGenerationsAndPerGenerationFlavor() {
+        let profile = SpeciesProfile(
+            speciesID: 25, nameKo: "피카츄", nameEn: "Pikachu", nameJa: "ピカチュウ",
+            typeSlugs: ["electric"], heightDm: 4, weightHg: 60,
+            genusKo: "쥐포켓몬", genusEn: "Mouse Pokémon", genusJa: "ねずみポケモン",
+            flavors: [
+                FlavorRecord(version: "red", language: "en", text: "Gen1 English."),
+                FlavorRecord(version: "x", language: "ko", text: "X 문장."),
+                FlavorRecord(version: "sun", language: "ko", text: "썬 문장."),
+                FlavorRecord(version: "ultra-sun", language: "ko", text: "울트라썬 문장."),
+            ])
+        // 한국어 — 6·7세대만. 1세대(영어뿐)는 안 뜬다.
+        XCTAssertEqual(profile.flavorGenerations(.ko), [6, 7])
+        // 같은 세대에 버전이 둘이면 마지막(최신) 것.
+        XCTAssertEqual(profile.flavor(.ko, generation: 7), "울트라썬 문장.")
+        XCTAssertEqual(profile.flavor(.ko, generation: 6), "X 문장.")
+        // 일본어는 아예 없다 — 영어의 세대들로 떨어진다.
+        XCTAssertEqual(profile.flavorGenerations(.ja), [1])
+        XCTAssertEqual(profile.flavor(.ja, generation: 1), "Gen1 English.")
+        XCTAssertNil(profile.flavor(.ko, generation: 3), "없는 세대의 문장이 나온다")
     }
 
     /// 키·몸무게는 본가 단위(dm·hg) 그대로 저장하고 표시만 m·kg 로 — 피카츄 0.4 m·6.0 kg.
@@ -75,7 +103,7 @@ final class SpeciesProfileTests: XCTestCase {
             speciesID: 25, nameKo: "피카츄", nameEn: "Pikachu", nameJa: "ピカチュウ",
             typeSlugs: ["electric"], heightDm: 4, weightHg: 60,
             genusKo: "쥐포켓몬", genusEn: "Mouse Pokémon", genusJa: "ねずみポケモン",
-            flavorKo: "", flavorEn: "", flavorJa: "")
+            flavors: [])
         XCTAssertEqual(profile.heightText, "0.4 m")
         XCTAssertEqual(profile.weightText, "6.0 kg")
         XCTAssertEqual(profile.typesText(.ko), "전기")

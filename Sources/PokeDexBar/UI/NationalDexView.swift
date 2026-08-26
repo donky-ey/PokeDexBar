@@ -57,6 +57,8 @@ struct NationalDexView: View {
     @State private var entryProfile: SpeciesProfile?
     @State private var entryFailed = false
     @State private var entryTask: Task<Void, Never>?
+    /// 도감설명에서 보고 있는 세대. nil 이면 그 언어의 최신 세대.
+    @State private var entryGeneration: Int?
 
     // MARK: 미션
 
@@ -313,6 +315,7 @@ struct NationalDexView: View {
     private func openEntry(_ speciesID: Int) {
         entryProfile = nil
         entryFailed = false
+        entryGeneration = nil   // 종을 바꾸면 그 종의 최신 세대부터
         entrySpeciesID = speciesID
         entryTask?.cancel()
         // 미등록 종은 정보를 가리므로 요청도 안 보낸다 — 실루엣에 도감설명을 붙일 일이 없다.
@@ -439,10 +442,35 @@ struct NationalDexView: View {
             }
             .padding(8)
             .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-            Text(profile.flavor(store.language))
-                .font(.system(size: 10))
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
+            // **세대별 도감설명** — 세대마다 문장이 다른 것이 본가 도감의 재미라 전부 싣는다
+            // (처음엔 최신 한 건만 골랐다가 사용자 지적으로 바꿨다). 한국어는 6세대(X/Y)부터
+            // 존재하므로 ko 사용자에게는 6~9세대 칩이 뜬다 — 없는 세대를 영어로 채우기보다
+            // "한국어 도감은 여기부터" 를 정직하게 보인다.
+            let generations = profile.flavorGenerations(store.language)
+            if !generations.isEmpty {
+                let shown = entryGeneration.flatMap { generations.contains($0) ? $0 : nil }
+                    ?? generations.last!
+                HStack(spacing: 4) {
+                    ForEach(generations, id: \.self) { generation in
+                        Button(l.generationLabel(generation)) {
+                            entryGeneration = generation
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 8, weight: shown == generation ? .bold : .regular))
+                        .foregroundStyle(shown == generation
+                                         ? AnyShapeStyle(Color.accentColor)
+                                         : AnyShapeStyle(.secondary))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.secondary.opacity(shown == generation ? 0.15 : 0.06),
+                                    in: Capsule())
+                    }
+                    Spacer()
+                }
+                Text(profile.flavor(store.language, generation: shown) ?? "")
+                    .font(.system(size: 10))
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         } else if entryFailed {
             Text(l.dexEntryUnavailable).font(.system(size: 9)).foregroundStyle(.orange)
         } else {

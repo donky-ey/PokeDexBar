@@ -19,10 +19,9 @@ struct SpeciesProfile: Codable, Sendable, Equatable {
     let genusKo: String
     let genusEn: String
     let genusJa: String
-    /// 도감설명 — ko/en/ja. 최신 버전의 항목을 고른다.
-    let flavorKo: String
-    let flavorEn: String
-    let flavorJa: String
+    /// 도감설명 — **버전별 전부**. 처음엔 언어별 최신 한 건만 골라 담았는데, 세대별로 문장이
+    /// 다른 것이 본가 도감의 재미라 전부 싣는다(사용자 지적). API 배열 순서(버전 순)를 보존한다.
+    let flavors: [FlavorRecord]
 
     func name(_ lang: AppLanguage) -> String {
         switch lang { case .ko: nameKo; case .en: nameEn; case .ja: nameJa }
@@ -63,8 +62,49 @@ struct SpeciesProfile: Codable, Sendable, Equatable {
         switch lang { case .ko: genusKo; case .en: genusEn; case .ja: genusJa }
     }
 
-    func flavor(_ lang: AppLanguage) -> String {
-        switch lang { case .ko: flavorKo; case .en: flavorEn; case .ja: flavorJa }
+    private static func code(_ lang: AppLanguage) -> String {
+        switch lang { case .ko: "ko"; case .en: "en"; case .ja: "ja" }
+    }
+
+    /// 이 언어로 도감설명이 있는 세대들(오름차순). 그 언어에 아예 없으면 영어의 세대들 —
+    /// 한국어 도감은 6세대(X/Y)부터라, ko 사용자에게 1~5세대 영어 문장을 섞어 보이는 것보다
+    /// "한국어 도감은 여기부터" 를 정직하게 보이는 쪽을 골랐다.
+    func flavorGenerations(_ lang: AppLanguage) -> [Int] {
+        func gens(_ code: String) -> [Int] {
+            Set(flavors.filter { $0.language == code }
+                .compactMap { Self.generation(ofVersion: $0.version) }).sorted()
+        }
+        let own = gens(Self.code(lang))
+        return own.isEmpty ? gens("en") : own
+    }
+
+    /// 그 세대의 문장 — 세대 안에 여러 버전이 있으면 **마지막 것**(배열이 버전 순이라 최신).
+    /// 요청 언어에 없으면 영어로 떨어진다.
+    func flavor(_ lang: AppLanguage, generation: Int) -> String? {
+        func find(_ code: String) -> String? {
+            flavors.last {
+                $0.language == code && Self.generation(ofVersion: $0.version) == generation
+            }?.text
+        }
+        return find(Self.code(lang)) ?? find("en")
+    }
+
+    /// 게임 버전 → 세대. 모르는 버전(미래 게임)은 nil — 표를 넓히기 전까지 그 항목만 안 보인다.
+    static func generation(ofVersion slug: String) -> Int? {
+        switch slug {
+        case "red", "blue", "yellow": 1
+        case "gold", "silver", "crystal": 2
+        case "ruby", "sapphire", "emerald", "firered", "leafgreen": 3
+        case "diamond", "pearl", "platinum", "heartgold", "soulsilver": 4
+        case "black", "white", "black-2", "white-2": 5
+        case "x", "y", "omega-ruby", "alpha-sapphire": 6
+        case "sun", "moon", "ultra-sun", "ultra-moon",
+             "lets-go-pikachu", "lets-go-eevee": 7
+        case "sword", "shield", "brilliant-diamond", "shining-pearl",
+             "legends-arceus": 8
+        case "scarlet", "violet": 9
+        default: nil
+        }
     }
 
     /// 표시용 키 — "0.4 m". 본가처럼 소수 첫째 자리.
@@ -81,12 +121,11 @@ struct SpeciesProfile: Codable, Sendable, Equatable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// 언어별 최신 항목 고르기 — flavor_text_entries 는 (언어 × 게임 버전) 격자라 같은 언어가
-    /// 여러 번 온다. **마지막 것**을 쓴다: 배열이 버전 순이라 마지막이 최신 게임의 문장이다.
-    /// 그 언어가 아예 없으면(마이너 종의 ja 누락 등) 영어로 떨어진다 — 빈 칸보다 낫다.
-    static func pick(entries: [(language: String, text: String)], language: String) -> String {
-        if let hit = entries.last(where: { $0.language == language }) { return cleaned(hit.text) }
-        if let en = entries.last(where: { $0.language == "en" }) { return cleaned(en.text) }
-        return ""
-    }
+}
+
+/// 도감설명 한 건 — 어느 게임(버전)의, 어느 언어의, 무슨 문장인가.
+struct FlavorRecord: Codable, Sendable, Equatable {
+    let version: String
+    let language: String
+    let text: String
 }

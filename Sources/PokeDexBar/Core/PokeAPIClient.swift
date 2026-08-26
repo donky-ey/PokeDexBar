@@ -266,7 +266,13 @@ actor PokeAPIClient: PokeProviding {
         }
         let dto = try await species(id)
         let size: PokemonSizeDTO = try await get(base.appendingPathComponent("pokemon/\(id)"))
-        let flavors = (dto.flavor_text_entries ?? []).map { ($0.language.name, $0.flavor_text) }
+        // ko/en/ja 만 담는다 — 다른 언어까지 실으면 프로필 캐시가 열 배로 는다.
+        let flavors = (dto.flavor_text_entries ?? []).compactMap { entry -> FlavorRecord? in
+            guard ["ko", "en", "ja"].contains(entry.language.name),
+                  let version = entry.version?.name else { return nil }
+            return FlavorRecord(version: version, language: entry.language.name,
+                                text: SpeciesProfile.cleaned(entry.flavor_text))
+        }
         func genus(_ lang: String) -> String {
             (dto.genera ?? []).first(where: { $0.language.name == lang })?.genus
                 ?? (dto.genera ?? []).first(where: { $0.language.name == "en" })?.genus ?? ""
@@ -281,9 +287,7 @@ actor PokeAPIClient: PokeProviding {
             typeSlugs: size.types.sorted { $0.slot < $1.slot }.map(\.type.name),
             heightDm: size.height, weightHg: size.weight,
             genusKo: genus("ko"), genusEn: genus("en"), genusJa: genus("ja"),
-            flavorKo: SpeciesProfile.pick(entries: flavors, language: "ko"),
-            flavorEn: SpeciesProfile.pick(entries: flavors, language: "en"),
-            flavorJa: SpeciesProfile.pick(entries: flavors, language: "ja"))
+            flavors: flavors)
         profileCache[id] = profile
         if let data = try? JSONEncoder().encode(profile) {
             try? data.write(to: Self.profileURL(id: id))
@@ -370,7 +374,11 @@ struct SpeciesDTO: Decodable, Sendable {
     /// 분류("쥐포켓몬") — 언어별.
     let genera: [GenusDTO]?
 }
-struct FlavorDTO: Decodable, Sendable { let flavor_text: String; let language: NamedRef }
+struct FlavorDTO: Decodable, Sendable {
+    let flavor_text: String
+    let language: NamedRef
+    let version: NamedRef?
+}
 struct GenusDTO: Decodable, Sendable { let genus: String; let language: NamedRef }
 /// `pokemon/{id}` 에서 키·몸무게·타입만 — 나머지 필드(수백 줄)는 안 읽는다.
 struct PokemonSizeDTO: Decodable, Sendable {
