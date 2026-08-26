@@ -263,6 +263,12 @@ struct NationalDexView: View {
                     .buttonStyle(.borderedProminent).controlSize(.mini)
                 }
             }
+            // 보상이 있는 세트는 그걸 적는다 — 안 적었더니 "다 모으면 뭘 주는데?" 가 됐다
+            // (사용자 질문). 배지만인 세트는 줄을 안 낸다 — "배지" 라고 적으면 보상처럼 읽힌다.
+            if let rewards = status.collection.rewards {
+                Text(rewardText(rewards))
+                    .font(.system(size: 8)).foregroundStyle(.tertiary)
+            }
             // 구성원은 **항상 보인다** — 처음엔 줄을 눌러야 펼쳐졌는데, 숨은 기능은 없는
             // 기능이다(사용자 지적). 큰 세트(화석 25종)는 줄바꿈으로 흐른다.
             collectionMembers(status.collection)
