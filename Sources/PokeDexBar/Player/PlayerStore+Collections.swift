@@ -1,6 +1,6 @@
 import Foundation
 
-/// 컬렉션 — 배지는 도감에서 파생되고, 보상 있는 세트만 수령이 있다.
+/// 컬렉션 — 배지는 도감에서 파생되고, 보상 수령이 세트마다 한 번 있다.
 extension PlayerStore {
     struct CollectionStatus: Identifiable, Equatable {
         // `set` 이라는 이름은 계산 프로퍼티 본문에서 접근자 키워드로 파싱돼 컴파일이 깨진다.
@@ -10,8 +10,8 @@ extension PlayerStore {
         let claimed: Bool
         var id: String { collection.id }
         var completed: Bool { done >= target }
-        /// 보상이 있고, 완성했고, 아직 안 받았다.
-        var claimable: Bool { collection.rewards != nil && completed && !claimed }
+        /// 완성했고 아직 안 받았다 — 모든 세트가 보상을 주므로 다른 조건이 없다.
+        var claimable: Bool { completed && !claimed }
     }
 
     func collectionStatuses() -> [CollectionStatus] {
@@ -25,17 +25,17 @@ extension PlayerStore {
     }
 
     func canClaimCollection(_ collection: CollectionSet) -> Bool {
-        collection.rewards != nil
-            && !state.claimedCollections.contains(collection.id)
+        !state.claimedCollections.contains(collection.id)
             && CollectionCatalog.completed(collection, dex: state.dex)
     }
 
-    /// 보상을 받는다 — 지급은 미션과 같은 경로(`grant`)다.
+    /// 보상을 받는다 — 지급은 미션과 같은 경로(`grant`)다. 레지 패밀리처럼 포켓몬을 주는
+    /// 세트도 이 한 줄로 지나간다(개체 생성은 `grant` 안).
     @discardableResult
     func claimCollection(_ collection: CollectionSet) -> Bool {
-        guard canClaimCollection(collection), let rewards = collection.rewards else { return false }
+        guard canClaimCollection(collection) else { return false }
         mutate { s in
-            Self.grant(rewards, into: &s)
+            grant(collection.rewards, into: &s)
             s.claimedCollections.insert(collection.id)
         }
         return true

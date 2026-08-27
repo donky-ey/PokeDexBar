@@ -3,33 +3,44 @@ import Foundation
 /// 컬렉션 — 주제로 묶은 수집 세트. 도감 미션이 "숫자" 라면 이쪽은 "이야기" 다
 /// (포켓몬 GO 의 메달, HOME 의 챌린지 자리).
 ///
-/// **완성 = 배지.** 배지는 도감에서 파생될 뿐 받는 동작이 없다 — 모으는 것 자체가 재미다.
-/// 난도 높은 몇 세트만 작은 보상을 얹고(사용자 결정), 그 수령만 기록이 남는다.
+/// **완성 = 배지 + 보상 한 번.** 배지는 도감에서 파생될 뿐 받는 동작이 없고, 보상 수령만
+/// 기록이 남는다. 처음엔 전승 세트들을 "배지만"으로 뒀는데, 배지가 명예로 읽히기엔 표시가
+/// 작아서 모든 세트가 뭔가를 주는 걸로 바꿨다(사용자 결정 — "경험치 사탕이라도 주는 게").
 struct CollectionSet: Identifiable, Equatable, Sendable {
     let id: String
     /// 이 세트를 이루는 종들(도감 등록 기준).
     let speciesIDs: [Int]
-    /// 완성 보상 — 대부분 nil(배지만). **반짝사탕은 여기 못 온다**(미션 쪽 희소성 가드와
+    /// 완성 보상 — 모든 세트가 준다. **반짝사탕은 여기 못 온다**(미션 쪽 희소성 가드와
     /// 별개 경로로 새는 걸 막는다 — 테스트가 잠근다).
-    let rewards: [DexMissionReward]?
+    let rewards: [DexMissionReward]
 }
 
 enum CollectionCatalog {
     /// 전체 세트. 순서가 곧 화면 순서다 — 쉬운 것부터.
     static let all: [CollectionSet] = [
-        // 전승 트리오·듀오 — 배지만. 작은 세트는 완성 자체가 보상이다.
-        CollectionSet(id: "legendary-birds", speciesIDs: [144, 145, 146], rewards: nil),
-        CollectionSet(id: "legendary-beasts", speciesIDs: [243, 244, 245], rewards: nil),
-        CollectionSet(id: "tower-duo", speciesIDs: [249, 250], rewards: nil),
+        // 전승 트리오·듀오 — 전설을 두셋씩 모으는 난도라 시공의 신과 같은 급(사탕 20)을 준다.
+        CollectionSet(id: "legendary-birds", speciesIDs: [144, 145, 146],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "legendary-beasts", speciesIDs: [243, 244, 245],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "tower-duo", speciesIDs: [249, 250],
+                      rewards: [.item(.expCandy, 20)]),
         // 뮤·뮤츠·메타몽 — 복제 실험 전승(메타몽 = 실패한 뮤 복제설).
-        CollectionSet(id: "clone-truth", speciesIDs: [132, 150, 151], rewards: nil),
-        CollectionSet(id: "weather-trio", speciesIDs: [382, 383, 384], rewards: nil),
-        CollectionSet(id: "lake-guardians", speciesIDs: [480, 481, 482], rewards: nil),
-        CollectionSet(id: "tao-trio", speciesIDs: [643, 644, 646], rewards: nil),
-        CollectionSet(id: "aura-trio", speciesIDs: [716, 717, 718], rewards: nil),
-        CollectionSet(id: "sword-shield", speciesIDs: [888, 889, 890], rewards: nil),
+        CollectionSet(id: "clone-truth", speciesIDs: [132, 150, 151],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "weather-trio", speciesIDs: [382, 383, 384],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "lake-guardians", speciesIDs: [480, 481, 482],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "tao-trio", speciesIDs: [643, 644, 646],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "aura-trio", speciesIDs: [716, 717, 718],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "sword-shield", speciesIDs: [888, 889, 890],
+                      rewards: [.item(.expCandy, 20)]),
         // 해와 달 — 루나톤·솔록(3세대의 달·해)과 솔가레오·루나아라(7세대의 해·달)를 잇는다.
-        CollectionSet(id: "sun-moon", speciesIDs: [337, 338, 791, 792], rewards: nil),
+        CollectionSet(id: "sun-moon", speciesIDs: [337, 338, 791, 792],
+                      rewards: [.item(.expCandy, 20)]),
         // 중간 크기 — 진화가 필요한 세트는 경험치 사탕이 어울린다(그 사탕으로 마저 진화시킨다).
         CollectionSet(id: "eevee-friends",
                       speciesIDs: [133, 134, 135, 136, 196, 197, 470, 471, 700],
@@ -52,9 +63,13 @@ enum CollectionCatalog {
                       rewards: [.item(.expCandy, 20)]),
         CollectionSet(id: "creation-gods", speciesIDs: [483, 484, 487, 493],
                       rewards: [.item(.expCandy, 20)]),
-        // 큰 세트 — 레전더리 여섯·열하나라 확정권이 걸맞다.
-        CollectionSet(id: "regi-family", speciesIDs: [377, 378, 379, 486, 894, 895],
-                      rewards: [.eggTicket(.legendary)]),
+        // 레지 패밀리 — 다섯 기둥을 모으면 **레지기가스가 깨어난다**(본가 전승 그대로: 세 거인을
+        // 데려가야 설산의 신전이 열린다). 레지기가스는 알에서 안 나오므로
+        // (`EggBalance.rewardOnlySpecies`) 이 보상이 유일한 입수처다 — 4세대 완성 미션도
+        // 그래서 이 세트를 지나가게 된다.
+        CollectionSet(id: "regi-family", speciesIDs: [377, 378, 379, 894, 895],
+                      rewards: [.pokemon(speciesID: 486, grade: .legendary, growthRate: .slow)]),
+        // 큰 세트 — 레전더리 열·열하나라 확정권이 걸맞다.
         CollectionSet(id: "ultra-beasts",
                       speciesIDs: [793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806],
                       rewards: [.eggTicket(.legendary)]),

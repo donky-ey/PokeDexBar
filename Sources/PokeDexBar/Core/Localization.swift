@@ -61,6 +61,10 @@ struct L {
     var missionClaimedToBag: String {
         t("가방에 담았어요", "Added to your Bag", "バッグに いれました")
     }
+    /// 포켓몬을 주는 컬렉션 보상의 수령 확인 — 가방이 아니라 박스로 간다.
+    var collectionJoinedBox: String {
+        t("박스에 합류했어요", "Joined your Box", "ボックスに くわわりました")
+    }
     /// 상점 알 뽑기의 확정권 버튼 — 등급 이름과 남은 장수.
     func shopTicketDraw(_ ticket: String, _ n: Int) -> String {
         t("\(ticket) ×\(n)", "\(ticket) ×\(n)", "\(ticket) ×\(n)")

@@ -1,7 +1,7 @@
 import XCTest
 @testable import PokeDexBar
 
-/// 컬렉션 — 주제별 수집 세트. 배지는 도감에서 파생되고, 보상 있는 세트만 수령이 있다.
+/// 컬렉션 — 주제별 수집 세트. 배지는 도감에서 파생되고, 보상 수령이 세트마다 한 번 있다.
 @MainActor
 final class CollectionTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -30,6 +30,9 @@ final class CollectionTests: XCTestCase {
                            "\(entry.id) 안에 같은 종이 두 번 있다")
             XCTAssertTrue(entry.speciesIDs.allSatisfy { (1...1025).contains($0) },
                           "\(entry.id) 에 도감 밖 번호가 있다")
+            // 모든 세트가 뭔가를 준다(사용자 결정 — "경험치 사탕이라도"). 빈 배열이면
+            // 받기 버튼이 눌리는데 아무 일도 안 일어난다.
+            XCTAssertFalse(entry.rewards.isEmpty, "\(entry.id) 의 보상이 비었다")
             for lang in AppLanguage.allCases {
                 XCTAssertNotEqual(CollectionCatalog.label(entry.id, lang), entry.id,
                                   "\(entry.id) 의 \(lang) 이름이 없다")
@@ -41,7 +44,7 @@ final class CollectionTests: XCTestCase {
     /// 새면 그 가드가 장식이 된다.
     func testNoShinyCandyLeaksThroughCollections() {
         for entry in CollectionCatalog.all {
-            for reward in entry.rewards ?? [] {
+            for reward in entry.rewards {
                 if case .item(.shinyCandy, _) = reward {
                     XCTFail("\(entry.id) 가 반짝사탕을 준다 — 희소성 가드를 우회한다")
                 }
@@ -80,37 +83,57 @@ final class CollectionTests: XCTestCase {
 
     // MARK: 진행과 배지
 
-    /// 배지는 도감에서 파생된다 — 수령 없이 완성 즉시 켜진다.
+    /// 배지는 도감에서 파생된다 — 수령 없이 완성 즉시 켜진다. 보상(사탕)은 따로 한 번 받는다.
     func testTheBadgeDerivesFromTheDex() {
         let store = makeStore()
         seedDex(store, species: [144, 145])
         var status = store.collectionStatuses().first { $0.id == "legendary-birds" }!
         XCTAssertEqual(status.done, 2)
         XCTAssertFalse(status.completed)
+        XCTAssertFalse(store.canClaimCollection(status.collection), "다 안 모았는데 받아진다")
 
         seedDex(store, species: [146])
         status = store.collectionStatuses().first { $0.id == "legendary-birds" }!
         XCTAssertTrue(status.completed)
-        // 보상이 없는 세트 — 완성해도 받을 것이 없다.
-        XCTAssertFalse(status.claimable)
-        XCTAssertFalse(store.claimCollection(status.collection), "배지만인 세트를 수령했다")
-        // 판정 함수도 직접 잠근다 — `claimCollection` 의 이중 방어(rewards 언랩)에 가려
-        // 판정만 풀리는 회귀가 화면의 죽은 받기 버튼으로 샐 수 있다.
-        XCTAssertFalse(store.canClaimCollection(status.collection))
+        // 전승 세트도 이제 보상이 있다(사용자 결정) — 완성 즉시 받을 수 있어야 한다.
+        XCTAssertTrue(status.claimable)
+        XCTAssertTrue(store.claimCollection(status.collection))
+        XCTAssertEqual(store.count(of: .expCandy), 20, "전승 세트의 사탕이 안 들어왔다")
     }
 
-    /// 보상 있는 세트 — 완성 전엔 못 받고, 받으면 가방에 담기고, 두 번은 못 받는다.
+    /// 확정권을 주는 세트 — 완성 전엔 못 받고, 받으면 가방에 담기고, 두 번은 못 받는다.
     func testARewardSetClaimsOnceIntoTheBag() throws {
         let store = makeStore()
+        let beasts = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "ultra-beasts" })
+        seedDex(store, species: beasts.speciesIDs.dropLast())
+        XCTAssertFalse(store.claimCollection(beasts), "다 안 모았는데 받아진다")
+
+        seedDex(store, species: beasts.speciesIDs)
+        XCTAssertTrue(store.claimCollection(beasts))
+        XCTAssertEqual(store.count(of: ShopItem.legendaryEggTicket), 1, "확정권이 안 들어왔다")
+        XCTAssertFalse(store.claimCollection(beasts), "같은 세트를 두 번 받는다")
+        XCTAssertEqual(store.count(of: ShopItem.legendaryEggTicket), 1)
+    }
+
+    /// 레지 패밀리 — 다섯 기둥을 모으면 **레지기가스가 깨어나** 박스와 도감에 합류한다.
+    /// 알에서는 안 나오는 종이라(`EggBalance.rewardOnlySpecies`) 이 경로가 유일한 입수처다.
+    func testTheRegiFamilyAwakensRegigigas() throws {
+        let store = makeStore()
         let regis = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "regi-family" })
-        seedDex(store, species: [377, 378, 379, 486, 894])
-        XCTAssertFalse(store.claimCollection(regis), "다 안 모았는데 받아진다")
+        // 레지기가스(486)는 구성원이 아니라 **보상**이다 — 구성원이면 완성이 불가능해진다.
+        XCTAssertEqual(Set(regis.speciesIDs), [377, 378, 379, 894, 895])
+        seedDex(store, species: [377, 378, 379, 894])
+        XCTAssertFalse(store.claimCollection(regis), "다 안 모았는데 깨어난다")
 
         seedDex(store, species: [895])
         XCTAssertTrue(store.claimCollection(regis))
-        XCTAssertEqual(store.count(of: ShopItem.legendaryEggTicket), 1, "확정권이 안 들어왔다")
-        XCTAssertFalse(store.claimCollection(regis), "같은 세트를 두 번 받는다")
-        XCTAssertEqual(store.count(of: ShopItem.legendaryEggTicket), 1)
+        let gigas = try XCTUnwrap(store.state.box.first { $0.speciesID == 486 },
+                                  "레지기가스가 박스에 없다")
+        XCTAssertEqual(gigas.grade, .legendary)
+        XCTAssertEqual(gigas.growthRate, .slow)
+        XCTAssertTrue(store.state.dex.contains(486), "도감에 등록이 안 됐다")
+        XCTAssertFalse(store.claimCollection(regis), "두 번 깨어난다")
+        XCTAssertEqual(store.state.box.count(where: { $0.speciesID == 486 }), 1)
     }
 
     /// 수령 기록이 저장을 오간다.
