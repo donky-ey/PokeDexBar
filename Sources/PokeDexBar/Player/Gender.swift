@@ -41,6 +41,33 @@ enum GenderBalance {
     /// 성장 곡선처럼 나중에 고칠 기회가 없으므로 — 성별은 진화해도 안 바뀐다 — 기본값에 맡기지 않는다.
     static let starterRate = 1
 
+    /// **성별이 고정된 종.** 성별로 갈리는 진화의 도착점 여섯이다 — 이 아이들은 그 성별이
+    /// *아니면 존재할 수 없다*(암컷 엘레이드, 수컷 염뉴트는 본가에 없다).
+    ///
+    /// 왜 필요한가: 옛 세이브 보정은 **base 종의 성비**로 굴리는데(성별은 부화 때 정해지므로
+    /// 그게 맞는 키다), 성별 갈래는 정의상 base 와 진화형의 성비가 다르다 — 랄토스는 절반이
+    /// 암컷이라 그 굴림이 그대로 엘레이드에 얹히면 **암컷 엘레이드가 생긴다**(실측: 여섯 종
+    /// 전부에서 발생 가능). 그래서 굴림 앞에 이 표가 선다.
+    ///
+    /// **퍼퓨돈(916)은 일부러 뺐다.** 전수 조회에는 걸리지만(PokéAPI 가 성비를 0=수컷만으로
+    /// 적어 뒀다) 실제로는 암수가 다 있고, 이 앱이 도감을 가르는 넷 중 하나다. 여기 넣으면
+    /// 암컷 퍼퓨돈이 사라진다 — API 를 그대로 믿으면 안 되는 자리다.
+    static let locked: [Int: Gender] = [
+        413: .female,   // 도롱마담
+        414: .male,     // 나메일
+        416: .female,   // 비퀸
+        475: .male,     // 엘레이드
+        478: .female,   // 눈여아
+        758: .female,   // 염뉴트
+    ]
+
+    static func lockedGender(_ speciesID: Int) -> Gender? { locked[speciesID] }
+
+    /// 종을 아는 굴림 — **고정 성별이 굴림을 이긴다.** 성별을 정하는 자리는 전부 이걸 쓴다.
+    static func roll(species speciesID: Int, rate: Int, roll r: Double) -> Gender {
+        lockedGender(speciesID) ?? roll(rate: rate, roll: r)
+    }
+
     /// 성비 + 0…1 굴림 → 성별.
     ///
     /// 경계는 `roll < rate/8`. 정수 비교로 바꿔(`Int(roll * 8) < rate`) 하지 않는 이유는

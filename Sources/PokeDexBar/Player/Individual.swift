@@ -318,6 +318,16 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
             fixed.disguisedAs = nil
             AppLog.write("Individual: dropped bogus disguise \(disguise) on species \(speciesID)")
         }
+        // **존재할 수 없는 성별을 바로잡는다.** 암컷 엘레이드·수컷 염뉴트는 본가에 없다.
+        // 보정이 base 종 성비로 굴리는 구조라 실제로 만들어질 수 있었고(여섯 종 전부),
+        // 폼 슬러그·위장을 여기서 거르는 것과 같은 부류다 — 값이 들어오는 경계 한 곳에서 잡으면
+        // 이미 잘못 적힌 세이브도 다음에 열 때 조용히 나아진다.
+        if let locked = GenderBalance.lockedGender(fixed.speciesID), fixed.gender != locked {
+            if fixed.gender != nil {
+                AppLog.write("Individual: corrected impossible gender on species \(fixed.speciesID)")
+            }
+            fixed.gender = locked
+        }
         // 관대 디코딩의 짝 — 산술에 쓰이는 수치는 경계 한 곳에서 자른다(CLAUDE.md).
         // 자르지 않으면 `Int.max` 가 그대로 저장돼 이후 덧셈이 오버플로 트랩으로 프로세스를 죽이고,
         // 재기동해도 같은 파일을 읽어 또 죽는다.

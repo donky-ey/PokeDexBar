@@ -181,6 +181,62 @@ final class GenderTests: XCTestCase {
         XCTAssertTrue((0..<1).contains(first), "0…1 밖으로 나가면 굴림이 아니다")
     }
 
+    // MARK: 존재할 수 없는 성별
+
+    /// **암컷 엘레이드·수컷 염뉴트는 만들어질 수 없다.** 보정은 base 종 성비로 굴리는데
+    /// (랄토스 절반이 암컷), 성별 갈래는 정의상 base 와 진화형의 성비가 다르다 — 잠금이
+    /// 없으면 여섯 종 전부에서 불가능 조합이 나온다. 어떤 굴림값에서도 안 나와야 한다.
+    func testLockedSpeciesNeverGetTheImpossibleGender() {
+        for (speciesID, locked) in GenderBalance.locked {
+            for rate in [0, 1, 2, 4, 6, 7, 8, GenderBalance.genderless] {
+                for r in [0.0, 0.3, 0.5, 0.87, 1.0] {
+                    XCTAssertEqual(GenderBalance.roll(species: speciesID, rate: rate, roll: r),
+                                   locked,
+                                   "#\(speciesID) 가 성비 \(rate)·굴림 \(r) 에서 어긋났다")
+                }
+            }
+        }
+    }
+
+    /// 잠금 표가 **정확히 성별 갈래 여섯**이어야 한다. 퍼퓨돈(916)이 들어오면 암컷 퍼퓨돈이
+    /// 사라진다 — PokéAPI 는 916 을 수컷만으로 적어 두지만 그건 틀린 데이터다.
+    func testTheLockTableIsExactlyTheSixGatedEvolutions() {
+        XCTAssertEqual(Set(GenderBalance.locked.keys), [413, 414, 416, 475, 478, 758])
+        XCTAssertNil(GenderBalance.lockedGender(916), "퍼퓨돈을 잠그면 암컷 퍼퓨돈이 사라진다")
+        XCTAssertNil(GenderBalance.lockedGender(25))
+    }
+
+    /// 이미 잘못 적힌 세이브도 **열 때 바로잡힌다** — 값이 들어오는 경계에서 잡는다.
+    func testAnImpossibleGenderInASaveIsCorrectedOnLoad() throws {
+        let json = Data(#"{"baseID":280,"speciesID":475,"nature":"hardy","grade":"epic","gender":"female"}"#.utf8)
+        let decoded = try JSONDecoder().decode(Individual.self, from: json).sanitized()
+        XCTAssertEqual(decoded.gender, .male, "암컷 엘레이드가 그대로 살아남았다")
+    }
+
+    /// 잠기지 않은 종은 손대지 않는다(잠금이 전부를 덮어쓰고 있지 않은지 — 대조군).
+    func testAnUnlockedSpeciesKeepsWhateverGenderItHas() throws {
+        let json = Data(#"{"baseID":172,"speciesID":25,"nature":"hardy","grade":"common","gender":"female"}"#.utf8)
+        let decoded = try JSONDecoder().decode(Individual.self, from: json).sanitized()
+        XCTAssertEqual(decoded.gender, .female, "잠기지 않은 종의 성별이 덮어써졌다")
+    }
+
+    /// 보정 경로 전체로도 확인 — base 성비를 그대로 얹던 그 경로다.
+    func testTheBackfillNeverProducesAnImpossibleGallade() {
+        let store = makeStore()
+        store.mutate { s in
+            s.box = (0..<40).map { _ in
+                Individual(baseID: 280, speciesID: 475, pathIDs: [280, 281, 475],
+                           nature: .hardy, obtainedAt: self.now, grade: .epic)
+            }
+        }
+        // 랄토스(280)는 절반이 암컷 — 잠금이 없으면 여기서 절반쯤 암컷 엘레이드가 된다.
+        let index = [BaseSpecies(id: 280, captureRate: 235, isLegendary: false,
+                                 isMythical: false, genderRate: 4)]
+        store.backfillGenders(from: index)
+        XCTAssertTrue(store.state.box.allSatisfy { $0.gender == .male },
+                      "보정이 암컷 엘레이드를 만들었다")
+    }
+
     // MARK: 개발 시드
 
     /// 시드는 **지정한 성별 그대로** 넣는다 — 굴리면 시험하려던 성별이 안 나온다.

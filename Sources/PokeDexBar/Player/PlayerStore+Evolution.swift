@@ -85,8 +85,11 @@ extension PlayerStore {
         mutate { s in
             for index in targets {
                 guard let rate = resolve(s.box[index]) else { continue }
+                // **종을 넘긴다** — 성별 고정 종(엘레이드·염뉴트 등)은 base 성비로 굴리면
+                // 존재할 수 없는 조합이 나온다. 굴림 앞에 잠금 표가 선다.
                 s.box[index].gender = GenderBalance.roll(
-                    rate: rate, roll: Self.stableUnit(from: s.box[index].id))
+                    species: s.box[index].speciesID, rate: rate,
+                    roll: Self.stableUnit(from: s.box[index].id))
             }
         }
     }

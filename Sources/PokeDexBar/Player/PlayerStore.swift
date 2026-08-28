@@ -58,7 +58,7 @@ final class PlayerStore {
         // 첫 진화(Task 7)가 실제 라인의 성장 타입으로 바로잡아 준다.
         // **성별은 기본값에 못 맡긴다** — 성장 타입과 달리 진화가 바로잡아 주는 자리가 없다
         // (성별은 진화해도 안 바뀐다). 스타터 27마리는 성비가 전부 같아서 상수 하나면 된다.
-        let gender = GenderBalance.roll(rate: GenderBalance.starterRate,
+        let gender = GenderBalance.roll(species: speciesID, rate: GenderBalance.starterRate,
                                         roll: Double(rng.next() % 1_000_000) / 1_000_000)
         let individual = Individual(baseID: speciesID, speciesID: speciesID, pathIDs: [speciesID],
                                     shiny: false, gender: gender, nature: nature, exp: 0,

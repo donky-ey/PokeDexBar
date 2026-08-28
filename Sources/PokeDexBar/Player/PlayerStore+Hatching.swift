@@ -74,7 +74,8 @@ extension PlayerStore {
                                               roll: nextRandomUnit(), pick: nextRandomUnit())
         // 성별은 **알에 적힌 성비로 지금 굴린다** — 성격·지방과 같은 규칙이다. 알에 결과를
         // 미리 넣어 두면 확인을 누르기 전에 세이브에서 성별이 드러난다.
-        let gender = GenderBalance.roll(rate: egg.genderRate, roll: nextRandomUnit())
+        let gender = GenderBalance.roll(species: egg.speciesID, rate: egg.genderRate,
+                                        roll: nextRandomUnit())
         var individual = Individual(baseID: egg.speciesID, speciesID: egg.speciesID,
                                     pathIDs: [egg.speciesID], shiny: egg.shiny, gender: gender,
                                     nature: nature, exp: 0, obtainedAt: now, grade: egg.grade,

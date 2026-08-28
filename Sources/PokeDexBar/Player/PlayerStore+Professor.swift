@@ -106,7 +106,8 @@ extension PlayerStore {
         let growthRate = index.first(where: { $0.id == species })?.growthRate ?? .mediumFast
         // 성비도 같은 인덱스에서 온다 — 제안은 무엇인지 보여 주고 고르는 자리라 성별도 미리 정해진다.
         let genderRate = index.first(where: { $0.id == species })?.genderRate ?? GenderBalance.defaultRate
-        let gender = GenderBalance.roll(rate: genderRate, roll: roll(ProfessorRoll.Salt.gender))
+        let gender = GenderBalance.roll(species: species, rate: genderRate,
+                                        roll: roll(ProfessorRoll.Salt.gender))
         var individual = Individual(
             baseID: species, speciesID: species, pathIDs: [species],
             // 박사의 제안은 부적을 안 받는다(결정적 굴림 — 부적 상태가 끼면 사람마다 같은
