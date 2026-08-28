@@ -418,6 +418,11 @@ final class ScreenshotGeneratorTests: XCTestCase {
                                         grade: entry.grade)
             individual.region = entry.region
             individual.birthForm = entry.birthForm
+            // 성별 — 상세 화면에 서는 개체(index 1 = 피카츄)를 암컷으로 둔다. 피카츄는 암컷
+            // 그림이 있는 98종 중 하나라, 한 장으로 기호와 그림 차이가 같이 보인다.
+            // 무성별 종(뮤츠·레쿠쟈)은 무성별로 — 기호가 뜨면 사실이 아니게 된다.
+            individual.gender = if [150, 384].contains(entry.species) { .genderless }
+                                else if index.isMultiple(of: 2) { .male } else { .female }
             // 별표 — 즐겨찾기 겸 보호. 상세 화면 개체(index 1)와 이로치에 붙여, 상세의
             // 별표 토글·보내기 차단 안내와 박스 배지가 스크린샷에 함께 나온다.
             if index == 1 || entry.shiny { individual.starred = true }
@@ -1274,6 +1279,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
                                     exp: GrowthRate.mediumSlow.totalExp(at: 14) + 900,
                                     obtainedAt: now.addingTimeInterval(-6 * 86_400),
                                     grade: .rare, growthRate: .mediumSlow)
+        charmander.gender = .male
         charmander.eggProgress = ExpBalance.eggThreshold(grade: .rare) * 2 / 5
         charmander.partnerSeconds = 6 * 86_400
         charmander.partnerTokens = 740_000_000
