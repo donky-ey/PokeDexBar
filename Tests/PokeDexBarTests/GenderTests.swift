@@ -181,6 +181,24 @@ final class GenderTests: XCTestCase {
         XCTAssertTrue((0..<1).contains(first), "0…1 밖으로 나가면 굴림이 아니다")
     }
 
+    // MARK: 개발 시드
+
+    /// 시드는 **지정한 성별 그대로** 넣는다 — 굴리면 시험하려던 성별이 안 나온다.
+    /// 도감에도 넣는다: 암수가 별개 폼인 넷은 도감이 갈리는지가 확인 대상이라, 박스에만
+    /// 넣으면 정작 볼 것을 못 본다.
+    func testTheGenderSeedPlacesTheExactGenderAndRegistersIt() throws {
+        let store = makeStore()
+        store.applyGenderSeed(speciesID: 25, gender: .female)
+        let made = try XCTUnwrap(store.state.box.first { $0.speciesID == 25 })
+        XCTAssertEqual(made.gender, .female, "시드가 성별을 굴려 버렸다")
+        XCTAssertEqual(made.spriteForm, "pikachu-f", "암컷 그림이 안 걸렸다")
+        XCTAssertTrue(store.state.dexForms.contains(DexKey.key(for: made)), "도감에 안 들어갔다")
+
+        // 폼으로 세는 종은 도감 키가 갈린다 — 이게 시드로 확인하려는 것이다.
+        store.applyGenderSeed(speciesID: 678, gender: .female)
+        XCTAssertTrue(store.state.dexForms.contains("678/meowstic-f"))
+    }
+
     // MARK: 성별로 갈리는 진화 (여섯 갈래)
 
     /// 눈꼬마(361) — 암컷만 눈여아(478)가 된다. 수컷은 눈설왕(460)만.
