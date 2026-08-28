@@ -111,6 +111,46 @@ final class GenderTests: XCTestCase {
         XCTAssertEqual(store.state.box[0].gender, .male, "이미 있는 성별을 다시 굴렸다")
     }
 
+    /// **인덱스 보정은 박스를 한 번에 덮는다.** 라인 기반 보정은 그때 열린 계보만 훑어서,
+    /// 여러 계보가 섞인 박스는 계보를 하나씩 열어야 채워졌다 — 사실상 "다 적용"이 안 됐다.
+    /// 진화한 개체도 `baseID` 로 찾으므로 함께 덮인다.
+    func testTheIndexBackfillCoversTheWholeBoxAtOnce() {
+        let store = makeStore()
+        store.mutate { s in
+            s.box = [
+                // 서로 다른 계보 셋 + 진화한 개체(리자몽: baseID 4) — 라인 하나로는 못 덮는다.
+                Individual(baseID: 1, speciesID: 1, pathIDs: [1], nature: .hardy,
+                           obtainedAt: self.now, grade: .common),
+                Individual(baseID: 4, speciesID: 6, pathIDs: [4, 5, 6], nature: .hardy,
+                           obtainedAt: self.now, grade: .epic),
+                Individual(baseID: 172, speciesID: 25, pathIDs: [172, 25], nature: .hardy,
+                           obtainedAt: self.now, grade: .common),
+            ]
+        }
+        let index = [
+            BaseSpecies(id: 1, captureRate: 45, isLegendary: false, isMythical: false, genderRate: 1),
+            BaseSpecies(id: 4, captureRate: 45, isLegendary: false, isMythical: false, genderRate: 1),
+            BaseSpecies(id: 172, captureRate: 190, isLegendary: false, isMythical: false, genderRate: 4),
+        ]
+        store.backfillGenders(from: index)
+        XCTAssertTrue(store.state.box.allSatisfy { $0.gender != nil },
+                      "박스에 성별이 안 채워진 개체가 남았다 — 계보를 하나씩 열어야 하는 상태다")
+    }
+
+    /// 메타몽은 인덱스에서 빠져 있다(일반 부화 풀 제외) — 안 채우면 영영 미배정으로 남는다.
+    func testDittoIsFilledEvenThoughTheIndexExcludesIt() {
+        let store = makeStore()
+        store.mutate { s in
+            s.box = [Individual(baseID: 132, speciesID: 132, pathIDs: [132], nature: .hardy,
+                                obtainedAt: self.now, grade: .common)]
+        }
+        let index = [
+            BaseSpecies(id: 1, captureRate: 45, isLegendary: false, isMythical: false, genderRate: 4),
+        ]
+        store.backfillGenders(from: index)
+        XCTAssertEqual(store.state.box[0].gender, .genderless, "메타몽이 미배정으로 남았다")
+    }
+
     /// 보정 굴림은 개체 id 에서 나오므로 몇 번을 돌려도 같다(난수기를 쓰면 기기마다 갈린다).
     func testTheBackfillRollIsStableForTheSameIndividual() {
         let id = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!

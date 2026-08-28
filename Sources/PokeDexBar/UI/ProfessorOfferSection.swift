@@ -62,6 +62,10 @@ struct ProfessorOfferSection: View {
             guard !Task.isCancelled else { return }   // 팝오버가 닫혔으면 착지하지 않는다
             index = fetched
             store.refreshProfessorOffers(index: fetched)
+            // 성별이 없던 시절의 개체를 **박스 전체** 한 번에 채운다. 인덱스가 오는 자리는
+            // 여기가 가장 이르고(홈 탭을 열면 바로), base 종 전부를 들고 있어 계보를 하나씩
+            // 열어야 채워지던 라인 기반 보정의 공백을 덮는다.
+            store.backfillGenders(from: fetched)
         }
     }
 

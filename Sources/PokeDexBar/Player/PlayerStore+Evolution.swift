@@ -40,13 +40,47 @@ extension PlayerStore {
     /// 굴림은 개체 id 에서 유도한다. 난수기를 쓰면 같은 개체가 기기마다 다른 성별이 되고,
     /// 저장 실패 시 다음 기동에 또 달라진다 — id 는 그 개체에 붙어 있어 언제 어디서 굴려도 같다.
     func backfillGenders(from line: EvoLine) {
+        // 라인은 **지금 종**의 성비를 안다 — 진화형이 성별 고정인 경우(비퀸은 암컷만)
+        // 그쪽이 더 정확하다. 다만 라인 하나는 한 계보만 알아서 박스 전체를 못 덮는다.
+        backfillGenders { line.genderRate(of: $0.speciesID) }
+    }
+
+    /// **박스 전체를 한 번에 채우는 경로.** 라인 기반 보정은 그때 열린 계보만 훑어서, 박스에
+    /// 서른 종이 있으면 서른 계보를 다 열어야 채워졌다 — 사실상 "다 적용"이 안 됐다(사용자 지적).
+    /// 종 인덱스는 base 종 전부를 들고 있으므로 `baseID` 로 찾으면 진화한 개체까지 한 번에 덮는다.
+    ///
+    /// `baseID` 로 찾는 게 맞는 이유: 성별은 **부화 시점에 base 종의 성비로** 정해지는 값이라,
+    /// 그때 굴렸을 값을 그대로 복원하는 것이다.
+    func backfillGenders(from index: [BaseSpecies]) {
+        guard !index.isEmpty else { return }
+        var rates: [Int: Int] = [:]
+        for entry in index { rates[entry.id] = entry.genderRate }
+        backfillGenders { individual in
+            // 메타몽은 인덱스에서 빠져 있다(일반 부화 풀 제외) — 무성별이라 여기서 채운다.
+            // 안 채우면 위장이 풀린 메타몽만 영영 성별이 안 정해진 채로 남는다.
+            if individual.speciesID == DittoDisguise.speciesID { return GenderBalance.genderless }
+            return rates[individual.baseID]
+        }
+    }
+
+    /// 성별이 없던 시절의 개체에 성별을 채운다 — `backfillGrowthRates` 와 같은 규율
+    /// (멱등, 성비를 모르는 종은 그대로).
+    ///
+    /// **이미 성별이 있으면 절대 다시 굴리지 않는다.** 다시 굴리면 앱을 켤 때마다 성별이 바뀌고,
+    /// 성별로 갈리는 진화가 그때그때 달라진다. 그래서 `nil` 인 것만 채운다 — 무성별은 `nil` 이
+    /// 아니라 `.genderless` 로 적히므로 여기 다시 걸리지 않는다.
+    ///
+    /// 굴림은 개체 id 에서 유도한다. 난수기를 쓰면 같은 개체가 기기마다 다른 성별이 되고,
+    /// 저장 실패 시 다음 기동에 또 달라진다 — id 는 그 개체에 붙어 있어 언제 어디서 굴려도 같다.
+    func backfillGenders(resolve: (Individual) -> Int?) {
+        // 먼저 읽기만 해서 바뀔 게 있는지 본다 — 없는데 `mutate` 를 부르면 매번 저장이 돈다.
         let targets = state.box.indices.filter {
-            state.box[$0].gender == nil && line.genderRate(of: state.box[$0].speciesID) != nil
+            state.box[$0].gender == nil && resolve(state.box[$0]) != nil
         }
         guard !targets.isEmpty else { return }
         mutate { s in
             for index in targets {
-                guard let rate = line.genderRate(of: s.box[index].speciesID) else { continue }
+                guard let rate = resolve(s.box[index]) else { continue }
                 s.box[index].gender = GenderBalance.roll(
                     rate: rate, roll: Self.stableUnit(from: s.box[index].id))
             }
