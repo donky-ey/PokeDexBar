@@ -137,6 +137,27 @@ final class GenderTests: XCTestCase {
                       "박스에 성별이 안 채워진 개체가 남았다 — 계보를 하나씩 열어야 하는 상태다")
     }
 
+    /// **보정은 기동 경로(`applicationDidFinishLaunching`)에서 불려야 한다.** 두 번 연속
+    /// 뷰에 매달았다가 놓쳤다 — 처음엔 상점 탭, 다음엔 팝오버 루트. 둘 다 "그 화면을 열어야"
+    /// 도는 자리라, 안 여는 사람에게는 성별이 영영 안 붙었다. 소스를 직접 봐서 잠근다:
+    /// 화면 코드가 아니라 앱 기동 코드에 호출이 있어야 한다.
+    func testTheBackfillIsCalledFromAppLaunchNotOnlyFromAView() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let app = root.appendingPathComponent("Sources/PokeDexBar/PokeDexBarApp.swift")
+        // **주석은 걷어내고 본다.** 처음엔 통짜 문자열 검사였는데, 바로 위 주석에 같은 이름이
+        // 적혀 있어서 호출을 지워도 통과했다 — 가드가 아무것도 안 지키고 있었다(뮤테이션으로 발각).
+        let code = try String(contentsOf: app, encoding: .utf8)
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+        XCTAssertTrue(code.contains("backfillGenders(from:"),
+                      "기동 경로에 성별 보정 **호출**이 없다 — 뷰에만 매달면 그 화면을 안 여는 사용자에게는 영영 안 돈다")
+        let source = code
+        XCTAssertTrue(source.contains("applicationDidFinishLaunching"),
+                      "기동 훅 자체가 사라졌다 — 이 테스트가 무엇을 잠그는지 다시 확인할 것")
+    }
+
     /// 메타몽은 인덱스에서 빠져 있다(일반 부화 풀 제외) — 안 채우면 영영 미배정으로 남는다.
     func testDittoIsFilledEvenThoughTheIndexExcludesIt() {
         let store = makeStore()

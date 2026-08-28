@@ -59,7 +59,11 @@ extension PlayerStore {
             // 메타몽은 인덱스에서 빠져 있다(일반 부화 풀 제외) — 무성별이라 여기서 채운다.
             // 안 채우면 위장이 풀린 메타몽만 영영 성별이 안 정해진 채로 남는다.
             if individual.speciesID == DittoDisguise.speciesID { return GenderBalance.genderless }
-            return rates[individual.baseID]
+            // `baseID` 가 먼저다 — 성별은 부화 시점에 base 종의 성비로 정해지므로 그 값이 맞다.
+            // 지금 종으로 물러나는 이유: 옛 세이브에는 `baseID` 가 base 종이 아닌 개체가 있다
+            // (실측: 피카츄가 `baseID: 25` 로 적힌 개체 — 피카츄는 피츄에서 진화하므로 인덱스에
+            // 없다). 둘 다 없으면 nil 로 두고, 그 개체를 열 때 라인 기반 보정이 받는다.
+            return rates[individual.baseID] ?? rates[individual.speciesID]
         }
     }
 
