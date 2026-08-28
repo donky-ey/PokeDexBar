@@ -996,6 +996,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
         // 박스 정리 — 같은 박스를 정리 전후로 나란히. 이 릴리스가 새로 여는 화면이라
         // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
         try write(png(boxTidyBanner()), "box-tidy.png")
+        try write(png(genderBanner()), "gender-banner.png")
 
         // 문제 제보 — 크래시 배너(홈)와 설정의 제보 줄을 위아래로. **픽스처에 크래시 기록을
         // 심어야 배너가 찍힌다** — 안 심으면 아무리 다시 생성해도 빈 자리만 나온다(설정
@@ -1303,6 +1304,45 @@ final class ScreenshotGeneratorTests: XCTestCase {
 
     /// 정리 전후의 같은 박스. **한 번 누르면 저장된 순서가 다시 배열된다**는 것이 요점이라
     /// 전후를 같이 보여야 무슨 일이 일어나는지 읽힌다.
+    /// 성별 — 같은 종의 암수를 나란히. **한 장으로 둘을 다 말한다**: 이름 옆 기호(♂/♀)와
+    /// 암컷 전용 그림(피카츄는 꼬리 끝이 하트로 파인다). 기호만 찍으면 그림 차이가 안 보이고,
+    /// 그림만 찍으면 그게 성별 때문인지 알 수 없다.
+    private func genderBanner() -> some View {
+        let now = ScreenshotFixture.now
+        func store(_ gender: Gender) -> PlayerStore {
+            let store = PlayerStore(fileURL: FileManager.default.temporaryDirectory
+                                        .appendingPathComponent("gender-\(UUID().uuidString).json"),
+                                    rng: SeededRNG(seed: 7), now: { now },
+                                    defaults: UserDefaults(suiteName: "ptb-gender-\(UUID().uuidString)")!)
+            store.setLanguage(.en)
+            store.seedForTesting(wallet: 0, slots: 1, eggs: 0, at: now)
+            store.mutate { state in
+                state.box = [Individual(baseID: 172, speciesID: 25, pathIDs: [172, 25],
+                                        gender: gender, nature: .jolly,
+                                        exp: GrowthRate.mediumFast.totalExp(at: 24),
+                                        obtainedAt: now, grade: .common, growthRate: .mediumFast)]
+            }
+            return store
+        }
+        func card(_ gender: Gender, _ caption: String) -> some View {
+            let player = store(gender)
+            return VStack(alignment: .leading, spacing: 4) {
+                Text(caption).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                IndividualDetailView(store: player, individual: player.state.box[0],
+                                     line: ScreenshotFixture.lines[172] ?? ScreenshotFixture.lines[25],
+                                     onNeedLine: { _ in }, onBack: {})
+                    .frame(width: PopoverMetrics.width, height: 190, alignment: .top)
+                    .clipped()
+            }
+        }
+        return HStack(alignment: .top, spacing: 14) {
+            card(.male, "Male")
+            card(.female, "Female — notched tail")
+        }
+        .padding(12)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
     private func boxTidyBanner() -> some View {
         let now = ScreenshotFixture.now
         // 등급·레벨이 뒤섞인 박스 한 벌. 두 스토어가 **같은 개체 목록**을 갖고, 한쪽만 정리한다.
