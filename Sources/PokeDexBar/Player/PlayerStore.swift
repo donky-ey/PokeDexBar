@@ -134,8 +134,25 @@ final class PlayerStore {
                 state.box[index].partnerTokens += delta
                 produceRibbonCandy(at: index, delta: delta, in: &state)
             }
+            // 토큰이 들어왔다 = 방금 먹었다. 모르페코의 배고픔이 여기서 나온다.
+            state.lastTokenAt = now()
         }
+        // **델타가 없는 틱에도 돈다** — 배고픔은 "안 들어온 시간"이라, 들어올 때만 갱신하면
+        // 배부른 상태에서 영영 안 바뀐다(정확히 반대로 동작한다).
+        refreshHunger()
         save()
+    }
+
+    /// 곁에 둔 아이가 모르페코면 배고픔을 지금 시각 기준으로 다시 판정한다.
+    ///
+    /// **파트너에게만 건다.** 박스에 있는 아이는 사용자와 함께 일하고 있지 않으니 마지막
+    /// 상태를 그대로 둔다 — 깨진 모습(`formBroken`)이 파트너 조작으로만 바뀌는 것과 같다.
+    private func refreshHunger() {
+        guard let index = state.box.firstIndex(where: { $0.id == state.partnerID }),
+              BattleStateForm.showsHunger(speciesID: state.box[index].speciesID) else { return }
+        let hungry = BattleStateForm.isHangry(lastTokenAt: state.lastTokenAt, now: now())
+        guard state.box[index].hangry != hungry else { return }   // 멱등 — 바뀔 때만 쓴다
+        state.box[index].hangry = hungry
     }
 
     /// 경험치 부적을 반영한 실제 경험치 증가분. 순수 함수라 테스트로 잠근다.
