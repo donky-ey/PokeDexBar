@@ -538,11 +538,19 @@ struct BoxCell: View {
                 }
                 // 본가 PC 는 칸에 이름도 게이지도 안 적는다 — 스프라이트가 곧 식별자다. 지금
                 // 손댈 수 있는 것(진화 가능)과, 이 게임의 진짜 진행 지표인 레벨만 작게 덧붙인다.
-                Text(levelLabel)
-                    .font(.system(size: 7, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .padding(.top, 1)
+                //
+                // **등급은 알 그림으로 레벨 옆에 붙인다.** 네 귀퉁이(리본·진화·별표·담김)와
+                // 테두리(이로치·파트너)는 이미 차 있어서 자리가 없고, 등급은 100% 의 개체에
+                // 붙는 정보라 가끔만 붙는 표시들과 자리를 다투면 안 된다. 알 그림을 쓰는 이유:
+                // 뽑기 연출과 부화 슬롯이 이미 같은 등급 껍질을 보여줘서 **새로 배울 것이 없다**.
+                HStack(spacing: 2) {
+                    Text(levelLabel)
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    EggIcon(grade: individual.grade, size: 9)
+                }
+                .padding(.top, 1)
             }
             .frame(width: 48, height: 50)
             .background(picked ? Color.accentColor.opacity(0.30)
