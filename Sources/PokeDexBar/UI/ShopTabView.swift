@@ -148,9 +148,12 @@ struct ShopTabView: View {
     }
 
     private func itemRow(_ item: ShopItem) -> some View {
+        // 사다리 부적은 "산다/샀다" 가 아니라 **지금 몇 단계인가**로 말한다 — 다음 단계 값과
+        // 지금 배율을 같이 보여야 "한 번 더 올릴까" 를 판단할 수 있다.
+        if CharmLadder.isTiered(item) { return AnyView(charmRow(item)) }
         let owned = item.isCharm ? (store.owns(item) ? 1 : 0) : store.count(of: item)
         let soldOut = item.isCharm && store.owns(item)
-        return HStack(alignment: .top) {
+        return AnyView(HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 5) {
                     Text(item.label(store.language)).font(.system(size: 11, weight: .medium))
@@ -165,8 +168,10 @@ struct ShopTabView: View {
             Button(soldOut ? l.shopItemOwnedButton : TokenFormatter.compact(item.price)) { _ = store.buy(item) }
                 .buttonStyle(.bordered).controlSize(.small)
                 .disabled(soldOut || store.state.wallet < item.price)
-        }
+        })
     }
+
+    private func charmRow(_ item: ShopItem) -> some View { CharmShopRow(store: store, item: item) }
 
     /// 등급·이로치를 굴리고, 그 등급 안에서 베이스 종을 포획률 가중으로 고른다(`EggBalance.pickSpecies`).
     /// 후보는 네트워크(베이스 인덱스)라 여기서 받아 스토어에 넘긴다.
@@ -232,6 +237,43 @@ struct ShopTabView: View {
                 return
             }
             reveal = (egg.grade, egg.shiny)
+        }
+    }
+}
+
+/// 단계가 있는 부적 한 줄 — 지금 단계·지금 효과, 그리고 다음 단계 값.
+///
+/// 상점 뷰에서 떼어 둔 이유: 이 줄 하나가 사다리의 전부라, 릴리스 그림도 **이 줄을 그대로**
+/// 써야 한다(손으로 그린 목업이 앱과 어긋나 README 에 몇 달 남았던 전례 — CLAUDE.md §릴리스).
+struct CharmShopRow: View {
+    let store: PlayerStore
+    let item: ShopItem
+
+    private var l: L { store.l }
+
+    var body: some View {
+        let tier = store.charmTier(item)
+        let next = store.nextCharmPrice(item)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 5) {
+                    Text(item.label(store.language)).font(.system(size: 11, weight: .medium))
+                    if tier > 0 {
+                        Text(l.charmTierBadge(tier))
+                            .font(.system(size: 8, weight: .bold))
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Color.accentColor.opacity(0.22), in: Capsule())
+                    }
+                }
+                Text(l.charmShopEffect(item, tier: tier))
+                    .font(.system(size: 9)).foregroundStyle(.tertiary)
+            }
+            Spacer()
+            Button(next.map(TokenFormatter.compact) ?? l.charmMaxTier) {
+                _ = store.upgradeCharm(item)
+            }
+            .buttonStyle(.bordered).controlSize(.small)
+            .disabled(!store.canUpgradeCharm(item))
         }
     }
 }
