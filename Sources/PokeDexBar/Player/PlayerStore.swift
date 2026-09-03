@@ -152,6 +152,19 @@ final class PlayerStore {
     ///
     /// **파트너에게만 건다.** 박스에 있는 아이는 사용자와 함께 일하고 있지 않으니 마지막
     /// 상태를 그대로 둔다 — 깨진 모습(`formBroken`)이 파트너 조작으로만 바뀌는 것과 같다.
+    /// 계절을 지금 값으로 맞춘다. **달력에서 오는 전역 값**이라 개체가 고르는 것이 없고,
+    /// 바뀔 때만 쓴다(멱등) — 매 틱 세이브를 더럽히지 않게.
+    func refreshSeasons() {
+        let season = SeasonForm.current(at: now())
+        var changed = false
+        for i in state.box.indices where SeasonForm.species.contains(state.box[i].speciesID) {
+            guard state.box[i].season != season else { continue }
+            state.box[i].season = season
+            changed = true
+        }
+        if changed { save() }
+    }
+
     private func refreshActivity() {
         guard let index = state.box.firstIndex(where: { $0.id == state.partnerID }),
               BattleStateForm.followsTokenFlow(speciesID: state.box[index].speciesID) else { return }

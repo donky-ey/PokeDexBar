@@ -183,6 +183,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // 알은 토큰이 아니라 실시간으로 깬다 — 매 사용량 틱마다 정산해 앱이 유휴여도 반영한다.
         // announceReadyEggs 는 알 배열 필터링뿐이라 저렴하다(에너지 규율: 새 타이머/폴링 추가 금지).
         player.announceReadyEggsAndNotify(at: Date())
+        // 계절도 달력에서 실시간으로 온다 — 같은 자리에서 맞춘다. `update` 안이 아니라 여기인
+        // 이유: `update` 는 사용량이 없으면 일찍 돌아가는 가지가 있어서, 토큰을 안 쓴 날에는
+        // 계절이 안 바뀌게 된다.
+        player.refreshSeasons()
         // 위장도 실시간으로 풀린다 — 같은 이유로 같은 자리에 얹는다.
         player.revealDisguisesAndNotify(at: Date())
     }

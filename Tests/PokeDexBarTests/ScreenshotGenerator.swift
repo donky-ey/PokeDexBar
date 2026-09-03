@@ -1005,6 +1005,12 @@ final class ScreenshotGeneratorTests: XCTestCase {
         // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
         try write(png(charmLadderBanner()), "charm-ladder.png")
 
+
+        // 계절 폼 — **한 화면에는 한 계절밖에** 안 담긴다(달력이 정하니 고를 수도 없다).
+        // 넷을 나란히 놔야 "달이 바뀌면 이 아이가 바뀐다"가 그림에서 읽힌다.
+        // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
+        try write(png(seasonBanner()), "season-forms.png")
+
         // 문제 제보 — 크래시 배너(홈)와 설정의 제보 줄을 위아래로. **픽스처에 크래시 기록을
         // 심어야 배너가 찍힌다** — 안 심으면 아무리 다시 생성해도 빈 자리만 나온다(설정
         // 스크린샷에 플로팅 펫이 꺼져 있어 새 토글이 영영 안 찍히던 함정과 같은 부류).
@@ -1471,6 +1477,62 @@ final class ScreenshotGeneratorTests: XCTestCase {
             }
         }
         .frame(width: PopoverMetrics.width - PopoverMetrics.padding * 2)
+        .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+        let now = ScreenshotFixture.now
+        let store = PlayerStore(fileURL: FileManager.default.temporaryDirectory
+                                rng: SeededRNG(seed: 9), now: { now },
+        store.setLanguage(.en)
+        store.seedForTesting(wallet: 0, slots: 1, eggs: 0, at: now)
+        // 하루하고 반나절 맡겨 둔 상태 — 레벨이 올라 있고 받은 몫도 0 이 아니다.
+        let boarder = Individual(baseID: 133, speciesID: 133, pathIDs: [133], nature: .hardy,
+                                 obtainedAt: now, grade: .rare)
+        store.addForTesting(boarder)
+        store.mutate { s in
+            guard let i = s.box.firstIndex(where: { $0.id == boarder.id }) else { return }
+        }
+            .frame(width: PopoverMetrics.contentWidth)
+            .padding(16)
+            .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    /// 사철록·바라철록의 사계절. 앱이 그리는 것과 같은 `SpriteView` 에 같은 슬러그를 넘긴다 —
+    /// 그림과 규칙이 어긋날 수 없다(`SeasonForm.slug` 가 슬러그의 단일 소스다).
+    private func seasonBanner() throws -> some View {
+        let seasons = SeasonForm.Season.allCases
+        // `png` 는 `.task` 를 안 돌린다 — 그림은 `SpriteView.init` 의 동기 디스크 캐시에서만
+        // 온다. 먼저 받아 두지 않으면 여덟 칸이 전부 알 자리표시자로 찍힌다(실제로 그렇게 나왔다).
+        for speciesID in [585, 586] {
+            for season in seasons {
+                _ = try waitFor {
+                    await SpriteLoader.image(speciesID: speciesID,
+                                             form: SeasonForm.slug(speciesID: speciesID, season: season))
+                }
+            }
+        }
+        let labels: [SeasonForm.Season: String] = [
+            .spring: "Spring", .summer: "Summer", .autumn: "Autumn", .winter: "Winter",
+        ]
+        return VStack(spacing: 10) {
+            ForEach([585, 586], id: \.self) { speciesID in
+                HStack(spacing: 18) {
+                    ForEach(seasons, id: \.self) { season in
+                        VStack(spacing: 3) {
+                            SpriteView(speciesID: speciesID,
+                                       form: SeasonForm.slug(speciesID: speciesID, season: season),
+                                       size: 56)
+                                .frame(width: 56, height: 56)
+                            if speciesID == 586 {
+                                Text(labels[season] ?? "")
+                                    .font(.system(size: 9)).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
         .padding(16)
         .background(Color(nsColor: .windowBackgroundColor))
     }
