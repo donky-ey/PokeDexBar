@@ -61,6 +61,10 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
     /// `recentlyActive`(모르페코·킬가르도)와 같다 — `spriteForm` 이 순수 계산 프로퍼티라 시계를
     /// 못 읽는다. 세계에서 온 값을 틱에서 여기 적어 두면, 그리는 쪽은 계속 순수하게 남는다.
     var season: SeasonForm.Season?
+    /// 지금 이 개체에게 적용된 날씨(캐스퐁·체리꼬만). 계절과 같은 이유로 개체에 적어 둔다 —
+    /// 바깥에서 온 값이고, `spriteForm` 은 순수해야 한다. **nil 은 "모른다"** 이지 "맑음"이
+    /// 아니다: 그 구분이 체리꼬의 확률 개화를 살려 두는 근거다.
+    var weather: WeatherForm.Weather?
     /// 지금 일하는 중인가 — 최근에 토큰이 들어왔나. **저장한다**: 깨진 모습(`formBroken`)과 같은
     /// 부류로, 바깥 사건이 정하는 상태라 개체 값만 봐서는 알 수 없다. 갱신은 `PlayerStore.update`
     /// 가 곁에 둔 아이에게만 한다.
@@ -155,8 +159,12 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
         // 윽우지 — 곁에 두는 동안 먹이를 물고 있을 수 있다. 저장된 값이 아니라 개체와
         // 파트너 횟수에서 나온다(`BattleStateForm` 주석 참고).
         if let prey = BattleStateForm.cramorantSlug(individual: self) { return prey }
-        // 체리꼬 — 곁에 두면 확률로 꽃이 핀다(윽우지와 같은 축).
-        if let bloom = BattleStateForm.cherrimSlug(individual: self) { return bloom }
+        // 날씨 폼 — 캐스퐁·체리꼬. **아는 날씨가 확률보다 먼저다**(원작에서 체리꼬는 강한
+        // 햇살에 핀다).
+        if let weathered = WeatherForm.slug(speciesID: speciesID, weather: weather) { return weathered }
+        // 체리꼬 — **날씨를 모를 때만** 확률로 핀다(윽우지와 같은 축). 날씨를 아는데도 이 줄로
+        // 떨어지면, 비 오는 날에 20% 로 꽃이 피어 방금 받아 온 하늘을 스스로 뒤집는다.
+        if weather == nil, let bloom = BattleStateForm.cherrimSlug(individual: self) { return bloom }
         // 토큰 흐름을 보는 둘 — 모르페코는 쉴 때, 킬가르도는 일할 때 모습이 바뀐다.
         if let hangry = BattleStateForm.morpekoSlug(individual: self) { return hangry }
         if let blade = BattleStateForm.aegislashSlug(individual: self) { return blade }
@@ -301,6 +309,7 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
         formBroken = value(.formBroken, false)
         partnerStintsEnded = value(.partnerStintsEnded, 0)
         season = value(.season, nil)
+        weather = value(.weather, nil)
         recentlyActive = value(.recentlyActive, nil)
         growthRate = value(.growthRate, .mediumFast)
         // 새 필드라 반드시 `value(_:_:)` 를 거친다 — 합성 디코더로 그냥 `decode` 하면 이 키가
@@ -334,6 +343,11 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
            RegionalFormCatalog.forms(speciesID: speciesID)
                .first(where: { $0.region == region && $0.variant == variant }) == nil {
             fixed.regionVariant = nil
+        }
+        // 날씨 폼이 없는 종에 날씨가 적혀 있으면 버린다 — 계절과 같은 경계 검증이다.
+        if fixed.weather != nil, !WeatherForm.species.contains(speciesID) {
+            fixed.weather = nil
+            AppLog.write("Individual: dropped weather on species \(speciesID)")
         }
         // 계절 폼이 없는 종에 계절이 적혀 있으면 버린다 — 그대로 두면 없는 슬러그를 요청한다.
         if fixed.season != nil, !SeasonForm.species.contains(speciesID) {

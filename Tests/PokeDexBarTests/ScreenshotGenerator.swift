@@ -1011,6 +1011,10 @@ final class ScreenshotGeneratorTests: XCTestCase {
         // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
         try write(png(seasonBanner()), "season-forms.png")
 
+        // 날씨 폼 — 하늘이 정하는 모습이라 한 화면에는 지금 하늘 하나뿐이다.
+        // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
+        try write(png(weatherBanner()), "weather-forms.png")
+
         // 문제 제보 — 크래시 배너(홈)와 설정의 제보 줄을 위아래로. **픽스처에 크래시 기록을
         // 심어야 배너가 찍힌다** — 안 심으면 아무리 다시 생성해도 빈 자리만 나온다(설정
         // 스크린샷에 플로팅 펫이 꺼져 있어 새 토글이 영영 안 찍히던 함정과 같은 부류).
@@ -1527,6 +1531,41 @@ final class ScreenshotGeneratorTests: XCTestCase {
                             if speciesID == 586 {
                                 Text(labels[season] ?? "")
                                     .font(.system(size: 9)).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    /// 캐스퐁의 네 모습과 체리꼬의 두 모습. 앱과 같은 `WeatherForm.slug` 로 슬러그를 만든다.
+    private func weatherBanner() throws -> some View {
+        let skies: [(WeatherForm.Weather, String)] = [
+            (.neutral, "Cloudy"), (.sunny, "Clear"), (.rainy, "Rain"), (.snowy, "Snow"),
+        ]
+        // `png` 는 `.task` 를 안 돌린다 — 먼저 받아 두지 않으면 알 자리표시자로 찍힌다.
+        for speciesID in [351, 421] {
+            for (weather, _) in skies {
+                _ = try waitFor {
+                    await SpriteLoader.image(speciesID: speciesID,
+                                             form: WeatherForm.slug(speciesID: speciesID, weather: weather))
+                }
+            }
+        }
+        return VStack(spacing: 10) {
+            ForEach([351, 421], id: \.self) { speciesID in
+                HStack(spacing: 18) {
+                    ForEach(skies, id: \.1) { weather, label in
+                        VStack(spacing: 3) {
+                            SpriteView(speciesID: speciesID,
+                                       form: WeatherForm.slug(speciesID: speciesID, weather: weather),
+                                       size: 56)
+                                .frame(width: 56, height: 56)
+                            if speciesID == 421 {
+                                Text(label).font(.system(size: 9)).foregroundStyle(.secondary)
                             }
                         }
                     }

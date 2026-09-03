@@ -165,6 +165,23 @@ final class PlayerStore {
         if changed { save() }
     }
 
+    /// 박스에 날씨를 타는 아이가 있나. **없으면 날씨를 아예 안 물어본다** — 대부분의 사용자에게
+    /// 네트워크 요청이 한 번도 안 나가고, 이 기능 때문에 늘어나는 소비가 0 이 된다.
+    var needsWeather: Bool {
+        state.box.contains { WeatherForm.species.contains($0.speciesID) }
+    }
+
+    /// 받아 온 날씨를 해당 개체들에 적는다. 계절과 같은 형태(전역 값 → 개체에 denormalize).
+    func applyWeather(_ weather: WeatherForm.Weather) {
+        var changed = false
+        for i in state.box.indices where WeatherForm.species.contains(state.box[i].speciesID) {
+            guard state.box[i].weather != weather else { continue }
+            state.box[i].weather = weather
+            changed = true
+        }
+        if changed { save() }
+    }
+
     private func refreshActivity() {
         guard let index = state.box.firstIndex(where: { $0.id == state.partnerID }),
               BattleStateForm.followsTokenFlow(speciesID: state.box[index].speciesID) else { return }
