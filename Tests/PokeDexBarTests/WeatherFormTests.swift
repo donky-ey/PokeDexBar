@@ -11,31 +11,57 @@ final class WeatherFormTests: XCTestCase {
     /// 실제 응답이 스스로 단위를 `"wmo code"` 라고 적어 오는 그 표다.
     func testTheWeatherCodesMapToTheFourLooks() {
         for code in [0, 1] {
-            XCTAssertEqual(WeatherForm.weather(wmoCode: code), .sunny, "코드 \(code)")
+            XCTAssertEqual(WeatherForm.weather(wmoCode: code, isDay: true), .sunny, "코드 \(code)")
         }
         for code in [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99] {
-            XCTAssertEqual(WeatherForm.weather(wmoCode: code), .rainy, "코드 \(code)")
+            XCTAssertEqual(WeatherForm.weather(wmoCode: code, isDay: true), .rainy, "코드 \(code)")
         }
         for code in [71, 73, 75, 77, 85, 86] {
-            XCTAssertEqual(WeatherForm.weather(wmoCode: code), .snowy, "코드 \(code)")
+            XCTAssertEqual(WeatherForm.weather(wmoCode: code, isDay: true), .snowy, "코드 \(code)")
         }
         // 흐림·안개는 보통 모습이다 — 캐스퐁의 네 번째 모습은 없다.
         for code in [2, 3, 45, 48] {
-            XCTAssertEqual(WeatherForm.weather(wmoCode: code), .neutral, "코드 \(code)")
+            XCTAssertEqual(WeatherForm.weather(wmoCode: code, isDay: true), .neutral, "코드 \(code)")
         }
     }
 
     /// 어는 비·진눈깨비는 눈 쪽 — 얼음이 오는 하늘이면 「눈구름」이 맞다.
     func testFreezingPrecipitationCountsAsSnow() {
         for code in [56, 57, 66, 67] {
-            XCTAssertEqual(WeatherForm.weather(wmoCode: code), .snowy, "코드 \(code)")
+            XCTAssertEqual(WeatherForm.weather(wmoCode: code, isDay: true), .snowy, "코드 \(code)")
         }
+    }
+
+    /// **밤에는 맑아도 맑음이 아니다**(사용자 지적) — 「기상변화」·「플라워기프트」를 켜는 것은
+    /// 쨍한 햇살이지 구름 없는 하늘이 아니다. 새벽 두 시에 체리꼬가 피어 있으면 규칙이 아니라
+    /// 버그로 보인다.
+    func testAClearNightIsNotSunny() {
+        for code in [0, 1] {
+            XCTAssertEqual(WeatherForm.weather(wmoCode: code, isDay: false), .neutral, "코드 \(code)")
+            XCTAssertEqual(WeatherForm.weather(wmoCode: code, isDay: true), .sunny, "코드 \(code)")
+        }
+        XCTAssertNil(WeatherForm.slug(speciesID: 421,
+                                      weather: WeatherForm.weather(wmoCode: 0, isDay: false)),
+                     "밤에 체리꼬가 피었다")
+        XCTAssertNil(WeatherForm.slug(speciesID: 351,
+                                      weather: WeatherForm.weather(wmoCode: 0, isDay: false)),
+                     "밤에 캐스퐁이 해 모습이 됐다")
+    }
+
+    /// **비·눈은 밤에도 그대로다** — 비는 해와 무관하게 내린다. 대조군이 없으면 "밤이면 전부
+    /// 보통 모습"이라는 잘못된 구현도 위 테스트를 통과한다.
+    func testRainAndSnowStillFallAtNight() {
+        XCTAssertEqual(WeatherForm.weather(wmoCode: 63, isDay: false), .rainy)
+        XCTAssertEqual(WeatherForm.weather(wmoCode: 73, isDay: false), .snowy)
+        XCTAssertEqual(WeatherForm.slug(speciesID: 351,
+                                        weather: WeatherForm.weather(wmoCode: 63, isDay: false)),
+                       "castform-rainy")
     }
 
     /// 모르는 코드는 보통 모습으로 — 표에 없는 값이 와도 없는 그림을 요청하면 안 된다.
     func testAnUnknownCodeIsNeutral() {
         for code in [-1, 4, 100, 9999] {
-            XCTAssertEqual(WeatherForm.weather(wmoCode: code), .neutral, "코드 \(code)")
+            XCTAssertEqual(WeatherForm.weather(wmoCode: code, isDay: true), .neutral, "코드 \(code)")
         }
     }
 
@@ -101,15 +127,38 @@ final class WeatherFormTests: XCTestCase {
                                               timezone: "Asia/Seoul"))
     }
 
-    func testTheForecastCodeIsRead() {
+    func testTheForecastCodeAndDaylightAreRead() throws {
         let forecast = Data("""
         {"latitude":37.55,"longitude":127.0,
-         "current_units":{"time":"iso8601","weather_code":"wmo code"},
-         "current":{"time":"2026-09-03T08:30","interval":900,"weather_code":61}}
+         "current_units":{"time":"iso8601","weather_code":"wmo code","is_day":""},
+         "current":{"time":"2026-09-03T08:45","interval":900,"weather_code":61,"is_day":0}}
         """.utf8)
-        XCTAssertEqual(WeatherClient.code(fromForecast: forecast), 61)
-        XCTAssertNil(WeatherClient.code(fromForecast: Data(#"{"current":{}}"#.utf8)))
-        XCTAssertNil(WeatherClient.code(fromForecast: Data("not json".utf8)))
+        let sky = try XCTUnwrap(WeatherClient.sky(fromForecast: forecast))
+        XCTAssertEqual(sky.code, 61)
+        XCTAssertFalse(sky.isDay, "is_day 0 은 밤이다")
+        XCTAssertNil(WeatherClient.sky(fromForecast: Data(#"{"current":{}}"#.utf8)))
+        XCTAssertNil(WeatherClient.sky(fromForecast: Data("not json".utf8)))
+    }
+
+    /// `is_day` 가 빠진 응답은 **낮으로 본다** — 밤으로 단정하면 맑은 날의 캐스퐁이 통째로
+    /// 사라진다. 모를 때는 지금까지 하던 대로가 낫다.
+    func testAMissingDaylightFieldIsTreatedAsDay() throws {
+        let forecast = Data(#"{"current":{"weather_code":0}}"#.utf8)
+        let sky = try XCTUnwrap(WeatherClient.sky(fromForecast: forecast))
+        XCTAssertTrue(sky.isDay)
+        XCTAssertEqual(WeatherForm.weather(wmoCode: sky.code, isDay: sky.isDay), .sunny)
+    }
+
+    /// **낮/밤을 실제로 물어보는가.** 파서는 `is_day` 가 없으면 낮으로 넘어가므로, 요청에서
+    /// 이 필드가 빠지면 밤에 체리꼬가 피는 결함으로 조용히 돌아간다(뮤테이션에서 그 되돌림이
+    /// 아무 테스트도 안 깼다). 값 해석이 아니라 **무엇을 물어보는지**를 잠근다.
+    func testTheForecastAsksForDaylight() throws {
+        let url = try XCTUnwrap(WeatherClient.forecastURL(latitude: 37.566, longitude: 126.9784))
+        let items = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        let current = try XCTUnwrap(items.first { $0.name == "current" }?.value)
+        XCTAssertTrue(current.contains("is_day"), "낮/밤을 안 물어본다: \(current)")
+        XCTAssertTrue(current.contains("weather_code"), "날씨를 안 물어본다: \(current)")
+        XCTAssertEqual(items.first { $0.name == "latitude" }?.value, "37.566")
     }
 
     // MARK: 시간대 → 도시
@@ -132,7 +181,7 @@ final class WeatherFormTests: XCTestCase {
 
     func testTheCacheGoesStaleAfterAnHour() {
         let cache = WeatherClient.Cache(timezone: "Asia/Seoul", latitude: 0, longitude: 0,
-                                        code: 0, fetchedAt: now)
+                                        code: 0, isDay: true, fetchedAt: now)
         XCTAssertTrue(cache.isFresh(at: now))
         XCTAssertTrue(cache.isFresh(at: now.addingTimeInterval(WeatherClient.ttl - 1)))
         XCTAssertFalse(cache.isFresh(at: now.addingTimeInterval(WeatherClient.ttl)))

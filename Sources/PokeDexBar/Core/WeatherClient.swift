@@ -30,6 +30,8 @@ actor WeatherClient {
         var latitude: Double
         var longitude: Double
         var code: Int
+        /// 받아 온 순간이 낮이었나. 맑음 판정에만 쓴다(`WeatherForm.weather(wmoCode:isDay:)`).
+        var isDay: Bool
         var fetchedAt: Date
 
         func isFresh(at now: Date, ttl: TimeInterval = WeatherClient.ttl) -> Bool {
@@ -43,7 +45,7 @@ actor WeatherClient {
     func current(now: Date = Date(),
                  timezone: String = TimeZone.current.identifier) async -> WeatherForm.Weather? {
         if let cache, cache.timezone == timezone, cache.isFresh(at: now) {
-            return WeatherForm.weather(wmoCode: cache.code)
+            return WeatherForm.weather(wmoCode: cache.code, isDay: cache.isDay)
         }
         // 시간대가 그대로면 좌표를 다시 찾지 않는다.
         var coordinate: (latitude: Double, longitude: Double)?
@@ -53,19 +55,20 @@ actor WeatherClient {
             coordinate = await geocode(timezone: timezone)
         }
         guard let coordinate else { return staleWeather() }
-        guard let code = await forecast(latitude: coordinate.latitude,
-                                        longitude: coordinate.longitude) else {
+        guard let sky = await forecast(latitude: coordinate.latitude,
+                                       longitude: coordinate.longitude) else {
             return staleWeather()
         }
         let fresh = Cache(timezone: timezone, latitude: coordinate.latitude,
-                          longitude: coordinate.longitude, code: code, fetchedAt: now)
+                          longitude: coordinate.longitude, code: sky.code, isDay: sky.isDay,
+                          fetchedAt: now)
         cache = fresh
         try? JSONEncoder().encode(fresh).write(to: fileURL, options: .atomic)
-        return WeatherForm.weather(wmoCode: code)
+        return WeatherForm.weather(wmoCode: sky.code, isDay: sky.isDay)
     }
 
     private func staleWeather() -> WeatherForm.Weather? {
-        cache.map { WeatherForm.weather(wmoCode: $0.code) }
+        cache.map { WeatherForm.weather(wmoCode: $0.code, isDay: $0.isDay) }
     }
 
     // MARK: 순수 부분 — 네트워크 없이 테스트한다
@@ -96,11 +99,14 @@ actor WeatherClient {
         return nil
     }
 
-    /// 예보 응답에서 WMO 코드를 꺼낸다.
-    nonisolated static func code(fromForecast data: Data) -> Int? {
+    /// 예보 응답에서 WMO 코드와 낮/밤을 꺼낸다. `is_day` 는 1/0 정수로 온다(실측).
+    /// **없으면 낮으로 본다** — 그 필드가 빠진 응답에서 밤으로 단정하면 맑은 날의 캐스퐁이
+    /// 통째로 사라진다. 모를 때는 지금까지 하던 대로가 낫다.
+    nonisolated static func sky(fromForecast data: Data) -> (code: Int, isDay: Bool)? {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let current = root["current"] as? [String: Any] else { return nil }
-        return current["weather_code"] as? Int
+              let current = root["current"] as? [String: Any],
+              let code = current["weather_code"] as? Int else { return nil }
+        return (code, (current["is_day"] as? Int ?? 1) == 1)
     }
 
     // MARK: 네트워크
@@ -119,16 +125,23 @@ actor WeatherClient {
         return Self.coordinate(fromGeocoding: data, timezone: timezone)
     }
 
-    private func forecast(latitude: Double, longitude: Double) async -> Int? {
+    /// 예보 URL. **주소를 순수 함수로 뺀 이유**: 여기서 `is_day` 를 빼도 파서는 "없으면 낮"으로
+    /// 넘어가서, 밤에 체리꼬가 피는 원래 결함으로 조용히 돌아간다. 실제로 뮤테이션에서
+    /// 그 되돌림이 아무 테스트도 안 깼다 — 그래서 무엇을 물어보는지를 테스트가 본다.
+    nonisolated static func forecastURL(latitude: Double, longitude: Double) -> URL? {
         guard var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")
         else { return nil }
         components.queryItems = [
             .init(name: "latitude", value: String(latitude)),
             .init(name: "longitude", value: String(longitude)),
-            .init(name: "current", value: "weather_code"),
+            .init(name: "current", value: "weather_code,is_day"),
         ]
-        guard let url = components.url,
+        return components.url
+    }
+
+    private func forecast(latitude: Double, longitude: Double) async -> (code: Int, isDay: Bool)? {
+        guard let url = Self.forecastURL(latitude: latitude, longitude: longitude),
               let (data, _) = try? await URLSession.shared.data(from: url) else { return nil }
-        return Self.code(fromForecast: data)
+        return Self.sky(fromForecast: data)
     }
 }

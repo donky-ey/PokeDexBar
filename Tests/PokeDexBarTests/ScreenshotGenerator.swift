@@ -1485,23 +1485,6 @@ final class ScreenshotGeneratorTests: XCTestCase {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
-        let now = ScreenshotFixture.now
-        let store = PlayerStore(fileURL: FileManager.default.temporaryDirectory
-                                rng: SeededRNG(seed: 9), now: { now },
-        store.setLanguage(.en)
-        store.seedForTesting(wallet: 0, slots: 1, eggs: 0, at: now)
-        // 하루하고 반나절 맡겨 둔 상태 — 레벨이 올라 있고 받은 몫도 0 이 아니다.
-        let boarder = Individual(baseID: 133, speciesID: 133, pathIDs: [133], nature: .hardy,
-                                 obtainedAt: now, grade: .rare)
-        store.addForTesting(boarder)
-        store.mutate { s in
-            guard let i = s.box.firstIndex(where: { $0.id == boarder.id }) else { return }
-        }
-            .frame(width: PopoverMetrics.contentWidth)
-            .padding(16)
-            .background(Color(nsColor: .windowBackgroundColor))
-    }
-
     /// 사철록·바라철록의 사계절. 앱이 그리는 것과 같은 `SpriteView` 에 같은 슬러그를 넘긴다 —
     /// 그림과 규칙이 어긋날 수 없다(`SeasonForm.slug` 가 슬러그의 단일 소스다).
     private func seasonBanner() throws -> some View {
