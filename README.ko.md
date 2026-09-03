@@ -204,6 +204,20 @@ PokeDexBar는 당신이 이미 태우고 있는 AI 코딩 토큰(Claude Code · 
 </td>
 </tr>
 <tr>
+<td width="55%" valign="middle">
+<h3>🍂 달력과 하늘을 느끼는 아이들</h3>
+<b>사철록</b>과 <b>바라철록</b>은 원작처럼 계절을 입어요 — 그것도 진짜 이번 달이라, 안 보는 사이에 털이 바뀌어 있어요. 반구는 Mac 의 지역이 정하니까 호주의 바라철록은 크리스마스에 여름 모습이에요. <b>캐스퐁</b>과 <b>체리꼬</b>는 지금 그곳의 실제 날씨를 읽어요. 해·비·눈이 저마다 다른 모습이고, 체리꼬는 진짜 햇살에만 펴요 — 맑은 밤에는 접힌 채예요. 요구하는 건 없어요: 위치 권한도, 계정도, 그리고 이 넷 중 하나가 박스에 없으면 요청 자체가 안 나가요.
+</td>
+<td width="45%" align="center"><img src="assets/season-forms.png" width="300" alt="사철록과 바라철록의 봄·여름·가을·겨울 모습"></td>
+</tr>
+<tr>
+<td width="45%" align="center"><img src="assets/weather-forms.png" width="300" alt="캐스퐁의 보통·햇살·빗물·눈구름 모습과, 맑을 때만 펴는 체리꼬"></td>
+<td width="55%" valign="middle">
+<h3>☀️ 어디 사는지 안 묻는 날씨</h3>
+하늘은 위치가 아니라 시스템 시간대에서 와요. `Asia/Seoul` 이면 서울이고, 비가 오는지 아닌지에는 그 정도면 충분해요. 실제 위치는 읽지도 보내지도 않아요. 네트워크가 없으면 마지막 하늘을 그대로 두고, 애초에 받은 적이 없으면 체리꼬는 예전처럼 스스로 확률로 펴요.
+</td>
+</tr>
+<tr>
 <td width="45%" align="center"><img src="assets/grade-badge.png" width="300" alt="박스 칸 넷이 나란히 — 각 레벨 라벨 뒤에 등급색이 깔려 있고, 아래에 같은 색 알과 등급 이름"></td>
 <td width="55%" valign="middle">
 <h3>등급이 한눈에 보여요</h3>

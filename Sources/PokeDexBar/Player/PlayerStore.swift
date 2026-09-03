@@ -152,6 +152,36 @@ final class PlayerStore {
     ///
     /// **파트너에게만 건다.** 박스에 있는 아이는 사용자와 함께 일하고 있지 않으니 마지막
     /// 상태를 그대로 둔다 — 깨진 모습(`formBroken`)이 파트너 조작으로만 바뀌는 것과 같다.
+    /// 계절을 지금 값으로 맞춘다. **달력에서 오는 전역 값**이라 개체가 고르는 것이 없고,
+    /// 바뀔 때만 쓴다(멱등) — 매 틱 세이브를 더럽히지 않게.
+    func refreshSeasons() {
+        let season = SeasonForm.current(at: now())
+        var changed = false
+        for i in state.box.indices where SeasonForm.species.contains(state.box[i].speciesID) {
+            guard state.box[i].season != season else { continue }
+            state.box[i].season = season
+            changed = true
+        }
+        if changed { save() }
+    }
+
+    /// 박스에 날씨를 타는 아이가 있나. **없으면 날씨를 아예 안 물어본다** — 대부분의 사용자에게
+    /// 네트워크 요청이 한 번도 안 나가고, 이 기능 때문에 늘어나는 소비가 0 이 된다.
+    var needsWeather: Bool {
+        state.box.contains { WeatherForm.species.contains($0.speciesID) }
+    }
+
+    /// 받아 온 날씨를 해당 개체들에 적는다. 계절과 같은 형태(전역 값 → 개체에 denormalize).
+    func applyWeather(_ weather: WeatherForm.Weather) {
+        var changed = false
+        for i in state.box.indices where WeatherForm.species.contains(state.box[i].speciesID) {
+            guard state.box[i].weather != weather else { continue }
+            state.box[i].weather = weather
+            changed = true
+        }
+        if changed { save() }
+    }
+
     private func refreshActivity() {
         guard let index = state.box.firstIndex(where: { $0.id == state.partnerID }),
               BattleStateForm.followsTokenFlow(speciesID: state.box[index].speciesID) else { return }

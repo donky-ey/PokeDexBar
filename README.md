@@ -204,6 +204,20 @@ Forms that only happen mid-battle in the games are carried onto things this app 
 </td>
 </tr>
 <tr>
+<td width="55%" valign="middle">
+<h3>🍂 A calendar and a sky your Pokémon can feel</h3>
+<b>Deerling</b> and <b>Sawsbuck</b> wear the season, the way they do in the games — and it is the real month, so the coat changes while you are not looking. Your Mac's region decides the hemisphere, so a Sawsbuck in Australia is in summer at Christmas. <b>Castform</b> and <b>Cherrim</b> read the actual weather where you are: sun, rain and snow each have their own shape, and Cherrim only opens in real sunshine — a clear night leaves it closed. Nothing is asked of you: no location permission, no account, and no request at all unless one of these four is in your Box.
+</td>
+<td width="45%" align="center"><img src="assets/season-forms.png" width="300" alt="Deerling and Sawsbuck in spring, summer, autumn and winter coats"></td>
+</tr>
+<tr>
+<td width="45%" align="center"><img src="assets/weather-forms.png" width="300" alt="Castform in its normal, sunny, rainy and snowy forms above Cherrim, which opens only under a clear sky"></td>
+<td width="55%" valign="middle">
+<h3>☀️ Weather, without asking where you are</h3>
+The sky comes from your system time zone rather than your location: Asia/Seoul means Seoul, and that is precise enough to know whether it is raining. Your actual position is never read or sent. If the network is away, the last sky stays — and if it was never there, Cherrim falls back to blooming on its own.
+</td>
+</tr>
+<tr>
 <td width="45%" align="center"><img src="assets/grade-badge.png" width="300" alt="Four Box cells side by side — the level label behind each carries its grade colour, with the matching egg below and the grade named"></td>
 <td width="55%" valign="middle">
 <h3>Grades you can read at a glance</h3>
