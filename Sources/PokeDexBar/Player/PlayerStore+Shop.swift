@@ -94,6 +94,7 @@ extension PlayerStore {
                                                           multiplier: multiplier))
             Self.consume(.expCandy, in: &$0)
         }
+        countDailyActivity(.useCandy)
         return true
     }
 

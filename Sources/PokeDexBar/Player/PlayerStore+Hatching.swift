@@ -54,6 +54,7 @@ extension PlayerStore {
             state.eggs.removeAll { $0.id == eggID }
         }
         applyHatchSpeedupIfNewlyEarned(hadSpeedupBefore: hadSpeedup)
+        countDailyActivity(.hatchEggs)
         return individual
     }
 

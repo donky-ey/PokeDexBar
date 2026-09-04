@@ -219,6 +219,7 @@ extension PlayerStore {
         // 껍질몬이 늘어난 뒤(위 `mutate` 가 끝난 뒤) 판정해야, 껍질몬이 바로 그 조건을 채우는
         // 경우도 놓치지 않는다.
         applyHatchSpeedupIfNewlyEarned(hadSpeedupBefore: hadSpeedup)
+        countDailyActivity(.evolve)
         return true
     }
 

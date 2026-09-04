@@ -29,6 +29,34 @@ struct L {
     }
     var bag: String { t("가방", "Bag", "バッグ") }
 
+    // MARK: 오늘의 목표 — 하루짜리 과제 셋
+    var dailySection: String { t("오늘의 목표", "Today's goals", "きょうの もくひょう") }
+    /// 과제 문장. **목표치를 문장 안에 넣는다** — "알 뽑기 · 3" 처럼 쪼개면 3이 무엇의 3인지
+    /// 읽는 데 한 박자가 든다.
+    func dailyQuestLabel(_ kind: DailyQuest.Kind, _ target: Int) -> String {
+        switch kind {
+        case .drawEggs: t("알 \(target)번 뽑기", "Draw \(target) egg\(target == 1 ? "" : "s")",
+                          "タマゴを \(target)かい ひく")
+        case .hatchEggs: t("알 \(target)개 부화시키기", "Hatch \(target) egg\(target == 1 ? "" : "s")",
+                           "タマゴを \(target)こ かえす")
+        case .evolve: t("\(target)마리 진화시키기", "Evolve \(target) Pokémon", "\(target)ひき しんかさせる")
+        case .useCandy: t("경험치 사탕 \(target)개 쓰기", "Use \(target) EXP Candy",
+                          "けいけんちアメを \(target)こ つかう")
+        case .sendToProfessor: t("박사에게 \(target)마리 보내기", "Send \(target) to the Professor",
+                                 "はかせに \(target)ひき おくる")
+        case .openOffer: t("박사의 제안 \(target)칸 열기", "Open \(target) of the Professor's offers",
+                           "はかせの ていあんを \(target)まい あける")
+        }
+    }
+    /// 보상 표시 — 박사 포인트.
+    func dailyQuestReward(_ points: Int) -> String {
+        t("+\(points)P", "+\(points)P", "+\(points)P")
+    }
+    /// 셋을 다 받은 날의 덤.
+    var dailyBonusLabel: String {
+        t("오늘의 목표를 모두 끝냈어요", "All of today's goals are done", "きょうの もくひょうを すべて たっせい")
+    }
+
     // MARK: 도감 미션
     var missionSection: String { t("미션", "Missions", "ミッション") }
     var missionClaim: String { t("받기", "Claim", "うけとる") }

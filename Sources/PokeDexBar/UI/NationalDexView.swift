@@ -63,6 +63,7 @@ struct NationalDexView: View {
     // MARK: 미션
 
     @State private var missionsExpanded = false
+    @State private var dailyExpanded = true
     @State private var collectionsExpanded = false
     @State private var justClaimedCollectionID: String?
     /// 방금 받은 미션 id — "가방에 담았어요" 확인을 그 자리에 잠깐 남긴다. 보상이 전부
@@ -77,6 +78,86 @@ struct NationalDexView: View {
         } else {
             grid
         }
+    }
+
+    // MARK: 오늘의 목표
+
+    /// 오늘의 목표 — **미션 위에 둔다.** 도감 미션은 몇 달이 걸리는 사다리고 이쪽은 오늘 끝나는
+    /// 일이라, 아래에 두면 오늘 할 수 있는 것이 스크롤 밖으로 밀린다. 기본으로 펼쳐 두는 이유도
+    /// 같다 — 하루면 사라질 것을 접어 두면 있는 줄도 모른다.
+    @ViewBuilder
+    private var dailySection: some View {
+        let statuses = store.dailyQuestStatuses()
+        let claimable = statuses.count(where: \.claimable) + (store.dailyBonusReady ? 1 : 0)
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { dailyExpanded.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: dailyExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary)
+                    Text(store.l.dailySection).font(.system(size: 10, weight: .semibold))
+                    if claimable > 0 {
+                        Text(store.l.missionClaimableBadge(claimable))
+                            .font(.system(size: 8, weight: .bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Color.accentColor, in: Capsule())
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if dailyExpanded {
+                ForEach(statuses) { status in dailyRow(status) }
+                if store.dailyBonusReady { dailyBonusRow }
+            }
+        }
+        .padding(8)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func dailyRow(_ status: PlayerStore.DailyQuestStatus) -> some View {
+        HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(store.l.dailyQuestLabel(status.quest.kind, status.target))
+                        .font(.system(size: 9, weight: .medium))
+                    Text("\(min(status.done, status.target))/\(status.target)")
+                        .font(.system(size: 8).monospacedDigit()).foregroundStyle(.secondary)
+                    Text(store.l.dailyQuestReward(DailyQuest.points(for: status.quest)))
+                        .font(.system(size: 8)).foregroundStyle(.tertiary)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.secondary.opacity(0.15))
+                        Capsule().fill(status.claimable ? Color.accentColor : Color.secondary)
+                            .frame(width: max(2, geo.size.width
+                                * CGFloat(min(status.done, status.target)) / CGFloat(max(1, status.target))))
+                    }
+                }
+                .frame(height: 3)
+            }
+            if status.claimed {
+                Image(systemName: "checkmark").font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+            } else if status.claimable {
+                Button(store.l.missionClaim) { store.claimDailyQuest(status.quest) }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+            }
+        }
+        .padding(.vertical, 1)
+    }
+
+    /// 셋을 다 받은 날의 덤 한 줄. **조건이 달성이 아니라 수령**이라, 위 셋을 다 누른 뒤에만 뜬다.
+    private var dailyBonusRow: some View {
+        HStack(spacing: 6) {
+            Text(store.l.dailyBonusLabel).font(.system(size: 9, weight: .medium))
+            Spacer()
+            Button(store.l.missionClaim) { store.claimDailyBonus() }
+                .buttonStyle(.borderedProminent).controlSize(.small)
+        }
+        .padding(.vertical, 1)
     }
 
     // MARK: 미션 섹션
@@ -297,6 +378,7 @@ struct NationalDexView: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
+                    dailySection
                     missionsSection
                     collectionsSection
                     LazyVGrid(columns: columns, spacing: 6) {
