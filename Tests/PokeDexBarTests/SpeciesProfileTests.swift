@@ -130,7 +130,10 @@ final class SpeciesProfileTests: XCTestCase {
     func testCollectionMembership() {
         let mewtwo = CollectionCatalog.containing(species: 150).map(\.id)
         XCTAssertTrue(mewtwo.contains("clone-truth"))
-        XCTAssertTrue(CollectionCatalog.containing(species: 16).isEmpty, "구구가 어딘가 속해 있다?")
+        // 대조군은 **어느 세트에도 없는 종**이어야 한다. 예전엔 구구였는데 동네새 세트가
+        // 생기면서 소속이 생겨 이 테스트가 깨졌다 — 세트를 더할수록 자유로운 종은 줄어드니,
+        // 고를 땐 카탈로그를 실제로 훑어 확인할 것(캐터피는 라인째 어디에도 없다).
+        XCTAssertTrue(CollectionCatalog.containing(species: 10).isEmpty, "캐터피가 어딘가 속해 있다?")
         // 이브이는 이브이 프렌즈에 — 여러 세트에 겹치는 종도 전부 나온다(피카츄: 닮은꼴).
         XCTAssertTrue(CollectionCatalog.containing(species: 25).map(\.id).contains("pika-clones"))
     }
