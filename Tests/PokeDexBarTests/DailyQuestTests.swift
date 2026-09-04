@@ -74,6 +74,40 @@ final class DailyQuestTests: XCTestCase {
         XCTAssertEqual(DailyQuest.completionBonus, .item(.expCandy, 1))
     }
 
+    /// **목표 하나가 하루 수입을 넘게 요구하면 안 된다.** "사탕 3개 쓰기"가 상점가 1.5B 를
+    /// 태우면서 10P 를 주고 있었다(사용자 지적) — 알 뽑기 다섯 번(50M·15P)과 서른 배 차이다.
+    /// 후보를 만들 때 *비용*을 아무도 안 물어본 것이 정체라, 이 테스트가 그 질문을 대신한다.
+    func testNoGoalAsksForMoreThanADaysIncome() {
+        for quest in DailyQuest.pool {
+            XCTAssertLessThanOrEqual(DailyQuest.tokenCost(for: quest), DailyQuest.maxSpend,
+                                     "\(quest.id): \(DailyQuest.tokenCost(for: quest)) 토큰을 요구한다")
+        }
+    }
+
+    /// **조건에 걸린 종류는 목표가 하나뿐이어야 한다.** 진화는 오늘 진화 가능한 개체가 없는
+    /// 날이 흔해서, 둘을 요구하면 어려운 게 아니라 불가능해진다 — 그러면 그날의 덤까지 닫힌다.
+    /// 처음엔 이 판단이 주석에만 있어서 `[1, 2]` 로 되돌려도 아무 테스트가 안 깨졌다(뮤테이션).
+    func testConditionGatedKindsAskForOneOnly() {
+        for kind in DailyQuest.conditionGated {
+            XCTAssertEqual(DailyQuest.targets(for: kind), [1],
+                           "\(kind) 는 오늘 못 할 수도 있는 일이라 목표가 하나여야 한다")
+        }
+        // 대조군 — 마음먹으면 되는 종류는 사다리를 갖는다. 없으면 "전부 하나" 도 통과한다.
+        XCTAssertGreaterThan(DailyQuest.targets(for: .drawEggs).count, 1)
+        XCTAssertFalse(DailyQuest.conditionGated.contains(.openOffer),
+                       "박사는 매일 셋을 내민다 — 조건에 걸린 종류가 아니다")
+    }
+
+    /// 값이 드는 목표와 안 드는 목표를 갈라 둔다 — 대조군. 없으면 비용을 전부 0 으로 만드는
+    /// 구현도 위 테스트를 통과한다.
+    func testTheCostlyKindsAreTheOnesThatActuallyCost() {
+        XCTAssertGreaterThan(DailyQuest.tokenCost(for: .init(kind: .drawEggs, target: 1)), 0)
+        XCTAssertGreaterThan(DailyQuest.tokenCost(for: .init(kind: .useCandy, target: 1)), 0)
+        for kind in [DailyQuest.Kind.hatchEggs, .evolve, .sendToProfessor, .openOffer] {
+            XCTAssertEqual(DailyQuest.tokenCost(for: .init(kind: kind, target: 1)), 0, "\(kind)")
+        }
+    }
+
     /// 어려운 목표가 더 준다 — 안 그러면 쉬운 것만 고르는 게 항상 이득이다.
     ///
     /// **엄격히 커져야 한다.** 처음엔 "줄지만 않으면 된다"(`points == points.sorted()`)로 썼는데,

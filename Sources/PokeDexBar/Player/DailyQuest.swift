@@ -36,12 +36,38 @@ enum DailyQuest {
         switch kind {
         case .drawEggs: [1, 3, 5]
         case .hatchEggs: [1, 2, 3]
-        case .evolve: [1, 2]
-        case .useCandy: [1, 3]
+        case .evolve: [1]   // 조건에 걸린 종류 — `conditionGated` 참고
+        // 사탕은 **한 개까지**. 세 개는 상점가로 1.5B 인데 보상은 10P 라, 알 뽑기 다섯 번
+        // (50M · 15P)과 서른 배가 벌어졌다(사용자 지적). 목표가 아니라 세금이 된다.
+        case .useCandy: [1]
         case .sendToProfessor: [1, 3]
         case .openOffer: [1, 3]
         }
     }
+
+    /// 이 목표를 채우는 데 **드는 토큰**. 안 드는 것(부화·진화·보내기·제안 열기)은 0 이다.
+    ///
+    /// 후보를 만들 때 이 질문을 안 했던 것이 결함의 정체였다 — "사탕 3개"가 1.5B 를 태우면서
+    /// 알 뽑기 다섯 번(50M)과 같은 자리에 서 있었다. 값이 코드에 있어야 테스트가 물어볼 수 있다.
+    static func tokenCost(for quest: Quest) -> Int {
+        switch quest.kind {
+        case .drawEggs: quest.target * EggBalance.drawPrice
+        case .useCandy: quest.target * ShopItem.expCandy.price
+        case .hatchEggs, .evolve, .sendToProfessor, .openOffer: 0
+        }
+    }
+
+    /// **오늘 하고 싶어도 못 할 수 있는 종류.** 진화는 레벨·도구·친밀도가 걸려 있어, 오늘
+    /// 진화 가능한 개체가 아예 없는 날이 흔하다 — 그런 종류에 둘 이상을 요구하면 어려운 게
+    /// 아니라 불가능해지고, 셋 중 하나가 불가능하면 그날의 덤까지 같이 닫힌다.
+    ///
+    /// 나머지는 마음먹으면 오늘 안에 할 수 있다: 뽑기는 지갑만 되면 되고, 부화는 뽑으면 따라오고,
+    /// 보내기는 박스에 여분만 있으면 되고, 제안은 박사가 **매일** 셋을 내민다.
+    static let conditionGated: Set<Kind> = [.evolve]
+
+    /// 하루짜리 목표가 요구해도 되는 지출의 상한 — **하루 수입 한 벌**(실사용 관찰 500M/일).
+    /// 이보다 크면 그날 번 것을 통째로 넣고도 모자라, 목표가 아니라 손해가 된다.
+    static let maxSpend = 500_000_000
 
     /// 이 과제의 보상 — **박사 포인트**.
     ///
