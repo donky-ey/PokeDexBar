@@ -214,6 +214,9 @@ struct PopoverView: View {
                     EggSlotsView(store: player, now: context.date, lines: evoLines,
                                  onNeedLine: { baseID in loadLine(baseID) })
                 }
+                // 오늘의 목표 — 부화 슬롯 바로 아래, 진행 중인 것들이 모인 자리(사용자 결정).
+                Divider()
+                DailyGoalsView(store: player)
                 Divider()
                 header
                 Divider()

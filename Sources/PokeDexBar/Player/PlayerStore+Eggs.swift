@@ -50,6 +50,8 @@ extension PlayerStore {
         guard let egg = placeEgg(grade: grade, speciesID: speciesID, shiny: shiny,
                                  growthRate: growthRate, genderRate: genderRate) else { return nil }
         mutate { $0.spentTokens += EggBalance.drawPrice }
+        // 오늘의 목표는 **성사된 뽑기만** 센다 — 위 두 guard 를 지난 뒤가 그 자리다.
+        countDailyActivity(.drawEggs)
         return egg
     }
 }

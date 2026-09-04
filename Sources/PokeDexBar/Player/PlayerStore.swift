@@ -108,6 +108,11 @@ final class PlayerStore {
         if todayDate != state.lastDate {
             state.lastDate = todayDate
             state.claimedTodayTokens = 0
+            // 오늘의 목표도 여기서 비운다 — 같은 성격의 로컬 장부라 리셋 자리가 하나여야
+            // 둘이 어긋나지 않는다(하루가 바뀌는 판정이 두 곳에 있으면 반드시 갈린다).
+            state.dailyCounts = [:]
+            state.claimedDailyQuests = []
+            state.claimedDailyBonus = false
         }
         // 롤오버로 오늘 총량이 0으로 재설정된 경우도 여기서 걸러진다 — 그래도 위 리셋은
         // save() 로 반드시 디스크에 반영해야 한다(로컬 장부가 메모리에만 남으면 안 된다).

@@ -44,6 +44,13 @@ struct PlayerState: Codable, Sendable {
     /// **세이브 안에 산다**(설정이 아니라). 사람에 붙는 값이라 세이브를 옮기면 같이 가야 하고,
     /// 기기마다 달라지면 옮긴 순간 제안이 통째로 갈린다. 0 = 아직 없음 → 첫 기동에 만들어 저장한다.
     var offerSeed: UInt64 = 0
+    /// 오늘 한 활동의 횟수 — `DailyQuest.Kind.rawValue` → 횟수. **로컬 장부**라(§상태 파일 분류)
+    /// 날짜가 바뀌면 비운다. 굴린 과제 자체는 저장하지 않는다 — 날짜와 시드로 언제든 다시 나온다.
+    var dailyCounts: [String: Int] = [:]
+    /// 오늘 보상을 받은 과제 id 들. 셋을 다 끝낸 날의 덤은 `dailyBonus` 로 따로 기록한다.
+    var claimedDailyQuests: Set<String> = []
+    /// 오늘의 덤(사탕)을 받았나.
+    var claimedDailyBonus = false
     /// 오늘의 제안을 뽑은 날짜. `lastDate` 와 다르면 새로 뽑는다.
     var professorOfferDate = ""
     /// 오늘의 제안. 데려간 자리는 빠지지 않고 `claimed` 로 남는다.
@@ -173,6 +180,9 @@ struct PlayerState: Codable, Sendable {
         // (`ProfessorRoll` 은 전부 `&+`/`&*`). 0 만 "아직 없음"으로 취급한다.
         offerSeed = value(.offerSeed, 0)
         professorOfferDate = value(.professorOfferDate, "")
+        dailyCounts = value(.dailyCounts, [:])
+        claimedDailyQuests = value(.claimedDailyQuests, [])
+        claimedDailyBonus = value(.claimedDailyBonus, false)
         // 제안도 박스·알과 같은 이유로 원소 단위 관대 디코딩한다 — 한 자리가 깨졌다고 오늘 치가
         // 통째로 날아가면 안 된다. 항목이므로 개수는 안 자르고, 말이 안 되는 원소만 버린다.
         let wrappedOffers = (try? c.decode([LossyProfessorOffer].self, forKey: .professorOffers)) ?? []

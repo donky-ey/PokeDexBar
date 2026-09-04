@@ -30,6 +30,7 @@ extension PlayerStore {
             s.box.remove(at: i)
             s.researchPoints = min(ReleaseBalance.maxPoints, s.researchPoints + points)
         }
+        countDailyActivity(.sendToProfessor)
         return points
     }
 
@@ -136,6 +137,7 @@ extension PlayerStore {
               !state.professorOffers[slot].opened else { return nil }
         let individual = state.professorOffers[slot].individual
         mutate { $0.professorOffers[slot].opened = true }
+        countDailyActivity(.openOffer)
         return individual
     }
 

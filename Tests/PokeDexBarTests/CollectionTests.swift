@@ -159,3 +159,83 @@ final class CollectionTests: XCTestCase {
         XCTAssertTrue(decoded.claimedCollections.isEmpty)
     }
 }
+
+/// 새로 더한 세트들 — 세대별 스타터와 동물 묶음.
+@MainActor
+final class NewCollectionTests: XCTestCase {
+    /// 스타터 세트는 **세대마다 하나씩 아홉 종**이고, 그 아홉은 연속된 번호다(본가의 배치).
+    /// 하나라도 어긋나면 다른 종이 섞여 들어간 것이다.
+    func testEveryGenerationHasANineSpeciesStarterSet() {
+        let starts = ["kanto": 1, "johto": 152, "hoenn": 252, "sinnoh": 387, "unova": 495,
+                      "kalos": 650, "alola": 722, "galar": 810, "paldea": 906]
+        for (region, start) in starts {
+            let id = "\(region)-starters"
+            guard let set = CollectionCatalog.all.first(where: { $0.id == id }) else {
+                return XCTFail("\(id) 세트가 없다")
+            }
+            XCTAssertEqual(set.speciesIDs, Array(start..<(start + 9)), "\(id) 가 연속 9종이 아니다")
+        }
+        XCTAssertEqual(CollectionCatalog.all.count { $0.id.hasSuffix("-starters") }, 9,
+                       "세대는 아홉인데 스타터 세트 수가 다르다")
+    }
+
+    /// 동물 세트는 **진화 라인이 끊기면 안 된다** — genus 는 라인 중간에서 말이 바뀌므로
+    /// (불꽃숭이=Chimp, 초염몽=Flame) 씨앗만 담으면 이어지는 단계가 빠진다.
+    func testAnimalSetsKeepWholeEvolutionLines() {
+        let lines: [String: [[Int]]] = [
+            "monkeys": [[56, 57, 979], [287, 288, 289], [390, 391, 392],
+                        [511, 512], [513, 514], [515, 516], [810, 811, 812], [944, 945]],
+            "cats": [[52, 53], [300, 301], [431, 432], [677, 678],
+                     [725, 726, 727], [906, 907, 908]],
+            "dogs": [[58, 59], [209, 210], [228, 229], [261, 262], [506, 507, 508],
+                     [744, 745], [835, 836], [926, 927], [971, 972]],
+        ]
+        for (id, expected) in lines {
+            guard let set = CollectionCatalog.all.first(where: { $0.id == id }) else {
+                return XCTFail("\(id) 세트가 없다")
+            }
+            for line in expected {
+                for species in line {
+                    XCTAssertTrue(set.speciesIDs.contains(species),
+                                  "\(id): \(line) 라인의 \(species) 가 빠졌다")
+                }
+            }
+        }
+    }
+
+    /// **경계 멤버는 뺐다**(사용자 결정) — 쟝고는 genus 가 "Cat Ferret" 이지만 몽구스이고,
+    /// 자루도는 환상이라 세트 난도를 통째로 올린다. 시비꼬는 앵무라 지방새 자리가 아니다.
+    func testBorderlineMembersStayOut() {
+        let excluded = [("cats", 335), ("monkeys", 893), ("route-birds", 931)]
+        for (id, species) in excluded {
+            let set = CollectionCatalog.all.first { $0.id == id }
+            XCTAssertFalse(set?.speciesIDs.contains(species) ?? true,
+                           "\(id) 에 경계 멤버 \(species) 가 들어 있다")
+        }
+    }
+
+    /// 팔데아의 지방새는 찌리비 쪽이다 — 대조군. 없으면 "동네새를 다 뺐다" 도 위를 통과한다.
+    func testTheRouteBirdSetStillCoversEveryGeneration() throws {
+        let set = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "route-birds" })
+        for first in [16, 163, 276, 396, 519, 661, 731, 821, 940] {
+            XCTAssertTrue(set.speciesIDs.contains(first), "\(first) 세대의 동네새가 빠졌다")
+        }
+    }
+
+    /// 새 세트도 기존 규율을 지킨다 — 이름이 세 언어에 있고, 종이 안 겹치고, 범위 안이다.
+    func testEveryNewSetIsWellFormed() {
+        for set in CollectionCatalog.all {
+            XCTAssertEqual(Set(set.speciesIDs).count, set.speciesIDs.count,
+                           "\(set.id) 에 같은 종이 두 번 있다")
+            XCTAssertFalse(set.speciesIDs.isEmpty, "\(set.id) 가 비어 있다")
+            for species in set.speciesIDs {
+                XCTAssertTrue((1...1025).contains(species), "\(set.id) 의 \(species) 가 범위 밖")
+            }
+            for lang in AppLanguage.allCases {
+                let label = CollectionCatalog.label(set.id, lang)
+                XCTAssertNotEqual(label, set.id, "\(set.id) 의 \(lang) 이름이 없다")
+                XCTAssertFalse(label.isEmpty)
+            }
+        }
+    }
+}
