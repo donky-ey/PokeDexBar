@@ -51,9 +51,62 @@ enum CollectionCatalog {
         CollectionSet(id: "johto-starters",
                       speciesIDs: [152, 153, 154, 155, 156, 157, 158, 159, 160],
                       rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "hoenn-starters",
+                      speciesIDs: [252, 253, 254, 255, 256, 257, 258, 259, 260],
+                      rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "sinnoh-starters",
+                      speciesIDs: [387, 388, 389, 390, 391, 392, 393, 394, 395],
+                      rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "unova-starters",
+                      speciesIDs: [495, 496, 497, 498, 499, 500, 501, 502, 503],
+                      rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "kalos-starters",
+                      speciesIDs: [650, 651, 652, 653, 654, 655, 656, 657, 658],
+                      rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "alola-starters",
+                      speciesIDs: [722, 723, 724, 725, 726, 727, 728, 729, 730],
+                      rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "galar-starters",
+                      speciesIDs: [810, 811, 812, 813, 814, 815, 816, 817, 818],
+                      rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "paldea-starters",
+                      speciesIDs: [906, 907, 908, 909, 910, 911, 912, 913, 914],
+                      rewards: [.item(.expCandy, 10)]),
         // 피카츄 닮은꼴 — 세대마다 하나씩 나오는 "전기 마스코트" 계보(따라큐는 위장으로 합류).
         CollectionSet(id: "pika-clones",
                       speciesIDs: [25, 311, 312, 417, 587, 702, 777, 778, 877, 921],
+                      rewards: [.item(.expCandy, 10)]),
+        // 동물로 묶은 넷 — 종족 설명(genus)이 그 동물을 말하는 종을 씨앗으로 삼고 **진화 라인
+        // 전체**로 폈다. 씨앗을 눈으로 고르지 않은 이유는 파밀리쥐 때와 같다: 기억은 틀리고
+        // 데이터는 안 틀린다. 다만 genus 는 라인 중간에서 말이 바뀌므로(불꽃숭이=Chimp 인데
+        // 초염몽=Flame) 씨앗만으로는 라인이 끊긴다 — 그래서 라인으로 편다.
+        //
+        // **부분문자열로 찾으면 안 된다**: "Fly*cat*cher"(우츠동)·"Bug *Cat*cher"(마스체리)가
+        // 고양이로, 한국어 "개"가 *개*구리·*개*미로 걸린다. 단어 경계로 찾은 결과다.
+        //
+        // genus 가 안 잡지만 같은 무리인 것만 손으로 보탰다 — 불·물 원숭이 형제(genus 가
+        // High Temp·Spray 라 안 걸린다), 냐스퍼·냐오닉스, 그리고 개 계열 셋.
+        CollectionSet(id: "monkeys",
+                      speciesIDs: [56, 57, 287, 288, 289, 390, 391, 392,
+                                   511, 512, 513, 514, 515, 516,
+                                   810, 811, 812, 944, 945, 979],
+                      rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "cats",
+                      speciesIDs: [52, 53, 300, 301, 431, 432, 677, 678,
+                                   725, 726, 727, 863, 906, 907, 908],
+                      rewards: [.item(.expCandy, 10)]),
+        CollectionSet(id: "dogs",
+                      speciesIDs: [58, 59, 209, 210, 228, 229, 261, 262,
+                                   506, 507, 508, 744, 745, 835, 836,
+                                   926, 927, 971, 972],
+                      rewards: [.item(.expCandy, 10)]),
+        // 동네새 — **이것만 genus 가 아니라 관례다.** "초반 루트의 새"는 데이터에 없는 개념이라
+        // 세대마다 하나씩(관동만 둘) 손으로 골랐다. 팔데아는 시비꼬(앵무)가 아니라 찌리비 —
+        // 지방새 자리를 맡는 쪽이 그쪽이다.
+        CollectionSet(id: "route-birds",
+                      speciesIDs: [16, 17, 18, 21, 22, 163, 164, 276, 277,
+                                   396, 397, 398, 519, 520, 521, 661, 662, 663,
+                                   731, 732, 733, 821, 822, 823, 940, 941],
                       rewards: [.item(.expCandy, 10)]),
         // 되살린 화석 — 여섯 세대의 화석 25종 전부(복원 라인 포함).
         CollectionSet(id: "fossils",
@@ -116,6 +169,17 @@ enum CollectionCatalog {
         case "sword-shield": names = ("검과 방패", "Sword and Shield", "けんと たて")
         case "sun-moon": names = ("해와 달", "Sun and Moon", "たいようと つき")
         case "johto-starters": names = ("성도 스타터", "Johto Starters", "ジョウトの さいしょのポケモン")
+        case "hoenn-starters": names = ("호연 스타터", "Hoenn Starters", "ホウエンの さいしょのポケモン")
+        case "sinnoh-starters": names = ("신오 스타터", "Sinnoh Starters", "シンオウの さいしょのポケモン")
+        case "unova-starters": names = ("하나 스타터", "Unova Starters", "イッシュの さいしょのポケモン")
+        case "kalos-starters": names = ("칼로스 스타터", "Kalos Starters", "カロスの さいしょのポケモン")
+        case "alola-starters": names = ("알로라 스타터", "Alola Starters", "アローラの さいしょのポケモン")
+        case "galar-starters": names = ("가라르 스타터", "Galar Starters", "ガラルの さいしょのポケモン")
+        case "paldea-starters": names = ("팔데아 스타터", "Paldea Starters", "パルデアの さいしょのポケモン")
+        case "monkeys": names = ("원숭이 포켓몬", "The Monkeys", "サルポケモン")
+        case "cats": names = ("고양이 포켓몬", "The Cats", "ネコポケモン")
+        case "dogs": names = ("강아지 포켓몬", "The Dogs", "イヌポケモン")
+        case "route-birds": names = ("동네새 포켓몬", "Route Birds", "まちの とりポケモン")
         case "pika-clones": names = ("피카츄 닮은꼴", "The Pika Look-alikes", "ピカチュウの にたものたち")
         case "fossils": names = ("되살린 화석", "Revived Fossils", "よみがえった カセキ")
         case "pseudo-legendaries": names = ("600족", "Pseudo-Legendaries", "600ぞく")
