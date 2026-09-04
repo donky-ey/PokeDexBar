@@ -94,8 +94,8 @@ final class DailyQuestTests: XCTestCase {
         }
         // 대조군 — 마음먹으면 되는 종류는 사다리를 갖는다. 없으면 "전부 하나" 도 통과한다.
         XCTAssertGreaterThan(DailyQuest.targets(for: .drawEggs).count, 1)
-        XCTAssertFalse(DailyQuest.conditionGated.contains(.openOffer),
-                       "박사는 매일 셋을 내민다 — 조건에 걸린 종류가 아니다")
+        XCTAssertFalse(DailyQuest.conditionGated.contains(.sendToProfessor),
+                       "보내기는 박스에 여분만 있으면 된다 — 조건에 걸린 종류가 아니다")
     }
 
     /// 값이 드는 목표와 안 드는 목표를 갈라 둔다 — 대조군. 없으면 비용을 전부 0 으로 만드는
@@ -103,7 +103,7 @@ final class DailyQuestTests: XCTestCase {
     func testTheCostlyKindsAreTheOnesThatActuallyCost() {
         XCTAssertGreaterThan(DailyQuest.tokenCost(for: .init(kind: .drawEggs, target: 1)), 0)
         XCTAssertGreaterThan(DailyQuest.tokenCost(for: .init(kind: .useCandy, target: 1)), 0)
-        for kind in [DailyQuest.Kind.hatchEggs, .evolve, .sendToProfessor, .openOffer] {
+        for kind in [DailyQuest.Kind.hatchEggs, .evolve, .sendToProfessor] {
             XCTAssertEqual(DailyQuest.tokenCost(for: .init(kind: kind, target: 1)), 0, "\(kind)")
         }
     }
@@ -214,10 +214,10 @@ final class DailyQuestTests: XCTestCase {
         XCTAssertEqual(store.state.dailyCounts["drawEggs"], 5)
     }
 
-    /// **오늘의 목표는 홈에 있다**(사용자 판단). 도감 탭에 두면 자주 안 여는 화면에 하루짜리가
-    /// 갇혀, 있는 줄도 모르고 하루가 지난다. 뷰를 옮겨 놓고 홈에 붙이는 걸 잊는 부류를 막는다 —
-    /// 성별 보정이 뷰에 매달려 영영 안 돌던 것과 같은 배선 공백이라 소스로 확인한다.
-    func testTheDailyGoalsLiveOnHome() throws {
+    /// **의뢰는 박사의 제안 바로 아래에 산다**(사용자 판단). 보상이 박사 포인트인데 그 포인트를
+    /// 쓰는 자리와 멀면 벌고 쓰는 순환이 안 닫힌다. 자리를 두 번 옮겼으므로(도감 → 홈 → 상점)
+    /// **떠난 자리에 안 남았는지**까지 본다 — 두 곳에 있으면 나중에 하나만 고쳐진다.
+    func testTheRequestsLiveUnderTheProfessor() throws {
         let ui = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/PokeDexBar/UI")
@@ -228,10 +228,16 @@ final class DailyQuestTests: XCTestCase {
                 .map { $0.contains("//") ? String($0[..<$0.range(of: "//")!.lowerBound]) : String($0) }
                 .joined(separator: "\n")
         }
-        XCTAssertTrue(try code("PopoverView.swift").contains("DailyGoalsView(store:"),
-                      "홈이 오늘의 목표를 안 그린다")
-        XCTAssertFalse(try code("NationalDexView.swift").contains("DailyGoalsView"),
-                       "도감 탭에 아직 남아 있다 — 두 곳에 있으면 하나만 고쳐진다")
+        XCTAssertTrue(try code("ShopTabView.swift").contains("DailyGoalsView(store:"),
+                      "상점이 의뢰를 안 그린다")
+        for left in ["PopoverView.swift", "NationalDexView.swift"] {
+            XCTAssertFalse(try code(left).contains("DailyGoalsView"), "\(left) 에 아직 남아 있다")
+        }
+        // 박사 아래인지 — 순서가 뒤집히면 "박사가 준 의뢰" 라는 배치의 뜻이 사라진다.
+        let shop = try code("ShopTabView.swift")
+        XCTAssertLessThan(try XCTUnwrap(shop.range(of: "ProfessorOfferSection")).lowerBound,
+                          try XCTUnwrap(shop.range(of: "DailyGoalsView")).lowerBound,
+                          "의뢰가 박사보다 위에 있다")
     }
 
     /// 세 언어 모두 문장이 있어야 한다 — 종류를 더하고 번역을 빼먹으면 그 줄이 빈칸이 된다.

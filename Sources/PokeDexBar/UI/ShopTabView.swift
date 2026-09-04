@@ -48,6 +48,10 @@ struct ShopTabView: View {
                 walletRow
                 ProfessorOfferSection(store: store, provider: provider, lines: lines,
                                       onNeedLine: onNeedLine)
+                // 의뢰는 **박사 바로 아래**에 붙인다(사용자 결정). 보상이 박사 포인트인데 그
+                // 포인트를 쓰는 자리가 바로 위라, 벌고 쓰는 순환이 한 화면에서 닫힌다 — 홈에
+                // 뒀을 땐 보상과 쓰임새가 탭 하나를 사이에 두고 떨어져 있었다.
+                DailyGoalsView(store: store)
                 Divider()
                 drawSection
                 slotSection

@@ -2,9 +2,10 @@ import SwiftUI
 
 /// 오늘의 목표 — 홈 탭. 하루면 사라지는 과제 셋과, 셋을 다 받은 날의 덤.
 ///
-/// **홈에 있는 이유**(사용자 판단): 처음엔 도감 탭의 미션 위에 뒀는데, 도감은 "무엇을 모았나"를
-/// 보는 화면이라 오늘 할 일과 아무 상관이 없고 자주 열지도 않는다 — 하루면 사라질 것을 거기 두면
-/// 있는 줄도 모르고 지나간다. 목표가 가리키는 행동(뽑기·부화·진화)도 홈과 상점 쪽 일이다.
+/// **박사의 제안 바로 아래에 산다**(사용자 판단). 자리를 두 번 옮겼다: 도감 탭의 미션 위 →
+/// 홈 → 여기. 도감은 "무엇을 모았나"를 보는 화면이라 오늘 할 일과 상관이 없었고, 홈은 자주
+/// 보이지만 **보상(박사 포인트)을 쓰는 자리와 탭 하나가 떨어져** 있었다. 박사 아래에 두면
+/// 벌고 쓰는 순환이 한 화면에서 닫히고, 의뢰를 누가 주는지도 자리로 설명된다.
 ///
 /// 팝오버에서 떼어 둔 이유는 `DayCareSlotsView` 와 같다: 이 줄만 따로 오프스크린 렌더해
 /// 릴리스 그림으로 쓸 수 있어야 하고, 펼침 상태가 홈 전체의 상태와 안 섞인다.
@@ -31,6 +32,9 @@ struct DailyGoalsView: View {
                 HStack(spacing: 5) {
                     Image(systemName: expanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary)
+                    // 얼굴이 제목 앞에 온다 — 박사의 제안 헤더와 같은 관례로, 이 목록이
+                    // 누가 시킨 일인지를 글자보다 먼저 말한다.
+                    ProfessorIcon(size: 14)
                     Text(store.l.dailySection).font(.system(size: 10, weight: .semibold))
                     if claimable > 0 {
                         Text(store.l.missionClaimableBadge(claimable))

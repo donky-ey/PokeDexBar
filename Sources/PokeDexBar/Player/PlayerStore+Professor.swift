@@ -137,7 +137,6 @@ extension PlayerStore {
               !state.professorOffers[slot].opened else { return nil }
         let individual = state.professorOffers[slot].individual
         mutate { $0.professorOffers[slot].opened = true }
-        countDailyActivity(.openOffer)
         return individual
     }
 

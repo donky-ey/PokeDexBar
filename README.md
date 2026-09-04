@@ -177,10 +177,10 @@ Filling the Dex now carries missions, shaped after the games: rewards at registr
 </tr>
 <tr>
 <td width="55%" valign="middle">
-<h3>✅ Three goals a day, on the Home tab</h3>
-Three small goals sit under the hatching row and reset with the day: draw eggs, hatch them, evolve something, send a Pokémon to the Professor, open one of his offers. They pay <b>research points</b> rather than currency — the Professor's own coin, which cannot buy eggs and cannot be bought with tokens, so a daily habit never outpaces the shop. Clear all three and you get one EXP Candy, once. The three are rolled from the day and from your save's own seed, so they are yours rather than everyone's, and no goal ever asks you to spend more than a day's worth of tokens.
+<h3>✅ Three requests a day, from the Professor</h3>
+Three small requests sit under the Professor's offer and reset with the day: draw eggs, hatch them, evolve something, send a Pokémon his way. They pay <b>research points</b> rather than currency — the Professor's own coin, which cannot buy eggs and cannot be bought with tokens, so a daily habit never outpaces the shop. Clear all three and you get one EXP Candy, once. The three are rolled from the day and from your save's own seed, so they are yours rather than everyone's, and no request ever asks you to spend more than a day's worth of tokens.
 </td>
-<td width="45%" align="center"><img src="assets/daily-goals.png" width="300" alt="Today's goals on the Home tab — one claimed, one ready to claim, one still in progress"></td>
+<td width="45%" align="center"><img src="assets/daily-goals.png" width="300" alt="The Professor's requests — one claimed, one ready to claim, one still in progress"></td>
 </tr>
 <tr>
 <td width="45%" align="center"><img src="assets/screenshot-collections.png" width="300" alt="The Dex tab's collections section — themed sets with medal badges on completed rows, member silhouettes, and reward lines"></td>

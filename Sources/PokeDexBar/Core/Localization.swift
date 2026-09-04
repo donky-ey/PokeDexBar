@@ -30,7 +30,9 @@ struct L {
     var bag: String { t("가방", "Bag", "バッグ") }
 
     // MARK: 오늘의 목표 — 하루짜리 과제 셋
-    var dailySection: String { t("오늘의 목표", "Today's goals", "きょうの もくひょう") }
+    /// **박사가 내미는 의뢰**로 말한다(사용자 결정). 보상이 박사 포인트이고 자리도 박사의
+    /// 제안 바로 아래라, "오늘의 목표"라는 주인 없는 이름보다 누가 시킨 일인지가 분명하다.
+    var dailySection: String { t("박사의 의뢰", "The Professor's requests", "はかせの いらい") }
     /// 과제 문장. **목표치를 문장 안에 넣는다** — "알 뽑기 · 3" 처럼 쪼개면 3이 무엇의 3인지
     /// 읽는 데 한 박자가 든다.
     func dailyQuestLabel(_ kind: DailyQuest.Kind, _ target: Int) -> String {
@@ -44,8 +46,6 @@ struct L {
                           "けいけんちアメを \(target)こ つかう")
         case .sendToProfessor: t("박사에게 \(target)마리 보내기", "Send \(target) to the Professor",
                                  "はかせに \(target)ひき おくる")
-        case .openOffer: t("박사의 제안 \(target)칸 열기", "Open \(target) of the Professor's offers",
-                           "はかせの ていあんを \(target)まい あける")
         }
     }
     /// 보상 표시 — 박사 포인트.
@@ -54,7 +54,7 @@ struct L {
     }
     /// 셋을 다 받은 날의 덤.
     var dailyBonusLabel: String {
-        t("오늘의 목표를 모두 끝냈어요", "All of today's goals are done", "きょうの もくひょうを すべて たっせい")
+        t("오늘 의뢰를 모두 끝냈어요", "Every request done today", "きょうの いらいを すべて たっせい")
     }
 
     // MARK: 도감 미션
