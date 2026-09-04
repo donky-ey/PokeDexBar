@@ -180,6 +180,26 @@ final class DailyQuestTests: XCTestCase {
         XCTAssertEqual(store.state.dailyCounts["drawEggs"], 5)
     }
 
+    /// **오늘의 목표는 홈에 있다**(사용자 판단). 도감 탭에 두면 자주 안 여는 화면에 하루짜리가
+    /// 갇혀, 있는 줄도 모르고 하루가 지난다. 뷰를 옮겨 놓고 홈에 붙이는 걸 잊는 부류를 막는다 —
+    /// 성별 보정이 뷰에 매달려 영영 안 돌던 것과 같은 배선 공백이라 소스로 확인한다.
+    func testTheDailyGoalsLiveOnHome() throws {
+        let ui = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/PokeDexBar/UI")
+        func code(_ file: String) throws -> String {
+            let text = try String(contentsOf: ui.appendingPathComponent(file), encoding: .utf8)
+            // 주석을 먼저 걷어낸다 — 통짜 검색은 바로 위 주석의 같은 낱말에 걸린다.
+            return text.split(separator: "\n")
+                .map { $0.contains("//") ? String($0[..<$0.range(of: "//")!.lowerBound]) : String($0) }
+                .joined(separator: "\n")
+        }
+        XCTAssertTrue(try code("PopoverView.swift").contains("DailyGoalsView(store:"),
+                      "홈이 오늘의 목표를 안 그린다")
+        XCTAssertFalse(try code("NationalDexView.swift").contains("DailyGoalsView"),
+                       "도감 탭에 아직 남아 있다 — 두 곳에 있으면 하나만 고쳐진다")
+    }
+
     /// 세 언어 모두 문장이 있어야 한다 — 종류를 더하고 번역을 빼먹으면 그 줄이 빈칸이 된다.
     func testEveryKindHasASentenceInEveryLanguage() {
         for lang in AppLanguage.allCases {
