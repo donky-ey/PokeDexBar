@@ -244,14 +244,24 @@ struct EggSlotsView: View {
                 .strokeBorder(Color.secondary.opacity(canDraw ? 0.30 : 0.12), lineWidth: 1)
                 .frame(width: Self.tileSize, height: Self.tileSize)
                 .overlay {
-                    VStack(spacing: 2) {
-                        Image(systemName: drawing ? "hourglass" : "plus")
-                            .font(.system(size: 13, weight: .semibold))
+                    // 옆 알 칸과 **같은 문법**이다 — 그림 / 한 줄 / 작은 한 줄. 나란히 서면
+                    // "이걸 누르면 저게 하나 생긴다"로 읽힌다.
+                    VStack(spacing: 1) {
+                        // 실루엣은 **글자보다 한 단 낮게**. 흰 알로 두면 줄에서 가장 밝은 것이 돼서
+                        // `Open` 배지(이 줄의 주인공)를 눌러버린다 — 회색 알이 "아직 모른다"는
+                        // 뜻에도 맞는다. 버튼의 정체는 글자가 맡는다.
+                        drawGlyph
+                            .foregroundStyle(canDraw ? AnyShapeStyle(.secondary)
+                                                     : AnyShapeStyle(.tertiary))
+                        // **`plus` 를 쓰면 안 된다** — 이 앱은 부화 슬롯을 실제로 돈 받고 팔아서,
+                        // 슬롯 줄에 선 `+` 는 "슬롯 추가"로 읽힌다(사용자 지적). 하는 일을 글자로 적는다.
+                        Text(l.shopDrawButton)
+                            .font(.system(size: 8, weight: .bold))
                             .foregroundStyle(canDraw ? AnyShapeStyle(.primary)
                                                      : AnyShapeStyle(.tertiary))
                         // 값은 **회색일 때도 보인다** — 얼마가 모자란지 알아야 기다릴 수 있다.
                         Text(TokenFormatter.compact(EggBalance.drawPrice))
-                            .font(.system(size: 8, weight: .semibold)).monospacedDigit()
+                            .font(.system(size: 7, weight: .semibold)).monospacedDigit()
                             .foregroundStyle(canDraw ? AnyShapeStyle(.secondary)
                                                      : AnyShapeStyle(.tertiary))
                     }
@@ -259,6 +269,19 @@ struct EggSlotsView: View {
         }
         .buttonStyle(.plain)
         .disabled(!canDraw)
+    }
+
+    /// 뽑기 칸의 그림. **등급 없는 알**이어야 한다 — 커먼 알 그림을 그대로 쓰면 "커먼이
+    /// 나온다"로 읽히는데, 무엇이 나올지는 뽑아야 안다. 그래서 같은 그림을 실루엣(템플릿)으로
+    /// 쓴다. CALayer 필터(`.brightness` 류)로 어둡게 하는 방법은 스크린샷 생성기의 그리기
+    /// 경로에서 빠지므로 쓰지 않는다(도감 실루엣이 같은 이유로 템플릿 렌더링을 쓴다).
+    @ViewBuilder private var drawGlyph: some View {
+        if drawing {
+            Image(systemName: "hourglass").font(.system(size: 14, weight: .semibold))
+        } else if let art = EggIcon.image(for: .common) {
+            Image(nsImage: art).resizable().renderingMode(.template)
+                .interpolation(.high).scaledToFit().frame(width: 15, height: 18)
+        }
     }
 
     private var emptySlot: some View {
