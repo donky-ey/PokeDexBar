@@ -329,17 +329,24 @@ actor PokeAPIClient: PokeProviding {
     /// 레벨 규칙(그 외 미명시) 순으로 고정이다. 통신교환은 도구가 따로 없으므로 연결의 끈으로
     /// 대신한다 — 이 앱에는 교환 상대가 없다. `speciesID` 는 카탈로그 조회 키, `parentLevel` 은
     /// 이 갈래 바로 앞 단계가 도달한 레벨(뿌리는 1) — 레벨이 안 적힌 갈래의 하한 계산(`EvoBalance`)에 쓴다.
+    /// 이 조건줄이 **지방 모습의 것인가.** `base_form` 슬러그가 지방 접미사(`Region`)로 끝나면
+    /// 그렇다 — `meowth-alola`·`sandshrew-alola`·`slowpoke-galar` 처럼.
+    ///
+    /// 접미사로 보는 이유는 `base_form` 이 원종을 가리키는 경우가 많아서다(이브이의 여덟 갈래가
+    /// 전부 `eevee` 다). 값의 유무로 가르면 이브이·피카츄가 조건을 통째로 잃는다.
+    static func isRegional(_ detail: EvolutionDetail) -> Bool {
+        guard let slug = detail.base_form?.name else { return false }
+        return Region.allCases.contains { slug.hasSuffix("-\($0.rawValue)") }
+    }
+
     static func requirement(from details: [EvolutionDetail]?, speciesID: Int, parentLevel: Int) -> EvoRequirementRaw {
-        guard let details, !details.isEmpty else { return .none }
-        for (index, d) in details.enumerated() {
-            // **레벨이 *다른* 조건줄에 있으면 이 도구는 지방 모습의 것이다**(모래사원·야도란·
-            // 붐볼·불카모스 4종 — 전수 확인). 여기서 도구를 집으면 원종의 레벨 조건이 통째로
-            // 사라져, 관동 모래두지가 얼음의돌만 있으면 **레벨 1에** 진화한다(사용자 제보).
-            //
-            // **같은 줄 안의 레벨은 다르다** — 그건 이 조건의 일부라 도구가 이긴다(기존 규칙
-            // `testAnItemStillWinsOverALevel`). 실제 응답에 그런 줄은 0건이지만, 두 경우를
-            // 뭉뚱그리면 그 규칙이 조용히 뒤집힌다.
-            if Self.levelLivesInAnotherDetail(details, itemIndex: index) { continue }
+        guard let all = details, !all.isEmpty else { return .none }
+        // **지방 모습의 줄은 원종의 조건이 아니다.** 갈라내지 않으면 알로라의 친밀도가 관동의
+        // 레벨을 가로채고(나옹), 알로라의 얼음의돌이 관동의 레벨을 가로챈다(모래두지).
+        // 지방 줄밖에 없는 갈래(나이킹·창치·마임꽁꽁)는 그대로 넘겨 예전 폴백을 그대로 쓴다.
+        let own = all.filter { !Self.isRegional($0) }
+        let details = own.isEmpty ? all : own
+        for d in details {
             if let item = d.item?.name, EvolutionItem.named(item) != nil {
                 return .item(item)
             }
@@ -365,23 +372,22 @@ actor PokeAPIClient: PokeProviding {
         // `.none` 으로 두면 조건 없이 즉시 진화해 버린다.
         return .level(max(parentLevel + EvoBalance.marginOverParent, EvoBalance.unstatedLevel))
     }
-    /// 지방 모습에만 걸리는 도구 조건. 원종이 레벨로 진화하는데 도구 조건이 함께 온 갈래에서만
-    /// 값이 나온다(4종). 그 외에는 nil 이라 지방 모습도 원종과 같은 조건을 쓴다.
+    /// 지방 모습에만 걸리는 조건. 원종과 조건이 갈리는 갈래에서만 값이 나오고, 같으면 nil 이라
+    /// 지방 모습도 원종의 조건을 쓴다.
+    ///
+    /// **도구만 보면 안 된다** — 알로라 나옹은 친밀도이고(도구가 없다) 예전 판은 그 조건을
+    /// 통째로 잃었다. 원종 쪽과 같은 우선순위(도구 → 친밀도 → 레벨)로 읽는다.
     static func regionalRequirement(from details: [EvolutionDetail]?) -> EvoRequirementRaw? {
         guard let details else { return nil }
-        for (index, d) in details.enumerated()
-        where Self.levelLivesInAnotherDetail(details, itemIndex: index) {
+        let regional = details.filter(Self.isRegional)
+        guard !regional.isEmpty else { return nil }
+        for d in regional {
             if let item = d.item?.name, EvolutionItem.named(item) != nil { return .item(item) }
+            if let held = d.held_item?.name, EvolutionItem.named(held) != nil { return .item(held) }
         }
+        if regional.contains(where: { ($0.min_happiness ?? 0) > 0 }) { return .friendship }
+        if let stated = regional.compactMap(\.min_level).min() { return .level(stated) }
         return nil
-    }
-
-    /// `itemIndex` 줄의 도구가 **지방 모습의 것인가** — 레벨 조건이 다른 줄에 따로 있으면 그렇다.
-    /// 같은 줄에 있으면 한 조건의 두 부분이므로 아니다.
-    static func levelLivesInAnotherDetail(_ details: [EvolutionDetail], itemIndex: Int) -> Bool {
-        details.enumerated().contains { other, d in
-            other != itemIndex && (d.min_level ?? 0) > 0
-        }
     }
 
     /// 성별 제한 — **요구 조건과 따로 싣는다.** 조건 enum 에 넣으면 "새벽의돌 **그리고** 수컷"
@@ -468,4 +474,11 @@ struct EvolutionDetail: Decodable, Sendable {
     let min_level: Int?
     /// 성별 제한(1=암컷, 2=수컷). 제한이 없으면 nil — 전 1025종에서 여섯 갈래만 값이 있다.
     let gender: Int?
+    /// **이 조건줄이 누구 것인가.** 응답이 알려 주는데 지금까지 안 읽고 있었다 — 그래서 파서가
+    /// 줄의 주인을 휴리스틱으로 추측했고, 관동 나옹이 알로라의 친밀도를 물려받았다(사용자 제보).
+    ///
+    /// **"값이 있으면 지방 모습"이 아니다.** 전수 확인(484갈래): 39갈래에 값이 있는데 그중 22갈래는
+    /// 모든 줄이 값을 갖고, 이브이·피카츄·플라베베·루가루암·호루비·바스라오는 그 값이 *원종 자신*을
+    /// 가리킨다. 주인을 가르는 건 값의 유무가 아니라 **지방 접미사**다(`Self.isRegional`).
+    let base_form: NamedRef?
 }

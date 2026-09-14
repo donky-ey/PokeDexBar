@@ -11,7 +11,7 @@ import Foundation
 enum DailyQuest {
     /// 셀 수 있는 활동. `rawValue` 가 곧 오늘치 계수기의 키다.
     enum Kind: String, Codable, Sendable, CaseIterable {
-        case drawEggs, hatchEggs, evolve, useCandy, sendToProfessor, openOffer
+        case drawEggs, hatchEggs, evolve, useCandy, sendToProfessor
     }
 
     struct Quest: Equatable, Sendable, Identifiable {
@@ -41,7 +41,6 @@ enum DailyQuest {
         // (50M · 15P)과 서른 배가 벌어졌다(사용자 지적). 목표가 아니라 세금이 된다.
         case .useCandy: [1]
         case .sendToProfessor: [1, 3]
-        case .openOffer: [1, 3]
         }
     }
 
@@ -53,7 +52,7 @@ enum DailyQuest {
         switch quest.kind {
         case .drawEggs: quest.target * EggBalance.drawPrice
         case .useCandy: quest.target * ShopItem.expCandy.price
-        case .hatchEggs, .evolve, .sendToProfessor, .openOffer: 0
+        case .hatchEggs, .evolve, .sendToProfessor: 0
         }
     }
 
@@ -61,8 +60,8 @@ enum DailyQuest {
     /// 진화 가능한 개체가 아예 없는 날이 흔하다 — 그런 종류에 둘 이상을 요구하면 어려운 게
     /// 아니라 불가능해지고, 셋 중 하나가 불가능하면 그날의 덤까지 같이 닫힌다.
     ///
-    /// 나머지는 마음먹으면 오늘 안에 할 수 있다: 뽑기는 지갑만 되면 되고, 부화는 뽑으면 따라오고,
-    /// 보내기는 박스에 여분만 있으면 되고, 제안은 박사가 **매일** 셋을 내민다.
+    /// 나머지는 마음먹으면 오늘 안에 할 수 있다: 뽑기는 지갑만 되면 되고, 부화는 뽑으면
+    /// 따라오고, 보내기는 박스에 여분만 있으면 된다.
     static let conditionGated: Set<Kind> = [.evolve]
 
     /// 하루짜리 목표가 요구해도 되는 지출의 상한 — **하루 수입 한 벌**(실사용 관찰 500M/일).
