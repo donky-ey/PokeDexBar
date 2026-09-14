@@ -212,7 +212,8 @@ struct PopoverView: View {
                 // (알이 없으면 틱도 없다 — `TogglingSecondTick`).
                 TimelineView(TogglingSecondTick(isOn: Self.needsCountdownTick(player.state))) { context in
                     EggSlotsView(store: player, now: context.date, lines: evoLines,
-                                 onNeedLine: { baseID in loadLine(baseID) })
+                                 onNeedLine: { baseID in loadLine(baseID) },
+                                 provider: provider)
                 }
                 Divider()
                 header

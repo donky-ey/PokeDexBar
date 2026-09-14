@@ -15,8 +15,17 @@ struct EggSlotsView: View {
     /// 나왔는지 와닿지 않는다). 아직 없으면 `onNeedLine` 으로 요청하고 번호로 떨어진다.
     var lines: [Int: EvoLine] = [:]
     var onNeedLine: (Int) -> Void = { _ in }
+    /// 뽑기가 종을 고르려면 후보 인덱스가 필요하다. **뽑기가 상점에서 여기로 온 이유**는
+    /// 그 결과가 놓이는 자리가 여기이기 때문이다 — 빈 슬롯을 요구하고, 빈 슬롯 수를 보여 주고,
+    /// 뽑으면 그 칸에 알이 떨어지는데, 정작 버튼만 다른 탭에 있었다(사용자 지적).
+    var provider: (any PokeProviding)?
     /// 방금 거둔 개체 — 연출 중에만 non-nil. 이미 박스에 들어가 있어서 닫아도 잃는 것이 없다.
     @State private var hatched: Individual?
+    /// 뽑기 연출 — 등급·이로치만 안다(무엇이 나왔는지는 깨야 안다).
+    @State private var reveal: (grade: Grade, shiny: Bool)?
+    @State private var drawing = false
+    @State private var drawError: String?
+    @State private var drawTask: Task<Void, Never>?
 
     nonisolated private static let tileSize: CGFloat = 52
     nonisolated private static let tileSpacing: CGFloat = 6
@@ -52,6 +61,11 @@ struct EggSlotsView: View {
                 Text(l.eggSlotsHeader).font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
+                // 재화가 여기 온 이유: 빈 칸 버튼이 회색일 때 **지갑 때문인지 자리 때문인지**를
+                // 이 줄에서 가릴 수 있어야 한다. 둘 다 이 한 줄에 있다.
+                Text(TokenFormatter.compact(store.state.wallet))
+                    .font(.system(size: 9, weight: .medium)).monospacedDigit()
+                    .foregroundStyle(.secondary)
                 Text("\(store.state.eggs.count) / \(store.state.slots)")
                     .font(.system(size: 9)).monospacedDigit().foregroundStyle(.tertiary)
             }
@@ -60,8 +74,10 @@ struct EggSlotsView: View {
                     ForEach(store.state.eggs) { egg in
                         slot(egg)
                     }
-                    ForEach(0..<max(0, store.state.slots - store.state.eggs.count), id: \.self) { _ in
-                        emptySlot
+                    // **첫 빈 칸만 뽑기 버튼**이다. 빈 칸마다 값을 적으면 "10M" 이 네 번 서서
+                    // 한 번의 동작이 네 개처럼 보인다 — 나머지는 여유 자리로 남긴다.
+                    ForEach(0..<max(0, store.state.slots - store.state.eggs.count), id: \.self) { index in
+                        if index == 0, provider != nil { drawSlot } else { emptySlot }
                     }
                 }
             }
@@ -70,6 +86,23 @@ struct EggSlotsView: View {
             // **툴팁이 아니라 인라인 한 줄이다.** 팝오버 안에서는 `.help` 가 안 뜬다(실사용 확인) —
             // 이 앱의 다른 `.help` 들도 마찬가지라, 안 보이는 곳에 설명을 두면 없는 것과 같다.
             //
+            // 확률은 값 바로 아래에 — 10M 이 무엇을 사는 값인지 말해 준다.
+            Text(Self.oddsText(store.language))
+                .font(.system(size: 8)).foregroundStyle(.tertiary)
+            if let drawError {
+                Text(drawError).font(.system(size: 9)).foregroundStyle(.orange)
+            }
+            // 확정권은 **뽑기 바로 아래**가 자리다(상점에 있을 때부터 그랬다) — 개봉이 늘 알이
+            // 태어나는 자리에서 일어나야 한다. 가진 것이 있을 때만 선다.
+            ForEach([ShopItem.rareEggTicket, .epicEggTicket, .legendaryEggTicket], id: \.self) { ticket in
+                if let grade = ticket.guaranteedGrade, store.count(of: ticket) > 0 {
+                    Button(l.shopTicketDraw(ticket.label(store.language), store.count(of: ticket))) {
+                        drawWithTicket(grade)
+                    }
+                    .buttonStyle(.bordered).controlSize(.mini)
+                    .disabled(store.freeSlots == 0 || drawing)
+                }
+            }
             // 감면은 알마다가 아니라 부화 전체에 걸리는 상태라 슬롯이 아니라 줄 아래 한 번 적는다.
             // 이게 없으면 카운트다운만 짧아져서 왜 빨라졌는지 알 길이 없다.
             if let warmer = HatchSpeedup.warmer(in: store.state.box) {
@@ -86,6 +119,12 @@ struct EggSlotsView: View {
         .onChange(of: now) { _, date in announceRipeEggs(at: date) }
         // 거둔 개체를 한 번 보여준다 — 확인을 누른 보람이 있어야 하고, 이걸 안 보면 무엇이
         // 나왔는지 박스에 들어가서야 알게 된다.
+        .overlay {
+            if let reveal {
+                EggRevealView(grade: reveal.grade, shiny: reveal.shiny, l: l,
+                              language: store.language) { self.reveal = nil }
+            }
+        }
         .overlay {
             if let hatched {
                 HatchedRevealView(individual: hatched, store: store,
@@ -148,9 +187,127 @@ struct EggSlotsView: View {
         hatched = individual
     }
 
+    /// **빈 칸이 곧 뽑기 버튼이다.** 옆에 버튼을 따로 두면 빈 칸이 장식이 되고 누를 곳이
+    /// 둘로 갈린다(키우미집 빈 자리에서 쓴 것과 같은 판단).
+    private var drawSlot: some View {
+        let canDraw = store.canDraw && !drawing && provider != nil
+        return Button { draw() } label: {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.accentColor.opacity(canDraw ? 0.55 : 0.25),
+                        style: StrokeStyle(lineWidth: 1, dash: [3]))
+                .frame(width: Self.tileSize, height: Self.tileSize)
+                .overlay {
+                    VStack(spacing: 2) {
+                        Image(systemName: drawing ? "hourglass" : "plus")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(canDraw ? Color.accentColor : .secondary)
+                        // 값은 **회색일 때도 보인다** — 얼마가 모자란지 알아야 기다릴 수 있다.
+                        Text(TokenFormatter.compact(EggBalance.drawPrice))
+                            .font(.system(size: 8, weight: .semibold)).monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(!canDraw)
+    }
+
     private var emptySlot: some View {
         RoundedRectangle(cornerRadius: 8)
             .stroke(Color.secondary.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [3]))
             .frame(width: Self.tileSize, height: Self.tileSize)
     }
+    /// 등급·이로치를 굴리고, 그 등급 안에서 베이스 종을 포획률 가중으로 고른다(`EggBalance.pickSpecies`).
+    /// 후보는 네트워크(베이스 인덱스)라 여기서 받아 스토어에 넘긴다.
+    private func draw() {
+        drawing = true
+        drawError = nil
+        drawTask = Task {
+            defer { drawing = false }
+            let roll = store.rollGradeAndShiny()
+            guard let provider, let index = try? await provider.baseSpeciesIndex(),
+                  !index.isEmpty else {
+                // 그 사이 뷰가 사라져 취소됐으면(팝오버 닫힘 등) 착지하지 않는다.
+                guard !Task.isCancelled else { return }
+                drawError = l.shopDrawFetchFailed
+                return
+            }
+            // 그 사이 뷰가 사라져 취소됐으면(팝오버 닫힘 등) 착지하지 않는다 — 늦게 도착한
+            // 조회가 다음 뽑기와 경합해 조용히 이기는 걸 막는다.
+            guard !Task.isCancelled else { return }
+            var chosen = EggBalance.pickSpecies(from: index, grade: roll.grade, roll: store.nextRandomUnit())
+            // 메타몽은 일반 후보 풀에서 빠져 있어(`PokeAPIClient`) 여기서만 들어온다 — 커먼 1/128.
+            // 종을 고른 **뒤에** 굴려 덮어쓴다. 앞에 두면 이 굴림이 후보 선택의 난수를 밀어내
+            // 기존 뽑기 결과가 통째로 달라진다.
+            if DittoDisguise.hits(grade: roll.grade, roll: store.nextRandomUnit()) {
+                chosen = DittoDisguise.speciesID
+            }
+            // 고른 종의 성장 타입을 인덱스에서 찾아 그대로 싣는다. 메타몽은 인덱스 자체에서
+            // 빠져 있어(`PokeAPIClient`) 못 찾으면 기본값(`.mediumFast`)으로 태어나는데,
+            // 실제로도 메타몽의 성장 타입이 미디엄패스트라 값이 어긋나지 않는다.
+            let entry = index.first(where: { $0.id == chosen })
+            let growthRate = entry?.growthRate ?? .mediumFast
+            let genderRate = entry?.genderRate ?? GenderBalance.defaultRate
+            drawError = Self.landDraw(store, grade: roll.grade, speciesID: chosen, shiny: roll.shiny,
+                                      growthRate: growthRate, genderRate: genderRate)
+            // 착지에 실패했으면(슬롯이 찼다 등) 축하할 것이 없다 — 문구만 남긴다.
+            if drawError == nil { reveal = (roll.grade, roll.shiny) }
+        }
+    }
+
+    /// 확정권 뽑기 — 등급이 정해져 있고 무료라는 점만 다르고, 종 선택·이로치·연출은 일반
+    /// 뽑기와 같은 길을 걷는다(메타몽 위장 포함 — 확정권이라고 위장이 안 오면 그게 특례다).
+    private func drawWithTicket(_ grade: Grade) {
+        drawing = true
+        drawError = nil
+        drawTask = Task {
+            defer { drawing = false }
+            guard let provider, let index = try? await provider.baseSpeciesIndex(),
+                  !index.isEmpty else {
+                guard !Task.isCancelled else { return }
+                drawError = l.shopDrawFetchFailed
+                return
+            }
+            guard !Task.isCancelled else { return }
+            var chosen = EggBalance.pickSpecies(from: index, grade: grade,
+                                                roll: store.nextRandomUnit())
+            if DittoDisguise.hits(grade: grade, roll: store.nextRandomUnit()) {
+                chosen = DittoDisguise.speciesID
+            }
+            let entry = index.first(where: { $0.id == chosen })
+            let growthRate = entry?.growthRate ?? .mediumFast
+            let genderRate = entry?.genderRate ?? GenderBalance.defaultRate
+            guard let egg = store.redeemEggTicket(grade: grade, speciesID: chosen,
+                                                  growthRate: growthRate, genderRate: genderRate) else {
+                drawError = l.shopDrawUnavailable
+                return
+            }
+            reveal = (egg.grade, egg.shiny)
+        }
+    }
+
+    /// 뽑기 확률 표기. 밸런스 표에서 만들어 문구와 수치가 어긋나지 않게 한다.
+    /// 언어는 필수 인자다(`AppLanguage` 의 "미정" 관례는 `.systemDefault` — `.ko` 를 기본값으로
+    /// 두면 이 파일만 다른 컨벤션을 갖게 된다). 화면에서는 스토어 언어를 그대로 넘긴다.
+    nonisolated static func oddsText(_ lang: AppLanguage) -> String {
+        EggBalance.odds
+            .map { "\($0.grade.label(lang)) \(Int($0.probability * 100))%" }
+            .joined(separator: " · ")
+    }
+
+    /// 뽑기 착지 — 알을 슬롯에 넣고, 못 넣었으면 보여줄 문구를 돌려준다(nil = 성공).
+    /// `startEgg` 은 착지 시점에 `canDraw` 가 아니면 nil 을 돌려준다: 후보를 기다리는 동안에도
+    /// 슬롯·아이템 버튼은 살아 있어 지갑이 뽑기 값 아래로 내려갈 수 있다. 그 nil 을 버리면
+    /// 사용자는 눌렀는데 재화도 안 줄고 알도 안 생기는 침묵을 본다.
+    /// 뷰 밖에서 잠글 수 있게 착지 지점만 떼어 둔다(`draw()` 는 네트워크 await 라 통째로는 못 잡는다).
+
+    /// 뽑은 알을 슬롯에 놓는다. 실패하면(자리가 없다 등) 문구를 돌려준다.
+    static func landDraw(_ store: PlayerStore, grade: Grade, speciesID: Int, shiny: Bool,
+                         growthRate: GrowthRate = .mediumFast,
+                         genderRate: Int = GenderBalance.defaultRate) -> String? {
+        store.startEgg(grade: grade, speciesID: speciesID, shiny: shiny,
+                       growthRate: growthRate, genderRate: genderRate) == nil
+            ? store.l.shopDrawUnavailable : nil
+    }
+
 }
