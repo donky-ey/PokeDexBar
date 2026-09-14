@@ -180,13 +180,13 @@ Filling the Dex now carries missions, shaped after the games: rewards at registr
 <h3>✅ Three requests a day, from the Professor</h3>
 Three small requests sit under the Professor's offer and reset with the day: draw eggs, hatch them, evolve something, send a Pokémon his way. They pay <b>research points</b> rather than currency — the Professor's own coin, which cannot buy eggs and cannot be bought with tokens, so a daily habit never outpaces the shop. Clear all three and you get one EXP Candy, once. The three are rolled from the day and from your save's own seed, so they are yours rather than everyone's, and no request ever asks you to spend more than a day's worth of tokens.
 </td>
-<td width="45%" align="center"><img src="assets/daily-goals.png" width="300" alt="The Professor's requests — one claimed, one ready to claim, one still in progress"></td>
+<td width="45%" align="center"><img src="assets/professor-requests.png" width="300" alt="The Professor's requests — one claimed, one ready to claim, one still in progress"></td>
 </tr>
 <tr>
 <td width="45%" align="center"><img src="assets/screenshot-collections.png" width="300" alt="The Dex tab's collections section — themed sets with medal badges on completed rows, member silhouettes, and reward lines"></td>
 <td width="55%" valign="middle">
 <h3>🎖️ Collections tell the stories</h3>
-Thirty-two themed sets sit beside the missions: the Legendary Birds, the Clone Truth (Mew, Mewtwo, Ditto), Eevee Friends, every fossil ever revived, the paradox Pokémon of past and future, <b>every generation's starter trio</b>, and four gathered by animal — the monkeys, the cats, the dogs, and the bird that waits on every region's first route. Members always show as inline silhouettes, so what's missing is visible at a glance. Completing a set lights a medal on its row and pays once — EXP Candies for most, a guaranteed Legendary Egg Ticket for the big ones. The Regi family is special: gather the five pillars and <b>Regigigas itself awakens</b>, joining your Box directly — it never hatches from an egg, and shiny odds apply as usual.
+Forty-five themed sets sit beside the missions: the Legendary Birds, the Clone Truth (Mew, Mewtwo, Ditto), Eevee Friends, every fossil ever revived, the paradox Pokémon of past and future, <b>every generation's starter trio</b>, four gathered by animal — the monkeys, the cats, the dogs, and the bird that waits on every region's first route — and a home for <b>every legendary and mythical</b>, from the Swords of Justice and the Island Guardians to the Treasures of Ruin and the Kitakami legend. Members always show as inline silhouettes, so what's missing is visible at a glance. Completing a set lights a medal on its row and pays once — EXP Candies for most, a guaranteed Legendary Egg Ticket for the big ones. The Regi family is special: gather the five pillars and <b>Regigigas itself awakens</b>, joining your Box directly — it never hatches from an egg, and shiny odds apply as usual.
 </td>
 </tr>
 <tr>

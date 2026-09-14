@@ -1015,9 +1015,10 @@ final class ScreenshotGeneratorTests: XCTestCase {
         // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
         try write(png(weatherBanner()), "weather-forms.png")
 
-        // 오늘의 목표 — 하나는 끝났고 하나는 받을 수 있고 하나는 진행 중인 상태가 이 기능의
-        // 전부다. §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
-        try write(png(dailyGoalsBanner()), "daily-goals.png")
+        // 박사의 제안 + 의뢰 — 이번 릴리스가 새로 만든 **배치**가 이것이다. 포인트를 버는 곳과
+        // 쓰는 곳이 한 자리에 붙었다는 게 요점이라, 둘을 따로 찍으면 그 뜻이 안 담긴다.
+        // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
+        try write(png(professorRequestsBanner(fixture)), "professor-requests.png")
 
         // 문제 제보 — 크래시 배너(홈)와 설정의 제보 줄을 위아래로. **픽스처에 크래시 기록을
         // 심어야 배너가 찍힌다** — 안 심으면 아무리 다시 생성해도 빈 자리만 나온다(설정
@@ -1563,25 +1564,46 @@ final class ScreenshotGeneratorTests: XCTestCase {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    /// 오늘의 목표 한 줄 — 홈의 그 뷰(`DailyGoalsView`)를 그대로 쓴다. 세 과제가 각각 다른
-    /// 상태(수령함·받을 수 있음·진행 중)여야 줄마다 무엇이 다른지 그림에서 읽힌다.
-    private func dailyGoalsBanner() -> some View {
-        let now = ScreenshotFixture.now
-        let store = PlayerStore(fileURL: FileManager.default.temporaryDirectory
-                                    .appendingPathComponent("daily-\(UUID().uuidString).json"),
-                                rng: SeededRNG(seed: 12), now: { now },
-                                defaults: UserDefaults(suiteName: "ptb-daily-\(UUID().uuidString)")!)
-        store.setLanguage(.en)
-        store.mutate { $0.lastDate = "2026-09-03"; $0.offerSeed = 42 }
+    /// 박사의 제안과 그 아래 의뢰를, 상점에 놓인 순서 그대로. 두 뷰 다 앱이 쓰는 것 그대로다.
+    private func professorRequestsBanner(_ fixture: Fixture) -> some View {
+        let store = fixture.player
+        // 의뢰를 세 가지 상태로 — 받음·받을 수 있음·진행 중. 한 상태만 보이면 줄마다 무엇이
+        // 다른지 그림에서 안 읽힌다.
+        // 제안 세 칸도 같이 심는다 — 비어 있으면 "오늘의 제안을 준비 중" 한 줄만 나와서,
+        // **벌고 쓰는 자리가 붙었다**는 이 그림의 요점이 사라진다. 한 칸은 닫힌 채로 둬
+        // 가려진 제안이라는 성질도 같이 보인다.
+        store.mutate {
+            $0.lastDate = "2026-09-14"
+            $0.offerSeed = 42
+            $0.researchPoints = 40
+            $0.professorOfferDate = $0.lastDate
+            $0.professorOffers = [
+                ProfessorOffer(individual: Individual(baseID: 25, speciesID: 25, pathIDs: [25],
+                                                      nature: .jolly, obtainedAt: ScreenshotFixture.now,
+                                                      grade: .common),
+                              opened: true),
+                ProfessorOffer(individual: Individual(baseID: 700, speciesID: 700, pathIDs: [700],
+                                                      shiny: true, nature: .modest,
+                                                      obtainedAt: ScreenshotFixture.now, grade: .epic)),
+                ProfessorOffer(individual: Individual(baseID: 133, speciesID: 133, pathIDs: [133],
+                                                      nature: .calm, obtainedAt: ScreenshotFixture.now,
+                                                      grade: .rare),
+                              opened: true),
+            ]
+        }
         let quests = store.dailyQuests
-        store.countDailyActivity(quests[0].kind, by: quests[0].target)        // 끝냄 → 받음
+        store.countDailyActivity(quests[0].kind, by: quests[0].target)
         store.claimDailyQuest(quests[0])
-        store.countDailyActivity(quests[1].kind, by: quests[1].target)        // 끝냄 → 받기 전
-        store.countDailyActivity(quests[2].kind)                             // 진행 중
-        return DailyGoalsView(store: store)
-            .frame(width: PopoverMetrics.contentWidth)
-            .padding(16)
-            .background(Color(nsColor: .windowBackgroundColor))
+        store.countDailyActivity(quests[1].kind, by: quests[1].target)
+        store.countDailyActivity(quests[2].kind)
+        return VStack(alignment: .leading, spacing: 12) {
+            ProfessorOfferSection(store: store, provider: StubProvider(),
+                                  lines: ScreenshotFixture.lines, onNeedLine: { _ in })
+            DailyGoalsView(store: store)
+        }
+        .frame(width: PopoverMetrics.contentWidth)
+        .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private func boxTidyBanner() -> some View {
