@@ -1020,6 +1020,11 @@ final class ScreenshotGeneratorTests: XCTestCase {
         // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
         try write(png(professorRequestsBanner(fixture)), "professor-requests.png")
 
+        // 뽑기 칸 — **규칙이 세 상태에 걸쳐 있어** 한 화면에는 한 상태만 담긴다. 자리가 있고
+        // 지갑이 되면 초록, 지갑이 모자라면 회색(값은 그대로), 자리가 차면 칸 자체가 없다.
+        // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
+        try write(png(drawSlotBanner()), "draw-slot.png")
+
         // 문제 제보 — 크래시 배너(홈)와 설정의 제보 줄을 위아래로. **픽스처에 크래시 기록을
         // 심어야 배너가 찍힌다** — 안 심으면 아무리 다시 생성해도 빈 자리만 나온다(설정
         // 스크린샷에 플로팅 펫이 꺼져 있어 새 토글이 영영 안 찍히던 함정과 같은 부류).
@@ -1603,6 +1608,29 @@ final class ScreenshotGeneratorTests: XCTestCase {
             ProfessorOfferSection(store: store, provider: StubProvider(),
                                   lines: ScreenshotFixture.lines, onNeedLine: { _ in })
             DailyGoalsView(store: store)
+        }
+        .frame(width: PopoverMetrics.contentWidth)
+        .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    /// 뽑기 칸의 세 상태를 세로로. 홈의 그 줄(`EggSlotsView`)을 그대로 쓴다 — 값·색·문구가
+    /// 앱과 어긋날 수 없다.
+    private func drawSlotBanner() -> some View {
+        let now = ScreenshotFixture.now
+        func row(wallet: Int, eggs: Int) -> EggSlotsView {
+            let store = PlayerStore(fileURL: FileManager.default.temporaryDirectory
+                                        .appendingPathComponent("draw-\(UUID().uuidString).json"),
+                                    rng: SeededRNG(seed: 4), now: { now },
+                                    defaults: UserDefaults(suiteName: "ptb-draw-\(UUID().uuidString)")!)
+            store.setLanguage(.en)
+            store.seedForTesting(wallet: wallet, slots: 3, eggs: eggs, at: now)
+            return EggSlotsView(store: store, now: now, provider: StubProvider())
+        }
+        return VStack(alignment: .leading, spacing: 14) {
+            row(wallet: EggBalance.drawPrice * 40, eggs: 1)     // 뽑을 수 있다
+            row(wallet: EggBalance.drawPrice / 2, eggs: 1)      // 지갑이 모자라다
+            row(wallet: EggBalance.drawPrice * 40, eggs: 3)     // 자리가 찼다
         }
         .frame(width: PopoverMetrics.contentWidth)
         .padding(16)

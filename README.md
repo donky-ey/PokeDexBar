@@ -171,7 +171,7 @@ Star a Pokémon on its detail screen and it can't be sent to the Professor — t
 <tr>
 <td width="55%" valign="middle">
 <h3>🎯 The Dex pays you back</h3>
-Filling the Dex now carries missions, shaped after the games: rewards at registration milestones (10 up to 1000 species), a reward for completing each generation's slice — Mega Stones for the Mega Evolution generations, Max Mushrooms for Kanto and Galar, Shiny Candy for the rest, always on top of a <b>Legendary Egg Ticket</b> — and, for the full 1025, the <b>Rainbow Charm</b>: 1/32 shiny odds on its own, granted even if you never bought the base charm, and it keeps improving your odds at every tier of the Shiny Charm after that. Tickets are the missions' egg currency: claimed into your Bag, they stand under the Shop's Draw button as a free draw with the grade guaranteed.
+Filling the Dex now carries missions, shaped after the games: rewards at registration milestones (10 up to 1000 species), a reward for completing each generation's slice — Mega Stones for the Mega Evolution generations, Max Mushrooms for Kanto and Galar, Shiny Candy for the rest, always on top of a <b>Legendary Egg Ticket</b> — and, for the full 1025, the <b>Rainbow Charm</b>: 1/32 shiny odds on its own, granted even if you never bought the base charm, and it keeps improving your odds at every tier of the Shiny Charm after that. Tickets are the missions' egg currency: claimed into your Bag, they stand under the hatching row as a free draw with the grade guaranteed.
 </td>
 <td width="45%" align="center"><img src="assets/screenshot-dex-missions.png" width="300" alt="The Dex tab's missions list — progress bars toward species milestones, three rows ready to claim"></td>
 </tr>
@@ -239,6 +239,13 @@ Menu-bar items, refresh interval (1–15 min or manual), launch at login, a Keyc
 </td>
 </tr>
 <tr>
+<td width="45%" align="center"><img src="assets/draw-slot.png" width="300" alt="The hatching row in three states: a green draw tile priced at 10M, the same tile greyed out when the wallet is short, and no tile at all when every slot is taken"></td>
+<td width="55%" valign="middle">
+<h3>🥚 Draw the egg where the egg lands</h3>
+The empty slot is the button. The first free tile in the hatching row carries the price and draws when you press it, so the thing you spend on and the thing you get sit in the same place — your currency reads from the same line as the slot count, which means a greyed-out tile tells you which one you're short of. The odds print under the tiles, and egg tickets from Dex missions stand there too: opening one always happens where an egg is born.
+</td>
+</tr>
+<tr>
 <td width="55%" valign="middle">
 <h3>🥚 Ready on the clock, opened by you</h3>
 Draw up to 3 eggs at once (6 with a slot upgrade) — each grade gets its own shell colour and speckle count, so you can tell what's incubating at a glance. Every egg counts down on its own wall-clock timer — 30 minutes for a Common up to 24 hours for a Legendary — live on Home even while you're away, and a notification tells you once it's ready. It then waits there, cracked, until you tap Open — the cracked egg rocks, bursts, and the Pokémon springs out of it.
@@ -249,7 +256,7 @@ Draw up to 3 eggs at once (6 with a slot upgrade) — each grade gets its own sh
 <td width="45%" align="center"><img src="assets/screenshot-shop.png" width="300" alt="Shop — egg draws, slot upgrades, EXP Candy, Shiny Candy, Shiny Charm"></td>
 <td width="55%" valign="middle">
 <h3>🛒 A shop built for the economy</h3>
-Every token you've already used is spendable currency. Draw eggs for 10M tokens with the odds shown right on the button, expand your incubator from 3 slots up to 6, buy <b>EXP Candy</b> to grow a Pokémon or <b>Shiny Candy</b> to make one shiny outright, or start climbing one of the three charms — the <b>Shiny Charm</b> for better hatch odds, the <b>EXP Charm</b> for experience from tokens and candy, the <b>Fortune Charm</b> for currency — each of which now has tiers rather than a single purchase. A <b>Mega Stone</b> or <b>Max Mushroom</b>, applied from a Pokémon's own detail screen, reshapes it into one of 80 catalogued forms. Evolution and form items are the shop's deliberate omission — those come from your partner.
+Every token you've already used is spendable currency. Expand your incubator from 3 slots up to 6, buy <b>EXP Candy</b> to grow a Pokémon or <b>Shiny Candy</b> to make one shiny outright, or start climbing one of the three charms — the <b>Shiny Charm</b> for better hatch odds, the <b>EXP Charm</b> for experience from tokens and candy, the <b>Fortune Charm</b> for currency — each of which now has tiers rather than a single purchase. A <b>Mega Stone</b> or <b>Max Mushroom</b>, applied from a Pokémon's own detail screen, reshapes it into one of 80 catalogued forms. Evolution and form items are the shop's deliberate omission — those come from your partner.
 </td>
 </tr>
 <tr>
