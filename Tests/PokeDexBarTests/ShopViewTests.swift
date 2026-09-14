@@ -100,6 +100,43 @@ final class DrawLocationTests: XCTestCase {
         XCTAssertFalse(try code("EggSlotsView.swift").contains("buySlot("))
     }
 
+    /// **뽑기 칸은 알이 늘어도 제자리다.** 처음엔 "첫 빈 칸"이 뽑기 칸이라 알이 하나 찰 때마다
+    /// 칸이 오른쪽으로 밀렸고, 그래서 연타가 깨졌다(사용자 지적). 자리가 0번으로 고정돼야
+    /// 같은 곳을 계속 누를 수 있다.
+    func testTheDrawTileStaysPutAsEggsFillIn() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("row-\(UUID().uuidString).json")
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 3), now: { now })
+        for filled in 0...4 {
+            store.seedForTesting(wallet: EggBalance.drawPrice, slots: 4, eggs: filled, at: now)
+            let tiles = EggSlotsView.tiles(eggs: store.state.eggs, slots: 4, canDrawHere: true)
+            XCTAssertEqual(tiles.first?.id, "draw", "알 \(filled)개일 때 뽑기 칸이 맨 앞이 아니다")
+            XCTAssertEqual(tiles.count, 5, "알 \(filled)개일 때 줄 길이가 달라졌다")
+        }
+    }
+
+    /// 자리가 꽉 차도 **빠지지 않는다** — 빠지면 왜 못 뽑는지 말해 줄 자리까지 사라지고,
+    /// 하나 부화하는 순간 줄이 통째로 밀린다.
+    func testTheDrawTileSurvivesAFullRow() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("row-\(UUID().uuidString).json")
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 3), now: { now })
+        store.seedForTesting(wallet: EggBalance.drawPrice, slots: 3, eggs: 3, at: now)
+        let tiles = EggSlotsView.tiles(eggs: store.state.eggs, slots: 3, canDrawHere: true)
+        XCTAssertEqual(tiles.first?.id, "draw")
+        XCTAssertFalse(store.canDraw, "이 상황에서 뽑을 수 있으면 회색 칸을 검증하는 의미가 없다")
+    }
+
+    /// 대조군: 후보 인덱스가 없으면 뽑기 칸 자체가 없다. 없으면 "언제나 맨 앞에 하나 넣는다"도
+    /// 위를 통과한다.
+    func testWithoutAProviderThereIsNoDrawTile() {
+        let tiles = EggSlotsView.tiles(eggs: [], slots: 2, canDrawHere: false)
+        XCTAssertEqual(tiles.count, 2)
+        XCTAssertNil(tiles.first { $0.id == "draw" })
+    }
+
     /// 뽑을 수 있는지는 **스토어 하나**가 정한다 — 화면이 조건을 따로 적으면 갈린다.
     func testTheTileFollowsTheStoreGate() {
         let url = FileManager.default.temporaryDirectory

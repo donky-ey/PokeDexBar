@@ -71,13 +71,13 @@ struct EggSlotsView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Self.tileSpacing) {
-                    ForEach(store.state.eggs) { egg in
-                        slot(egg)
-                    }
-                    // **첫 빈 칸만 뽑기 버튼**이다. 빈 칸마다 값을 적으면 "10M" 이 네 번 서서
-                    // 한 번의 동작이 네 개처럼 보인다 — 나머지는 여유 자리로 남긴다.
-                    ForEach(0..<max(0, store.state.slots - store.state.eggs.count), id: \.self) { index in
-                        if index == 0, provider != nil { drawSlot } else { emptySlot }
+                    ForEach(Self.tiles(eggs: store.state.eggs, slots: store.state.slots,
+                                       canDrawHere: provider != nil)) { tile in
+                        switch tile {
+                        case .draw: drawSlot
+                        case .egg(let egg): slot(egg)
+                        case .empty: emptySlot
+                        }
                     }
                 }
             }
@@ -189,6 +189,34 @@ struct EggSlotsView: View {
 
     /// **빈 칸이 곧 뽑기 버튼이다.** 옆에 버튼을 따로 두면 빈 칸이 장식이 되고 누를 곳이
     /// 둘로 갈린다(키우미집 빈 자리에서 쓴 것과 같은 판단).
+    /// 한 줄에 놓이는 칸들. **뽑기 칸이 맨 앞에 못 박혀 있다** — 처음엔 "첫 빈 칸"이 뽑기
+    /// 칸이었는데, 알이 하나 찰 때마다 칸이 오른쪽으로 밀려 **연타가 깨졌다**(사용자 지적:
+    /// 예전엔 버튼을 따다닥 눌러 네 개를 연달아 뽑았는데 이제는 뽑을 때마다 마우스를 옮겨야
+    /// 한다). 자리가 고정돼야 같은 곳을 계속 누를 수 있다.
+    ///
+    /// 자리가 꽉 차도 **빠지지 않고 회색으로 남는다** — 빠지면 왜 못 뽑는지 말해 줄 자리까지
+    /// 같이 사라지고, 다음에 부화하는 순간 줄이 통째로 밀린다.
+    ///
+    /// 순서를 뷰 본문에 두면 "알이 늘어도 뽑기 자리가 그대로인가"를 물어볼 수가 없어서 밖으로 뺐다.
+    enum RowTile: Identifiable {
+        case draw
+        case egg(Egg)
+        case empty(Int)
+
+        var id: String {
+            switch self {
+            case .draw: "draw"
+            case .egg(let egg): "egg-\(egg.id)"
+            case .empty(let index): "empty-\(index)"
+            }
+        }
+    }
+
+    static func tiles(eggs: [Egg], slots: Int, canDrawHere: Bool) -> [RowTile] {
+        (canDrawHere ? [.draw] : []) + eggs.map { RowTile.egg($0) }
+            + (0..<max(0, slots - eggs.count)).map { RowTile.empty($0) }
+    }
+
     private var drawSlot: some View {
         let canDraw = store.canDraw && !drawing && provider != nil
         return Button { draw() } label: {
