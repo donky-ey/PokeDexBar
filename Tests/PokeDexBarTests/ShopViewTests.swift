@@ -100,41 +100,44 @@ final class DrawLocationTests: XCTestCase {
         XCTAssertFalse(try code("EggSlotsView.swift").contains("buySlot("))
     }
 
-    /// **뽑기 칸은 알이 늘어도 제자리다.** 처음엔 "첫 빈 칸"이 뽑기 칸이라 알이 하나 찰 때마다
-    /// 칸이 오른쪽으로 밀렸고, 그래서 연타가 깨졌다(사용자 지적). 자리가 0번으로 고정돼야
-    /// 같은 곳을 계속 누를 수 있다.
-    func testTheDrawTileStaysPutAsEggsFillIn() {
+    /// **스크롤되는 줄에는 알과 빈 칸만 있다.** 뽑기 칸을 줄 안에 두면 알이 찰 때마다 자리가
+    /// 밀려 연타가 깨지고(사용자 지적), 줄이 한 칸 더 길어져 스크롤하면 버튼이 화면 밖으로
+    /// 나간다. `RowTile` 에 뽑기 케이스가 아예 없어서 이 회귀는 컴파일이 막지만, 줄 길이가
+    /// 슬롯 수를 따라가는 것은 여기서 잠근다.
+    func testTheStripIsExactlyTheSlotsNoMatterHowManyEggs() {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("row-\(UUID().uuidString).json")
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 3), now: { now })
         for filled in 0...4 {
             store.seedForTesting(wallet: EggBalance.drawPrice, slots: 4, eggs: filled, at: now)
-            let tiles = EggSlotsView.tiles(eggs: store.state.eggs, slots: 4, canDrawHere: true)
-            XCTAssertEqual(tiles.first?.id, "draw", "알 \(filled)개일 때 뽑기 칸이 맨 앞이 아니다")
-            XCTAssertEqual(tiles.count, 5, "알 \(filled)개일 때 줄 길이가 달라졌다")
+            let tiles = EggSlotsView.tiles(eggs: store.state.eggs, slots: 4)
+            XCTAssertEqual(tiles.count, 4, "알 \(filled)개일 때 줄 길이가 슬롯 수와 다르다")
+            XCTAssertEqual(tiles.prefix(filled).map(\.id),
+                           store.state.eggs.map { "egg-\($0.id)" },
+                           "알이 앞에서부터 순서대로 놓이지 않는다")
         }
     }
 
-    /// 자리가 꽉 차도 **빠지지 않는다** — 빠지면 왜 못 뽑는지 말해 줄 자리까지 사라지고,
-    /// 하나 부화하는 순간 줄이 통째로 밀린다.
-    func testTheDrawTileSurvivesAFullRow() {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("row-\(UUID().uuidString).json")
-        let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 3), now: { now })
-        store.seedForTesting(wallet: EggBalance.drawPrice, slots: 3, eggs: 3, at: now)
-        let tiles = EggSlotsView.tiles(eggs: store.state.eggs, slots: 3, canDrawHere: true)
-        XCTAssertEqual(tiles.first?.id, "draw")
-        XCTAssertFalse(store.canDraw, "이 상황에서 뽑을 수 있으면 회색 칸을 검증하는 의미가 없다")
+    /// **버튼이 스크롤 밖에 있어야 하는 이유.** 최대 슬롯이면 줄 자체가 이미 내용 폭을 넘는다 —
+    /// 버튼을 줄에 넣으면 오른쪽 알을 보려고 스크롤한 순간 버튼이 딸려 나간다. 이 부등식이
+    /// 뒤집히면(타일이 작아지는 등) 바깥에 둘 이유가 사라지므로 그때 다시 판단하라는 표식이다.
+    func testTheStripOverflowsAtTheLargestSlotCount() {
+        XCTAssertGreaterThan(EggSlotsView.rowWidth(forSlotCount: EggBalance.maxSlots),
+                             PopoverMetrics.contentWidth,
+                             "줄이 안 넘치면 스크롤이 없다 — 버튼 위치의 근거가 바뀐다")
     }
 
-    /// 대조군: 후보 인덱스가 없으면 뽑기 칸 자체가 없다. 없으면 "언제나 맨 앞에 하나 넣는다"도
-    /// 위를 통과한다.
-    func testWithoutAProviderThereIsNoDrawTile() {
-        let tiles = EggSlotsView.tiles(eggs: [], slots: 2, canDrawHere: false)
-        XCTAssertEqual(tiles.count, 2)
-        XCTAssertNil(tiles.first { $0.id == "draw" })
+    /// 자리가 없으면 줄 아래가 확률이 아니라 **막힌 이유**를 말한다. 대조군(자리 있음)이 없으면
+    /// "늘 이유만 낸다"도 통과한다.
+    func testTheFootnoteSaysWhyWhenTheRowIsFull() {
+        for language in [AppLanguage.ko, .en, .ja] {
+            let blocked = EggSlotsView.footnote(freeSlots: 0, language: language)
+            XCTAssertEqual(blocked, L(language).eggSlotsFull, "\(language) 에서 이유가 안 나온다")
+            XCTAssertEqual(EggSlotsView.footnote(freeSlots: 1, language: language),
+                           EggSlotsView.oddsText(language), "자리가 있는데 확률이 사라졌다")
+            XCTAssertNotEqual(blocked, EggSlotsView.oddsText(language))
+        }
     }
 
     /// 뽑을 수 있는지는 **스토어 하나**가 정한다 — 화면이 조건을 따로 적으면 갈린다.

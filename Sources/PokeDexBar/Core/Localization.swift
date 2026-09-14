@@ -465,6 +465,10 @@ struct L {
 
     // MARK: 홈 — 부화 슬롯
     var eggSlotsHeader: String { t("부화 중", "Hatching", "ふ化中") }
+    /// 자리가 없어 못 뽑을 때 **확률 줄 대신** 서는 문장. 회색 버튼만 두면 왜 안 눌리는지
+    /// 말해 주는 곳이 없다 — 지갑 부족은 헤더에 지갑과 값이 나란히 서서 이미 읽힌다.
+    var eggSlotsFull: String { t("부화 칸이 꽉 찼어요", "Every hatching slot is full",
+                                 "ふ化スロットがいっぱいです") }
     /// 배지에 마우스를 올렸을 때 — 누구 덕인지 짚어 준다.
     func eggWarmedBy(_ name: String) -> String {
         t("\(name)의 도움으로 부화가 빨라졌어요",
