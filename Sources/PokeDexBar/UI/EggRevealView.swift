@@ -87,6 +87,11 @@ struct EggRevealView: View {
 
     var body: some View {
         ZStack {
+            // **뒤가 비치면 안 된다.** 아래 그라데이션은 가운데가 16% 밖에 안 가리는데, 이 연출이
+            // 부화칸 줄 위에 뜨면서 그 틈으로 **방금 놓인 알의 등급색과 라벨이 그대로 보였다**
+            // (사용자 지적) — 연출이 끝나기 전에 결과를 알게 된다. 상점에 있을 땐 뒤가 상점
+            // 목록이라 흘릴 것이 없었다. 불투명한 바닥을 깔아 무대의 느낌은 그대로 두고 새는 것만 막는다.
+            Color.black.ignoresSafeArea()
             // 가운데로 시선을 모으는 어둠 — 평평한 검정보다 무대처럼 읽힌다.
             RadialGradient(colors: [stage.color.opacity(0.16), .black.opacity(0.93)],
                            center: .center, startRadius: 0, endRadius: 190)

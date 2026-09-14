@@ -69,25 +69,37 @@ struct EggSlotsView: View {
                 Text("\(store.state.eggs.count) / \(store.state.slots)")
                     .font(.system(size: 9)).monospacedDigit().foregroundStyle(.tertiary)
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Self.tileSpacing) {
-                    ForEach(store.state.eggs) { egg in
-                        slot(egg)
-                    }
-                    // **첫 빈 칸만 뽑기 버튼**이다. 빈 칸마다 값을 적으면 "10M" 이 네 번 서서
-                    // 한 번의 동작이 네 개처럼 보인다 — 나머지는 여유 자리로 남긴다.
-                    ForEach(0..<max(0, store.state.slots - store.state.eggs.count), id: \.self) { index in
-                        if index == 0, provider != nil { drawSlot } else { emptySlot }
+            // **뽑기 칸은 스크롤 바깥이다.** 줄 안에 두면 두 가지를 잃는다: 알이 찰 때마다
+            // 자리가 밀려 연타가 깨지고(사용자 지적), 칸 하나가 늘어난 만큼 줄이 더 일찍 넘쳐
+            // 오른쪽 알을 보려고 스크롤하면 **버튼이 화면 밖으로 나간다**(5슬롯부터 그렇다).
+            // 스크롤의 형제로 두면 둘 다 사라진다 — 자리가 고정되고 늘 보인다.
+            HStack(alignment: .top, spacing: 10) {
+                if provider != nil {
+                    drawSlot
+                    // 왼쪽은 **동작**이고 오른쪽은 **상태**다 — 같은 크기 타일이 붙어 서면 한 덩어리로
+                    // 읽히므로 경계를 한 줄 긋는다.
+                    Divider().frame(height: Self.tileSize)
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Self.tileSpacing) {
+                        ForEach(Self.tiles(eggs: store.state.eggs, slots: store.state.slots)) { tile in
+                            switch tile {
+                            case .egg(let egg): slot(egg)
+                            case .empty: emptySlot
+                            }
+                        }
                     }
                 }
+                // 슬롯이 적으면(대부분의 사용자) 스크롤·바운스가 생기지 않아 기존과 동일하게 보인다.
+                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             }
-            // 슬롯이 적으면(대부분의 사용자) 스크롤·바운스가 생기지 않아 기존과 동일하게 보인다.
-            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             // **툴팁이 아니라 인라인 한 줄이다.** 팝오버 안에서는 `.help` 가 안 뜬다(실사용 확인) —
             // 이 앱의 다른 `.help` 들도 마찬가지라, 안 보이는 곳에 설명을 두면 없는 것과 같다.
             //
             // 확률은 값 바로 아래에 — 10M 이 무엇을 사는 값인지 말해 준다.
-            Text(Self.oddsText(store.language))
+            // 자리가 없으면 확률이 아니라 **왜 못 뽑는지**가 이 자리에 와야 한다 — 회색 버튼만
+            // 두면 물어볼 곳이 없다. 자리가 있으면 확률이 값(10M)이 무엇을 사는지 말해 준다.
+            Text(Self.footnote(freeSlots: store.freeSlots, language: store.language))
                 .font(.system(size: 8)).foregroundStyle(.tertiary)
             if let drawError {
                 Text(drawError).font(.system(size: 9)).foregroundStyle(.orange)
@@ -189,27 +201,87 @@ struct EggSlotsView: View {
 
     /// **빈 칸이 곧 뽑기 버튼이다.** 옆에 버튼을 따로 두면 빈 칸이 장식이 되고 누를 곳이
     /// 둘로 갈린다(키우미집 빈 자리에서 쓴 것과 같은 판단).
+    /// 스크롤되는 줄에 놓이는 칸들 — 알과 빈 칸뿐이다. **뽑기 칸은 여기 없다**: 줄 안에 두면
+    /// 알이 찰 때마다 자리가 밀려 연타가 깨지고, 줄이 한 칸 더 길어져 스크롤하면 버튼이 화면
+    /// 밖으로 나간다. 케이스를 아예 안 두는 이유는 그 회귀를 테스트가 아니라 **컴파일**이
+    /// 막게 하려는 것이다.
+    ///
+    /// 순서를 뷰 본문에 두면 "알이 늘어도 줄 길이가 그대로인가"를 물어볼 수가 없어서 밖으로 뺐다.
+    enum RowTile: Identifiable {
+        case egg(Egg)
+        case empty(Int)
+
+        var id: String {
+            switch self {
+            case .egg(let egg): "egg-\(egg.id)"
+            case .empty(let index): "empty-\(index)"
+            }
+        }
+    }
+
+    static func tiles(eggs: [Egg], slots: Int) -> [RowTile] {
+        eggs.map { RowTile.egg($0) } + (0..<max(0, slots - eggs.count)).map { RowTile.empty($0) }
+    }
+
+    /// 줄 아래 한 줄. 자리가 없으면 확률이 아니라 **왜 못 뽑는지**가 온다 — 회색 버튼만 두면
+    /// 물어볼 곳이 없다. 지갑 부족은 헤더에 지갑과 값이 나란히 서서 이미 읽히므로 문장을 안 만든다.
+    nonisolated static func footnote(freeSlots: Int, language: AppLanguage) -> String {
+        freeSlots == 0 ? L(language).eggSlotsFull : oddsText(language)
+    }
+
     private var drawSlot: some View {
         let canDraw = store.canDraw && !drawing && provider != nil
+        // **점선은 빈 칸 전용이다** — 버튼까지 점선이면 셋(버튼·빈칸·알)이 같은 무게로 읽힌다.
+        // 그리고 **악센트(초록)를 안 쓴다**: 이 줄에서 가장 중요한 신호는 "지금 열 수 있는 알"의
+        // 초록 배지인데, 바로 옆에 초록 버튼이 서면 시선이 갈린다. 버튼다움은 색이 아니라
+        // 채운 카드 + `plus` + 값이 맡는다.
         return Button { draw() } label: {
+            //
+            // 색을 뺀 만큼 **눌리는 상태와 막힌 상태는 밝기로** 갈린다 — 처음엔 둘을 같은 회색으로
+            // 뒀더니 지갑이 모자란 줄과 아닌 줄이 구별되지 않았다(스크린샷으로 발각).
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.accentColor.opacity(canDraw ? 0.55 : 0.25),
-                        style: StrokeStyle(lineWidth: 1, dash: [3]))
+                .fill(Color.secondary.opacity(canDraw ? 0.16 : 0.06))
+                .strokeBorder(Color.secondary.opacity(canDraw ? 0.30 : 0.12), lineWidth: 1)
                 .frame(width: Self.tileSize, height: Self.tileSize)
                 .overlay {
-                    VStack(spacing: 2) {
-                        Image(systemName: drawing ? "hourglass" : "plus")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(canDraw ? Color.accentColor : .secondary)
+                    // 옆 알 칸과 **같은 문법**이다 — 그림 / 한 줄 / 작은 한 줄. 나란히 서면
+                    // "이걸 누르면 저게 하나 생긴다"로 읽힌다.
+                    VStack(spacing: 1) {
+                        // 실루엣은 **글자보다 한 단 낮게**. 흰 알로 두면 줄에서 가장 밝은 것이 돼서
+                        // `Open` 배지(이 줄의 주인공)를 눌러버린다 — 회색 알이 "아직 모른다"는
+                        // 뜻에도 맞는다. 버튼의 정체는 글자가 맡는다.
+                        drawGlyph
+                            .foregroundStyle(canDraw ? AnyShapeStyle(.secondary)
+                                                     : AnyShapeStyle(.tertiary))
+                        // **`plus` 를 쓰면 안 된다** — 이 앱은 부화 슬롯을 실제로 돈 받고 팔아서,
+                        // 슬롯 줄에 선 `+` 는 "슬롯 추가"로 읽힌다(사용자 지적). 하는 일을 글자로 적는다.
+                        Text(l.shopDrawButton)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(canDraw ? AnyShapeStyle(.primary)
+                                                     : AnyShapeStyle(.tertiary))
                         // 값은 **회색일 때도 보인다** — 얼마가 모자란지 알아야 기다릴 수 있다.
                         Text(TokenFormatter.compact(EggBalance.drawPrice))
-                            .font(.system(size: 8, weight: .semibold)).monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 7, weight: .semibold)).monospacedDigit()
+                            .foregroundStyle(canDraw ? AnyShapeStyle(.secondary)
+                                                     : AnyShapeStyle(.tertiary))
                     }
                 }
         }
         .buttonStyle(.plain)
         .disabled(!canDraw)
+    }
+
+    /// 뽑기 칸의 그림. **등급 없는 알**이어야 한다 — 커먼 알 그림을 그대로 쓰면 "커먼이
+    /// 나온다"로 읽히는데, 무엇이 나올지는 뽑아야 안다. 그래서 같은 그림을 실루엣(템플릿)으로
+    /// 쓴다. CALayer 필터(`.brightness` 류)로 어둡게 하는 방법은 스크린샷 생성기의 그리기
+    /// 경로에서 빠지므로 쓰지 않는다(도감 실루엣이 같은 이유로 템플릿 렌더링을 쓴다).
+    @ViewBuilder private var drawGlyph: some View {
+        if drawing {
+            Image(systemName: "hourglass").font(.system(size: 14, weight: .semibold))
+        } else if let art = EggIcon.image(for: .common) {
+            Image(nsImage: art).resizable().renderingMode(.template)
+                .interpolation(.high).scaledToFit().frame(width: 15, height: 18)
+        }
     }
 
     private var emptySlot: some View {
