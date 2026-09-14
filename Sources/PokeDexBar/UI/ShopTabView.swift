@@ -9,38 +9,9 @@ struct ShopTabView: View {
     var lines: [Int: EvoLine] = [:]
     var onNeedLine: (Int) -> Void = { _ in }
 
-    @State private var drawing = false
-    @State private var lastError: String?
     /// 뽑기 작업을 뷰 생애에 묶는다 — 안 그러면 팝오버가 닫혔다 다시 열려 새 뷰가 생겨도
     /// 이전 네트워크 조회가 백그라운드에서 계속 돌아 뒤늦게 착지할 수 있다(스타터 픽커와 동일 문제).
-    @State private var drawTask: Task<Void, Never>?
-    /// 방금 뽑은 결과 — 연출 중에만 non-nil. 알은 이미 슬롯에 들어갔고 이 화면은 그 사실을
-    /// 알려주기만 한다(연출을 건너뛰거나 팝오버를 닫아도 잃는 것이 없다).
-    @State private var reveal: (grade: Grade, shiny: Bool)?
-
     private var l: L { store.l }
-
-    /// 뽑기 확률 표기. 밸런스 표에서 만들어 문구와 수치가 어긋나지 않게 한다.
-    /// 언어는 필수 인자다(`AppLanguage` 의 "미정" 관례는 `.systemDefault` — `.ko` 를 기본값으로
-    /// 두면 이 파일만 다른 컨벤션을 갖게 된다). 화면에서는 스토어 언어를 그대로 넘긴다.
-    nonisolated static func oddsText(_ lang: AppLanguage) -> String {
-        EggBalance.odds
-            .map { "\($0.grade.label(lang)) \(Int($0.probability * 100))%" }
-            .joined(separator: " · ")
-    }
-
-    /// 뽑기 착지 — 알을 슬롯에 넣고, 못 넣었으면 보여줄 문구를 돌려준다(nil = 성공).
-    /// `startEgg` 은 착지 시점에 `canDraw` 가 아니면 nil 을 돌려준다: 후보를 기다리는 동안에도
-    /// 슬롯·아이템 버튼은 살아 있어 지갑이 뽑기 값 아래로 내려갈 수 있다. 그 nil 을 버리면
-    /// 사용자는 눌렀는데 재화도 안 줄고 알도 안 생기는 침묵을 본다.
-    /// 뷰 밖에서 잠글 수 있게 착지 지점만 떼어 둔다(`draw()` 는 네트워크 await 라 통째로는 못 잡는다).
-    static func landDraw(_ store: PlayerStore, grade: Grade, speciesID: Int, shiny: Bool,
-                         growthRate: GrowthRate = .mediumFast,
-                         genderRate: Int = GenderBalance.defaultRate) -> String? {
-        store.startEgg(grade: grade, speciesID: speciesID, shiny: shiny,
-                       growthRate: growthRate, genderRate: genderRate) == nil
-            ? store.l.shopDrawUnavailable : nil
-    }
 
     var body: some View {
         ScrollView {
@@ -53,7 +24,6 @@ struct ShopTabView: View {
                 // 뒀을 땐 보상과 쓰임새가 탭 하나를 사이에 두고 떨어져 있었다.
                 DailyGoalsView(store: store)
                 Divider()
-                drawSection
                 slotSection
                 // 목록은 `ShopCategory` 가 정한다 — 뷰가 칸을 나열하면 새 분류가 조용히 빠진다.
                 ForEach(ShopCategory.allCases, id: \.self) { categorySection($0) }
@@ -63,15 +33,10 @@ struct ShopTabView: View {
         .frame(height: 320)
         // 연출은 상점 위에만 덮인다 — 팝오버 전체를 가리면 탭 전환이 막힌다.
         .overlay {
-            if let reveal {
-                EggRevealView(grade: reveal.grade, shiny: reveal.shiny, l: l,
-                              language: store.language) { self.reveal = nil }
-            }
         }
         .onDisappear {
             // 팝오버가 닫혀 뷰가 사라지면 진행 중인 뽑기 조회도 함께 끊는다 — 살려두면
             // 다음에 연 새 뷰의 뽑기와 경합해 조용히 지는 쪽이 생긴다.
-            drawTask?.cancel()
         }
     }
 
@@ -84,41 +49,6 @@ struct ShopTabView: View {
         }
     }
 
-    private var drawSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(l.shopEggDraw).font(.system(size: 12, weight: .semibold))
-                Spacer()
-                Text(TokenFormatter.compact(EggBalance.drawPrice))
-                    .font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
-            }
-            Text(Self.oddsText(store.language)).font(.system(size: 9)).foregroundStyle(.tertiary)
-            Text(l.shopFreeSlots(store.freeSlots, store.state.slots))
-                .font(.system(size: 9)).foregroundStyle(.tertiary)
-            if let lastError {
-                Text(lastError).font(.system(size: 9)).foregroundStyle(.orange)
-            }
-            Button(drawing ? l.shopDrawing : l.shopDrawButton) { draw() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(!store.canDraw || drawing)
-            // 도감 미션의 알 확정권 — **뽑기 버튼 바로 아래**가 이 물건의 자리다. 미션에서 알을
-            // 직접 주던 판은 "받아졌는지 모르겠다" 가 됐다(사용자 지적) — 확정권은 가방에
-            // 담겼다가 여기서 쓰이므로, 개봉이 항상 알이 태어나는 자리에서 일어난다.
-            ForEach([ShopItem.rareEggTicket, .epicEggTicket, .legendaryEggTicket],
-                    id: \.self) { ticket in
-                if let grade = ticket.guaranteedGrade, store.count(of: ticket) > 0 {
-                    Button(l.shopTicketDraw(ticket.label(store.language),
-                                            store.count(of: ticket))) {
-                        drawWithTicket(grade)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(store.freeSlots == 0 || drawing)
-                }
-            }
-        }
-    }
 
     private var slotSection: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -177,72 +107,6 @@ struct ShopTabView: View {
 
     private func charmRow(_ item: ShopItem) -> some View { CharmShopRow(store: store, item: item) }
 
-    /// 등급·이로치를 굴리고, 그 등급 안에서 베이스 종을 포획률 가중으로 고른다(`EggBalance.pickSpecies`).
-    /// 후보는 네트워크(베이스 인덱스)라 여기서 받아 스토어에 넘긴다.
-    private func draw() {
-        drawing = true
-        lastError = nil
-        drawTask = Task {
-            defer { drawing = false }
-            let roll = store.rollGradeAndShiny()
-            guard let index = try? await provider.baseSpeciesIndex(), !index.isEmpty else {
-                // 그 사이 뷰가 사라져 취소됐으면(팝오버 닫힘 등) 착지하지 않는다.
-                guard !Task.isCancelled else { return }
-                lastError = l.shopDrawFetchFailed
-                return
-            }
-            // 그 사이 뷰가 사라져 취소됐으면(팝오버 닫힘 등) 착지하지 않는다 — 늦게 도착한
-            // 조회가 다음 뽑기와 경합해 조용히 이기는 걸 막는다.
-            guard !Task.isCancelled else { return }
-            var chosen = EggBalance.pickSpecies(from: index, grade: roll.grade, roll: store.nextRandomUnit())
-            // 메타몽은 일반 후보 풀에서 빠져 있어(`PokeAPIClient`) 여기서만 들어온다 — 커먼 1/128.
-            // 종을 고른 **뒤에** 굴려 덮어쓴다. 앞에 두면 이 굴림이 후보 선택의 난수를 밀어내
-            // 기존 뽑기 결과가 통째로 달라진다.
-            if DittoDisguise.hits(grade: roll.grade, roll: store.nextRandomUnit()) {
-                chosen = DittoDisguise.speciesID
-            }
-            // 고른 종의 성장 타입을 인덱스에서 찾아 그대로 싣는다. 메타몽은 인덱스 자체에서
-            // 빠져 있어(`PokeAPIClient`) 못 찾으면 기본값(`.mediumFast`)으로 태어나는데,
-            // 실제로도 메타몽의 성장 타입이 미디엄패스트라 값이 어긋나지 않는다.
-            let entry = index.first(where: { $0.id == chosen })
-            let growthRate = entry?.growthRate ?? .mediumFast
-            let genderRate = entry?.genderRate ?? GenderBalance.defaultRate
-            lastError = Self.landDraw(store, grade: roll.grade, speciesID: chosen, shiny: roll.shiny,
-                                      growthRate: growthRate, genderRate: genderRate)
-            // 착지에 실패했으면(슬롯이 찼다 등) 축하할 것이 없다 — 문구만 남긴다.
-            if lastError == nil { reveal = (roll.grade, roll.shiny) }
-        }
-    }
-
-    /// 확정권 뽑기 — 등급이 정해져 있고 무료라는 점만 다르고, 종 선택·이로치·연출은 일반
-    /// 뽑기와 같은 길을 걷는다(메타몽 위장 포함 — 확정권이라고 위장이 안 오면 그게 특례다).
-    private func drawWithTicket(_ grade: Grade) {
-        drawing = true
-        lastError = nil
-        drawTask = Task {
-            defer { drawing = false }
-            guard let index = try? await provider.baseSpeciesIndex(), !index.isEmpty else {
-                guard !Task.isCancelled else { return }
-                lastError = l.shopDrawFetchFailed
-                return
-            }
-            guard !Task.isCancelled else { return }
-            var chosen = EggBalance.pickSpecies(from: index, grade: grade,
-                                                roll: store.nextRandomUnit())
-            if DittoDisguise.hits(grade: grade, roll: store.nextRandomUnit()) {
-                chosen = DittoDisguise.speciesID
-            }
-            let entry = index.first(where: { $0.id == chosen })
-            let growthRate = entry?.growthRate ?? .mediumFast
-            let genderRate = entry?.genderRate ?? GenderBalance.defaultRate
-            guard let egg = store.redeemEggTicket(grade: grade, speciesID: chosen,
-                                                  growthRate: growthRate, genderRate: genderRate) else {
-                lastError = l.shopDrawUnavailable
-                return
-            }
-            reveal = (egg.grade, egg.shiny)
-        }
-    }
 }
 
 /// 단계가 있는 부적 한 줄 — 지금 단계·지금 효과, 그리고 다음 단계 값.

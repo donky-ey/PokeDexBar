@@ -1068,7 +1068,10 @@ final class ScreenshotGeneratorTests: XCTestCase {
 
             // 부화 슬롯 — 홈 탭의 알 줄. 카운트다운·등급 라벨이 언어를 타므로 3개 언어로 찍는다.
             // `now` 는 픽스처 기준 시각으로 고정한다 — 실제 시각을 쓰면 돌릴 때마다 숫자가 달라진다.
-            try write(png(tabChrome(EggSlotsView(store: fixture.player, now: ScreenshotFixture.now))),
+            // `provider` 를 넘겨야 빈 칸이 **뽑기 버튼**으로 그려진다 — 안 넘기면 그냥 점선이라
+            // 이 그림이 기능을 한 칸도 안 담는다(처음에 실제로 그렇게 찍혔다).
+            try write(png(tabChrome(EggSlotsView(store: fixture.player, now: ScreenshotFixture.now,
+                                                 provider: StubProvider()))),
                       "screenshot-eggs\(suffix).png")
 
             try write(png(tabChrome(ShopTabView(store: fixture.player, provider: StubProvider(),
