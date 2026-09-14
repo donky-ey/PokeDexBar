@@ -38,6 +38,46 @@ enum CollectionCatalog {
                       rewards: [.item(.expCandy, 20)]),
         CollectionSet(id: "sword-shield", speciesIDs: [888, 889, 890],
                       rewards: [.item(.expCandy, 20)]),
+        // 여기부터는 **전설 목록을 훑어 메운 것들**이다. 예전 세트는 전승이 떠오르는 대로 하나씩
+        // 붙였던 터라 뒤 세대로 갈수록 얇아져, 전설·환상 94마리 중 58마리가 어느 세트에도 없었다
+        // (도감 플래그 전수 확인). 아래가 그 공백을 메운다.
+        CollectionSet(id: "eon-duo", speciesIDs: [380, 381],
+                      rewards: [.item(.expCandy, 20)]),
+        // 악몽과 길몽 — 다크라이가 악몽을 부르고 크레세리아의 깃털이 그것을 걷는다. 둘이 한 쌍인
+        // 것은 도감 설명이 직접 말한다.
+        CollectionSet(id: "nightmare-and-dream", speciesIDs: [488, 491],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "swords-of-justice", speciesIDs: [638, 639, 640, 647],
+                      rewards: [.item(.expCandy, 20)]),
+        // 구름의 신들 — 러브로스까지 넷이다. 셋으로 아는 사람이 많지만 전설 아르세우스에서 넷이 됐다.
+        CollectionSet(id: "forces-of-nature", speciesIDs: [641, 642, 645, 905],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "island-guardians", speciesIDs: [785, 786, 787, 788],
+                      rewards: [.item(.expCandy, 20)]),
+        // 코스모그의 여정 — 성운에서 해와 달까지. 솔가레오·루나아라는 「해와 달」과 겹치는데,
+        // 겹치는 것 자체는 이 카탈로그의 관례다(피카츄가 닮은꼴과 겹치듯이).
+        CollectionSet(id: "cosmog-journey", speciesIDs: [789, 790, 791, 792, 800],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "isle-of-armor", speciesIDs: [891, 892],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "crown-tundra", speciesIDs: [896, 897, 898],
+                      rewards: [.item(.expCandy, 20)]),
+        // 만들어진 포켓몬 — 화석을 개조한 게노세크트, 에테르가 빚은 타입:널 라인, 500년 전에
+        // 만들어진 마기아나. 태어난 것이 아니라 만들어졌다는 한 가지로 묶인다.
+        CollectionSet(id: "man-made", speciesIDs: [649, 772, 773, 801],
+                      rewards: [.item(.expCandy, 20)]),
+        CollectionSet(id: "ruinous-four", speciesIDs: [1001, 1002, 1003, 1004],
+                      rewards: [.item(.expCandy, 20)]),
+        // 키타카미의 전승 — **오거폰이 이 이야기의 중심이다.** 도감만 보면 독사슬로 묶이는 건
+        // 복숭악동과 수하 셋뿐이지만(오거폰 설명엔 독도 사슬도 안 나온다), 로열 3이 오거폰의
+        // 가면을 빼앗은 쪽이고 마을이 그걸 뒤집어 영웅으로 전한 것이 전승의 핵심이다. 오거폰을
+        // 빼면 누가 누구에게 무슨 짓을 했는지가 사라진다(사용자 지적). 「클론의 진실」처럼
+        // 도감에 안 적힌 서사로 묶는 것은 이 카탈로그의 관례다.
+        CollectionSet(id: "kitakami-legend", speciesIDs: [1014, 1015, 1016, 1017, 1025],
+                      rewards: [.item(.expCandy, 20)]),
+        // 세 패키지의 표지 — 스칼렛·바이올렛·남청의 원반.
+        CollectionSet(id: "paldea-box-legends", speciesIDs: [1007, 1008, 1024],
+                      rewards: [.item(.expCandy, 20)]),
         // 해와 달 — 루나톤·솔록(3세대의 달·해)과 솔가레오·루나아라(7세대의 해·달)를 잇는다.
         CollectionSet(id: "sun-moon", speciesIDs: [337, 338, 791, 792],
                       rewards: [.item(.expCandy, 20)]),
@@ -124,6 +164,14 @@ enum CollectionCatalog {
                       rewards: [.pokemon(speciesID: 486, grade: .legendary, growthRate: .slow,
                                          gender: .genderless)]),
         // 큰 세트 — 레전더리 열·열하나라 확정권이 걸맞다.
+        // 환상 포켓몬 — 도감이 환상으로 표시한 23종 전부(플래그에서 그대로 가져왔다). 이 게임에서
+        // 가장 어려운 세트라 확정권이 걸맞다. 여러 세트와 겹치지만(뮤·케르디오·다크라이·복숭악동)
+        // 겹침은 이 카탈로그의 관례다.
+        CollectionSet(id: "mythicals",
+                      speciesIDs: [151, 251, 385, 386, 489, 490, 491, 492, 493, 494,
+                                   647, 648, 649, 719, 720, 721, 801, 802, 807, 808,
+                                   809, 893, 1025],
+                      rewards: [.eggTicket(.legendary)]),
         CollectionSet(id: "ultra-beasts",
                       speciesIDs: [793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806],
                       rewards: [.eggTicket(.legendary)]),
@@ -190,6 +238,19 @@ enum CollectionCatalog {
         case "creation-gods": names = ("시공의 신", "Creation Gods", "じくうの かみがみ")
         case "regi-family": names = ("레지 패밀리", "Regi Family", "レジファミリー")
         case "ultra-beasts": names = ("울트라비스트", "Ultra Beasts", "ウルトラビースト")
+        case "eon-duo": names = ("에온 듀오", "The Eon Duo", "エオンデュオ")
+        case "nightmare-and-dream": names = ("악몽과 길몽", "Nightmare and Good Dream", "あくむと いいゆめ")
+        case "swords-of-justice": names = ("성검사", "Swords of Justice", "せいけんし")
+        case "forces-of-nature": names = ("구름의 신들", "Forces of Nature", "くもの かみがみ")
+        case "island-guardians": names = ("수호신", "The Island Guardians", "しまの まもりがみ")
+        case "cosmog-journey": names = ("코스모그의 여정", "Cosmog's Journey", "コスモッグの たび")
+        case "isle-of-armor": names = ("갑옷섬의 수련", "Isle of Armor Training", "よろいじまの しゅぎょう")
+        case "crown-tundra": names = ("왕관설원", "The Crown Tundra", "かんむりせつげん")
+        case "man-made": names = ("만들어진 포켓몬", "The Made Ones", "つくられた ポケモン")
+        case "ruinous-four": names = ("재앙의 포켓몬", "Treasures of Ruin", "わざわいの ポケモン")
+        case "kitakami-legend": names = ("키타카미의 전승", "The Kitakami Legend", "キタカミの いいつたえ")
+        case "paldea-box-legends": names = ("팔데아의 상자 전설", "Paldea's Box Legends", "パルデアの パッケージでんせつ")
+        case "mythicals": names = ("환상 포켓몬", "The Mythicals", "まぼろしの ポケモン")
         default: names = (id, id, id)
         }
         switch lang { case .ko: return names.0; case .en: return names.1; case .ja: return names.2 }

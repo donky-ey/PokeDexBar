@@ -239,3 +239,67 @@ final class NewCollectionTests: XCTestCase {
         }
     }
 }
+
+/// 전설·환상이 집을 갖는가 — 컬렉션이 전설 목록을 훑어 만들어지지 않아 뒤 세대일수록 비던 공백.
+@MainActor
+final class LegendaryCoverageTests: XCTestCase {
+    /// 도감 플래그로 뽑은 전설·환상 94종(2026-09 확인). 앱은 이 플래그를 로컬에 안 들고 있어서
+    /// 여기 고정한다 — **이 목록이 이 테스트의 증거**이므로, 종이 늘면 같이 갱신한다.
+    private let legendaries: Set<Int> = [
+        144, 145, 146, 150, 151, 243, 244, 245, 249, 250, 251,
+        377, 378, 379, 380, 381, 382, 383, 384, 385, 386,
+        480, 481, 482, 483, 484, 485, 486, 487, 488, 489, 490, 491, 492, 493, 494,
+        638, 639, 640, 641, 642, 643, 644, 645, 646, 647, 648, 649,
+        716, 717, 718, 719, 720, 721,
+        772, 773, 785, 786, 787, 788, 789, 790, 791, 792, 793, 794, 795, 796, 797,
+        798, 799, 800, 801, 802, 803, 804, 805, 806, 807, 808, 809,
+        888, 889, 890, 891, 892, 893, 894, 895, 896, 897, 898, 905,
+        1001, 1002, 1003, 1004, 1007, 1008, 1014, 1015, 1016, 1017, 1024, 1025,
+    ]
+
+    private var claimed: Set<Int> {
+        Set(CollectionCatalog.all.flatMap(\.speciesIDs))
+    }
+
+    /// **레지기가스와 히드런만 남는다.** 레지기가스는 레지 세트의 *보상*이라 구성원이 아니고
+    /// (그게 유일한 입수처다), 히드런은 원작에서도 짝이 없는 외톨이라 억지로 묶지 않았다.
+    /// 그 둘 말고 집이 없는 전설이 새로 생기면 이 테스트가 알린다.
+    func testEveryLegendaryHasACollectionExceptTheTwoKnownLoners() {
+        let homeless = legendaries.subtracting(claimed).sorted()
+        XCTAssertEqual(homeless, [485, 486], "집 없는 전설이 늘었다: \(homeless)")
+    }
+
+    /// 세대가 뒤로 갈수록 비던 것이 이 공백의 정체다 — 세대별로도 0이 아닌지 본다.
+    /// 대조군 없이 전체 합계만 보면 한 세대가 통째로 비어도 통과한다.
+    func testNoGenerationIsLeftEmpty() {
+        let ranges = [1: 1...151, 2: 152...251, 3: 252...386, 4: 387...493, 5: 494...649,
+                      6: 650...721, 7: 722...809, 8: 810...905, 9: 906...1025]
+        for (generation, range) in ranges {
+            let inGen = legendaries.filter(range.contains)
+            guard !inGen.isEmpty else { continue }
+            let covered = inGen.filter(claimed.contains).count
+            XCTAssertGreaterThan(covered, inGen.count / 2,
+                                 "\(generation)세대 전설 \(inGen.count)마리 중 \(covered)마리만 집이 있다")
+        }
+    }
+
+    /// 키타카미 세트는 **오거폰을 포함한다** — 사용자 결정. 도감만 보면 독사슬로 묶이는 건
+    /// 복숭악동과 수하 셋뿐이지만, 오거폰을 빼면 그 이야기의 주인공이 사라진다.
+    func testTheKitakamiSetKeepsOgerpon() throws {
+        let set = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "kitakami-legend" })
+        XCTAssertTrue(set.speciesIDs.contains(1017), "오거폰이 빠졌다")
+        XCTAssertEqual(Set(set.speciesIDs), [1014, 1015, 1016, 1017, 1025])
+        // 상자 전설 쪽에는 없다 — 두 세트가 오거폰을 두고 다투면 배치의 뜻이 흐려진다.
+        let box = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "paldea-box-legends" })
+        XCTAssertFalse(box.speciesIDs.contains(1017))
+    }
+
+    /// 환상 세트는 도감이 환상으로 표시한 23종 전부여야 한다 — 하나라도 빠지면 영영 못 채운다.
+    func testTheMythicalSetHoldsEveryMythical() throws {
+        let mythicals: Set<Int> = [151, 251, 385, 386, 489, 490, 491, 492, 493, 494,
+                                   647, 648, 649, 719, 720, 721, 801, 802, 807, 808,
+                                   809, 893, 1025]
+        let set = try XCTUnwrap(CollectionCatalog.all.first { $0.id == "mythicals" })
+        XCTAssertEqual(Set(set.speciesIDs), mythicals)
+    }
+}
