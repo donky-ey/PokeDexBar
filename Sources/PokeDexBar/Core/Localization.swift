@@ -496,6 +496,21 @@ struct L {
     var itemDrawLanded: String { t("가방에 넣었어요", "Added to your Bag", "バッグに入れました") }
     /// 개수가 둘 이상일 때의 표기.
     func itemDrawCount(_ count: Int) -> String { t("×\(count)", "×\(count)", "×\(count)") }
+    var professorBoxTitle: String { t("박사의 상자", "Professor's Box", "はかせのはこ") }
+    var itemDrawFreeToday: String {
+        t("오늘 한 판은 무료예요", "Today's first draw is free", "きょうの1回はむりょうです")
+    }
+    func itemDrawPrice(_ points: Int) -> String {
+        t("다음 판 \(points)포인트", "Next draw costs \(points) points",
+          "つぎは\(points)ポイント")
+    }
+    func itemDrawNeedsPoints(_ points: Int) -> String {
+        t("\(points)포인트가 필요해요", "You need \(points) points", "\(points)ポイントが必要です")
+    }
+    var itemDrawSoldOut: String {
+        t("오늘은 여기까지예요", "That is all for today", "きょうはここまでです")
+    }
+    var itemDrawButton: String { t("상자 열기", "Open the box", "はこを開ける") }
     func eggCountdownDaysHours(_ days: Int, _ hours: Int) -> String {
         t("\(days)일 \(hours)시간", "\(days)d \(hours)h", "\(days)日\(hours)時間")
     }

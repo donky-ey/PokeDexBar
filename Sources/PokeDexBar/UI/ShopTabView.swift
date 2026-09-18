@@ -23,6 +23,8 @@ struct ShopTabView: View {
                 // 포인트를 쓰는 자리가 바로 위라, 벌고 쓰는 순환이 한 화면에서 닫힌다 — 홈에
                 // 뒀을 땐 보상과 쓰임새가 탭 하나를 사이에 두고 떨어져 있었다.
                 DailyGoalsView(store: store)
+                // 포인트를 주는 곳(제안·의뢰) 바로 아래가 쓰는 곳이다.
+                ProfessorBoxSection(store: store)
                 Divider()
                 slotSection
                 // 목록은 `ShopCategory` 가 정한다 — 뷰가 칸을 나열하면 새 분류가 조용히 빠진다.
