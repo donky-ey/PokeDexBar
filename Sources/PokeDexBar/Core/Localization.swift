@@ -492,6 +492,10 @@ struct L {
     var hatchedMovedToBox: String {
         t("박스에 들어갔어요", "Added to your Box", "ボックスに入りました")
     }
+    /// 아이템 연출의 아랫줄 — 어디로 갔는지 말한다.
+    var itemDrawLanded: String { t("가방에 넣었어요", "Added to your Bag", "バッグに入れました") }
+    /// 개수가 둘 이상일 때의 표기.
+    func itemDrawCount(_ count: Int) -> String { t("×\(count)", "×\(count)", "×\(count)") }
     func eggCountdownDaysHours(_ days: Int, _ hours: Int) -> String {
         t("\(days)일 \(hours)시간", "\(days)d \(hours)h", "\(days)日\(hours)時間")
     }
