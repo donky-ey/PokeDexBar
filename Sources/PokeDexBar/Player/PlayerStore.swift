@@ -402,6 +402,11 @@ final class PlayerStore {
         mutate { $0.inventory[item.rawValue, default: 0] += 1 }
     }
 
+    /// 테스트·개발용 아이템 지급. 세이브를 직접 고치는 대신 이 경로를 쓴다.
+    func grantForTesting(_ item: ShopItem, count: Int) {
+        mutate { $0.inventory[item.rawValue, default: 0] += count }
+    }
+
     /// 테스트 전용 — 지갑·슬롯·알 개수를 직접 세팅한다(적립 경로를 돌리지 않고).
     func seedForTesting(wallet: Int, slots: Int, eggs: Int, at date: Date) {
         mutate {

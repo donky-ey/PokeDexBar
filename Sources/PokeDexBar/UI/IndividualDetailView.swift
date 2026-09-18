@@ -726,7 +726,7 @@ struct IndividualDetailView: View {
         let expCandies = individual.level < GrowthRate.maxLevel ? store.count(of: .expCandy) : 0
         // 이미 이로치면 반짝이는 사탕은 할 일이 없다 — `useShinyCandy` 도 그 경우 false 를 돌려준다.
         let shinyCandies = individual.shiny ? 0 : store.count(of: .shinyCandy)
-        if expCandies > 0 || shinyCandies > 0 {
+        if expCandies > 0 || shinyCandies > 0 || store.count(of: .massageCoupon) > 0 {
             if expCandies > 0 {
                 CandyButton(title: l.useExpCandy(expCandies)) {
                     _ = store.useExpCandy(on: individual.id)
@@ -735,6 +735,13 @@ struct IndividualDetailView: View {
             if shinyCandies > 0 {
                 CandyButton(title: l.useShinyCandy(shinyCandies)) {
                     _ = store.useShinyCandy(on: individual.id)
+                }
+            }
+            // 친밀도는 상한이 없어 언제 써도 효과가 있다 — 사탕들처럼 "쓸 데가 없는" 상태가
+            // 없으므로 재고만 보면 된다.
+            if store.count(of: .massageCoupon) > 0 {
+                CandyButton(title: l.useMassageCoupon(store.count(of: .massageCoupon))) {
+                    _ = store.useMassageCoupon(on: individual.id)
                 }
             }
         } else {

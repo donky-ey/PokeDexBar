@@ -221,6 +221,11 @@ struct L {
     func useShinyCandy(_ remaining: Int) -> String {
         t("반짝이는 사탕 ×\(remaining)", "Shiny Candy ×\(remaining)", "ひかるアメ ×\(remaining)")
     }
+    /// 마사지 쿠폰 버튼 — 남은 장수를 함께 적는다(사탕 버튼과 같은 관례).
+    func useMassageCoupon(_ count: Int) -> String {
+        t("마사지 쿠폰 쓰기 (\(count))", "Use Massage Coupon (\(count))",
+          "マッサージけんを使う (\(count))")
+    }
     // MARK: 발견 카드 — 파트너가 물어 온 것을 알려 준다. 확인은 흐름을 막지 않는다.
     func discoveryFoundBy(_ name: String, _ count: Int) -> String {
         t("\(name)\(Josa.iGa(name)) 도구를 \(count)개 물어 왔어요",
