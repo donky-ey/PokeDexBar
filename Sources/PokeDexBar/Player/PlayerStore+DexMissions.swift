@@ -83,24 +83,17 @@ extension PlayerStore {
         }
     }
 
-    /// 확정권으로 알을 뽑는다 — **무료이고 등급이 확정**이라는 점만 다르고, 나머지(빈 슬롯
-    /// 요구·이로치 굴림·부화 감면)는 일반 뽑기와 같다. 종 선택은 뷰가 인덱스에서 해 온다
-    /// (상점 뽑기와 같은 흐름 — 후보가 네트워크에 산다).
-    ///
-    /// 확정권 차감과 알 놓기가 한 함수에 있다 — 갈라 두면 "권은 줄었는데 알이 없다" 나
-    /// 그 반대가 생길 수 있다.
+    /// 확정권 한 장으로 알을 놓는다. 차감할 **아이템을 직접 받는다** — 등급에서 유도하면
+    /// 세대권(등급을 안 정한다)이 엉뚱한 등급권을 차감한다.
     @discardableResult
-    func redeemEggTicket(grade: Grade, speciesID: Int,
+    func redeemEggTicket(_ ticket: ShopItem, grade: Grade, speciesID: Int,
                          growthRate: GrowthRate = .mediumFast,
                          genderRate: Int = GenderBalance.defaultRate) -> Egg? {
-        guard let ticket = ShopItem.eggTicket(for: grade), count(of: ticket) > 0 else { return nil }
+        guard count(of: ticket) > 0 else { return nil }
         let shiny = EggBalance.rollShiny(nextRandomUnit(), denominator: shinyDenominator)
         guard let egg = placeEgg(grade: grade, speciesID: speciesID, shiny: shiny,
                                  growthRate: growthRate, genderRate: genderRate) else { return nil }
-        mutate { s in
-            s.inventory[ticket.rawValue, default: 0] -= 1
-            if s.inventory[ticket.rawValue] ?? 0 <= 0 { s.inventory[ticket.rawValue] = nil }
-        }
+        mutate { Self.consume(ticket, in: &$0) }
         return egg
     }
 }
