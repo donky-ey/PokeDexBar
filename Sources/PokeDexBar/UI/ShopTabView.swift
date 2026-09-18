@@ -9,9 +9,26 @@ struct ShopTabView: View {
     var lines: [Int: EvoLine] = [:]
     var onNeedLine: (Int) -> Void = { _ in }
 
-    /// 뽑기 작업을 뷰 생애에 묶는다 — 안 그러면 팝오버가 닫혔다 다시 열려 새 뷰가 생겨도
-    /// 이전 네트워크 조회가 백그라운드에서 계속 돌아 뒤늦게 착지할 수 있다(스타터 픽커와 동일 문제).
+    /// 박사의 상자 뽑기 연출 — **여기서 갖는다.** `ProfessorBoxSection` 자체는 52pt 남짓이라
+    /// 거기서 직접 띄우면 무대(150pt + 결과줄)가 자리보다 커서 뒤 목록이 비친다(딥리뷰 지적) —
+    /// 이 탭의 `.frame(height: 320)` 위에서만 다 담긴다. `ItemRevealHostCoverTests` 가 이걸 픽셀로 잠근다.
+    @State private var itemReveal: ItemDrawResult?
+
     private var l: L { store.l }
+
+    #if DEBUG
+    /// 테스트 전용 — 뽑기 버튼을 실제로 누르지 않고 연출이 뜬 상태로 시작한다. 진짜 마운트 지점
+    /// (`.frame(height: 320)` 위의 `.overlay`)이 뒤를 제대로 가리는지 재는 커버리지 테스트에
+    /// 쓴다(`ItemRevealHostCoverTests`). 기본값은 nil 이라 다른 호출부는 그대로 컴파일된다.
+    init(store: PlayerStore, provider: any PokeProviding, lines: [Int: EvoLine] = [:],
+         onNeedLine: @escaping (Int) -> Void = { _ in }, itemRevealForTesting: ItemDrawResult? = nil) {
+        self.store = store
+        self.provider = provider
+        self.lines = lines
+        self.onNeedLine = onNeedLine
+        _itemReveal = State(initialValue: itemRevealForTesting)
+    }
+    #endif
 
     var body: some View {
         ScrollView {
@@ -24,7 +41,7 @@ struct ShopTabView: View {
                 // 뒀을 땐 보상과 쓰임새가 탭 하나를 사이에 두고 떨어져 있었다.
                 DailyGoalsView(store: store)
                 // 포인트를 주는 곳(제안·의뢰) 바로 아래가 쓰는 곳이다.
-                ProfessorBoxSection(store: store)
+                ProfessorBoxSection(store: store, reveal: $itemReveal)
                 Divider()
                 slotSection
                 // 목록은 `ShopCategory` 가 정한다 — 뷰가 칸을 나열하면 새 분류가 조용히 빠진다.
@@ -33,12 +50,15 @@ struct ShopTabView: View {
             .padding(.vertical, 2)
         }
         .frame(height: 320)
-        // 연출은 상점 위에만 덮인다 — 팝오버 전체를 가리면 탭 전환이 막힌다.
+        // 연출은 상점 위에만 덮인다 — 팝오버 전체를 가리면 탭 전환이 막힌다. **자리를 여기로
+        // 옮긴 이유**: `ProfessorBoxSection` 자체(52pt)에 띄우면 `RevealTheater` 무대가 그
+        // 자리보다 커서 뒤 목록이 비쳤다 — 이 탭의 320pt 안에는 무대(150pt + 결과줄)가 다 들어간다.
         .overlay {
-        }
-        .onDisappear {
-            // 팝오버가 닫혀 뷰가 사라지면 진행 중인 뽑기 조회도 함께 끊는다 — 살려두면
-            // 다음에 연 새 뷰의 뽑기와 경합해 조용히 지는 쪽이 생긴다.
+            if let itemReveal {
+                ItemRevealView(result: itemReveal, l: l, language: store.language) {
+                    self.itemReveal = nil
+                }
+            }
         }
     }
 

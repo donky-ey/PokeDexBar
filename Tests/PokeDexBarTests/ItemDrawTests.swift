@@ -125,6 +125,12 @@ final class ItemDrawTests: XCTestCase {
     }
 
     /// 초기화가 **하루 경계 그 한 곳**에서 일어난다. 판정이 두 곳이면 반드시 갈린다.
+    ///
+    /// 파일 전체를 훑으면 안 된다 — `update(todayTokens:todayDate:hasUsageData:)` 안에는 리셋
+    /// 줄이 필요 없는 다른 분기(`installBaselineSet`, `todayTokens > claimedTodayTokens`)도 있어서,
+    /// 그 어디든 리셋 줄을 하나 더 추가해도(진짜 결함 — 두 곳에서 초기화) 통짜 검색은 못 잡는다.
+    /// 하루 경계 분기(`if todayDate != state.lastDate { … }`) **안**에만 있는지, 그리고 **그 밖에는
+    /// 없는지**를 둘 다 확인한다.
     func testTheResetLivesWithTheOtherDailyLedgers() throws {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -134,8 +140,22 @@ final class ItemDrawTests: XCTestCase {
         let code = source.split(separator: "\n")
             .map { $0.contains("//") ? String($0[..<$0.range(of: "//")!.lowerBound]) : String($0) }
             .joined(separator: "\n")
-        XCTAssertTrue(code.contains("freeItemDrawUsed = false"), "무료권 초기화가 없다")
-        XCTAssertTrue(code.contains("paidItemDraws = 0"), "유료 카운터 초기화가 없다")
+        guard let blockStart = code.range(of: "if todayDate != state.lastDate {") else {
+            XCTFail("하루 경계 분기를 못 찾았다")
+            return
+        }
+        guard let blockEnd = code.range(of: "if todayTokens > state.claimedTodayTokens {",
+                                        range: blockStart.upperBound..<code.endIndex) else {
+            XCTFail("하루 경계 분기의 끝(다음 분기의 시작)을 못 찾았다")
+            return
+        }
+        let block = code[blockStart.lowerBound..<blockEnd.lowerBound]
+        let outside = String(code[code.startIndex..<blockStart.lowerBound])
+            + String(code[blockEnd.lowerBound...])
+        for line in ["freeItemDrawUsed = false", "paidItemDraws = 0"] {
+            XCTAssertTrue(block.contains(line), "\(line) 이 하루 경계 블록 안에 없다")
+            XCTAssertFalse(outside.contains(line), "\(line) 이 하루 경계 블록 밖에도 있다 — 리셋이 두 곳이다")
+        }
     }
 
     // MARK: 경계 검증

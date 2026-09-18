@@ -131,6 +131,12 @@ struct EggSlotsView: View {
             }
         }
         .onChange(of: now) { _, date in announceRipeEggs(at: date) }
+        .onDisappear {
+            // 팝오버가 닫혀 이 뷰가 사라지면 진행 중인 뽑기 조회도 함께 끊는다 — 살려두면
+            // 티켓은 이미 쓰였고 알도 이미 놓인 채로, 다음에 연 새 뷰의 뽑기와 경합해 이
+            // 연출만 조용히 사라진다(`guard !Task.isCancelled` 가 지키려는 바로 그 경우).
+            drawTask?.cancel()
+        }
         // 거둔 개체를 한 번 보여준다 — 확인을 누른 보람이 있어야 하고, 이걸 안 보면 무엇이
         // 나왔는지 박스에 들어가서야 알게 된다.
         .overlay {
@@ -350,7 +356,9 @@ struct EggSlotsView: View {
                 EggBalance.speciesIndex(index, inGeneration: $0)
             } ?? index
             guard !pool.isEmpty else {
-                drawError = l.shopDrawFetchFailed
+                // 네트워크는 이미 받았다 — 실패한 건 그 세대에 맞는 종을 찾는 쪽이다.
+                // `shopDrawFetchFailed`("부화 후보를 받지 못했어요")를 쓰면 조회 실패로 오해한다.
+                drawError = l.shopDrawNoMatchingSpecies
                 return
             }
             let grade = ticket.guaranteedGrade
@@ -359,8 +367,10 @@ struct EggSlotsView: View {
                                                 roll: store.nextRandomUnit())
             // 메타몽 위장은 **세대 제한이 없을 때만** 건다 — 메타몽은 132(1세대)라, 9세대권이
             // 메타몽을 내면 그 티켓이 스스로 한 약속을 깬다. 등급권의 동작은 예전 그대로다.
+            // 판정은 `disguises(ticket:grade:roll:)` 순수 함수로 떼어 직접 테스트한다 —
+            // 소스를 문자열로 훑는 대신 게이트가 실제로 거르는지를 값으로 확인한다.
             if ticket.guaranteedGeneration == nil,
-               DittoDisguise.hits(grade: grade, roll: store.nextRandomUnit()) {
+               Self.disguises(ticket: ticket, grade: grade, roll: store.nextRandomUnit()) {
                 chosen = DittoDisguise.speciesID
             }
             // 성장곡선·성비는 인덱스에서 그대로 싣는다 — 일반 뽑기(`draw()`)와 같은 규칙.
@@ -374,6 +384,13 @@ struct EggSlotsView: View {
             }
             reveal = (grade: egg.grade, shiny: egg.shiny)
         }
+    }
+
+    /// 확정권 한 장이 메타몽 위장을 받을 수 있나. **세대권은 못 받는다** — 메타몽(132)은
+    /// 1세대라, 세대 제한이 있는 확정권이 메타몽을 내면 스스로 한 "이 세대만" 약속을 깬다.
+    /// 순수 함수라 `drawWithTicket` 을 문자열로 훑지 않고 게이트 자체를 값으로 테스트한다.
+    nonisolated static func disguises(ticket: ShopItem, grade: Grade, roll: Double) -> Bool {
+        ticket.guaranteedGeneration == nil && DittoDisguise.hits(grade: grade, roll: roll)
     }
 
     /// 뽑기 확률 표기. 밸런스 표에서 만들어 문구와 수치가 어긋나지 않게 한다.

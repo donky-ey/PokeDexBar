@@ -1653,7 +1653,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
             store.seedForTesting(wallet: 0, slots: 3, eggs: 0, at: now)
             store.grantPointsForTesting(points)
             if spent { store.mutate { $0.freeItemDrawUsed = true } }
-            return ProfessorBoxSection(store: store)
+            return ProfessorBoxSection(store: store, reveal: .constant(nil))
         }
         return VStack(alignment: .leading, spacing: 14) {
             row(points: 120, spent: false)   // 오늘 무료

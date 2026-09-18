@@ -158,6 +158,13 @@ struct L {
           "Can't draw right now. Check your currency and open slots.",
           "今は引けません。所持金と空きスロットを確認してください。")
     }
+    /// 세대 확정권이 걸러낸 후보가 하나도 없을 때 — 네트워크 실패가 아니라 그 세대에 맞는
+    /// 종을 못 찾은 것이라 `shopDrawFetchFailed`("부화 후보를 받지 못했어요")를 쓰면 거짓말이 된다.
+    var shopDrawNoMatchingSpecies: String {
+        t("이 확정권에 맞는 후보를 찾지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+          "Couldn't find a match for this ticket. Please try again shortly.",
+          "このチケットに合う候補が見つかりませんでした。しばらくして再試行してください。")
+    }
     func shopFreeSlots(_ free: Int, _ total: Int) -> String {
         t("빈 슬롯 \(free) / \(total)", "Open slots \(free) / \(total)", "空きスロット \(free) / \(total)")
     }
@@ -494,8 +501,10 @@ struct L {
     }
     /// 아이템 연출의 아랫줄 — 어디로 갔는지 말한다.
     var itemDrawLanded: String { t("가방에 넣었어요", "Added to your Bag", "バッグに入れました") }
-    /// 개수가 둘 이상일 때의 표기.
-    func itemDrawCount(_ count: Int) -> String { t("×\(count)", "×\(count)", "×\(count)") }
+    /// 개수가 둘 이상일 때의 표기 — "×3" 은 곱셈 기호와 숫자라 세 언어가 다를 이유가 없다
+    /// (상점 목록의 `"×\(owned)"` 도 같은 표기를 쓴다). `t()` 로 감싸지 않는다 — 세 갈래가
+    /// 똑같은 문자열이면 그 래핑 자체가 거짓 신호다.
+    func itemDrawCount(_ count: Int) -> String { "×\(count)" }
     var professorBoxTitle: String { t("박사의 상자", "Professor's Box", "はかせのはこ") }
     var itemDrawFreeToday: String {
         t("오늘 한 판은 무료예요", "Today's first draw is free", "きょうの1回はむりょうです")

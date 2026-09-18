@@ -81,11 +81,11 @@ final class GenerationTicketTests: XCTestCase {
         XCTAssertTrue(code.contains("guaranteedGeneration != nil"), "세대권이 목록에 안 든다")
     }
 
-    /// 세대권은 메타몽 위장을 타면 안 된다. 메타몽(132)은 1세대라, 9세대권이 메타몽을 내면 그
-    /// 티켓이 스스로 한 "이 세대만" 약속을 깬다. 위장 굴림 자체(`DittoDisguise.hits`)는 등급만
-    /// 보고 세대를 모르므로, `drawWithTicket` 이 `ticket.guaranteedGeneration == nil` 로 그
-    /// 호출을 막고 있는지를 소스에서 확인한다 — `drawWithTicket` 은 뷰의 private 비동기 메서드라
-    /// 여기서 직접 부를 수 없다(이 파일의 다른 소스 검증 테스트와 같은 이유).
+    /// `drawWithTicket` 이 실제로 게이트 헬퍼(`EggSlotsView.disguises`)를 부르는지 — 배선만
+    /// 확인한다. 게이트 **자체**의 동작(등급권은 위장을 받고 세대권은 못 받는다)은 아래
+    /// `testGradeTicketsCanDisguiseButGenerationTicketsCannot` 이 그 함수를 직접 불러 값으로 확인한다
+    /// (예전엔 여기서 `ticket.guaranteedGeneration == nil` 문자열만 찾아, `ticket.guaranteedGrade
+    /// == nil` 을 게이트에 몰래 추가해 등급권의 위장을 지워도 못 잡았다).
     func testGenerationTicketsGateOutTheDittoDisguise() throws {
         let code = try Self.eggSlotsViewCode()
         guard let funcRange = code.range(of: "private func drawWithTicket") else {
@@ -93,24 +93,23 @@ final class GenerationTicketTests: XCTestCase {
             return
         }
         let body = code[funcRange.lowerBound...]
-        guard let hitsRange = body.range(of: "DittoDisguise.hits") else {
-            XCTFail("DittoDisguise.hits 호출이 drawWithTicket 에서 사라졌다 — 등급권의 위장이 없어졌다")
-            return
-        }
-        let before = body[..<hitsRange.lowerBound]
-        XCTAssertTrue(before.contains("ticket.guaranteedGeneration == nil"),
-                      "세대권이 메타몽 위장을 걸러내는 게이트가 drawWithTicket 에 없다")
+        XCTAssertTrue(body.contains("Self.disguises(ticket:"),
+                      "drawWithTicket 이 게이트 헬퍼를 안 쓴다 — 위장 판정이 다시 인라인으로 흩어졌다")
     }
 
-    /// 대조군 — 등급권(세대 제한이 없는 확정권)은 게이트를 그대로 통과한다. 위 테스트가 "항상
-    /// 막는" 조건으로 몰래 바뀌어도(예: `true &&`) 안 잡히는 것을 막는다. 위장 굴림 자체도 여전히
-    /// 살아 있다 — 이 조건이 전부 사라지면(`hits` 삭제) 이 테스트가 대신 걸린다.
-    func testGradeTicketsStillPassTheDittoGate() {
+    /// 게이트를 **직접** 묻는다 — 등급권은 위장을 받고, 세대권은 못 받는다. 이게 없으면
+    /// `ticket.guaranteedGrade == nil` 을 게이트에 추가해 등급권의 위장을 몰래 지워도(값은 늘 등급이
+    /// 있으니 항상 거짓이 되지 않는 이상 걸리지만, 반대로 `&& false` 류로 통째로 죽여도) 소스검증
+    /// 만으로는 못 잡는다 — 이 테스트는 실제 반환값을 본다.
+    func testGradeTicketsCanDisguiseButGenerationTicketsCannot() {
         for ticket in [ShopItem.rareEggTicket, .epicEggTicket, .legendaryEggTicket] {
-            XCTAssertNil(ticket.guaranteedGeneration,
-                        "\(ticket) 가 세대를 갖고 있다 — 대조군 전제가 깨졌다")
+            XCTAssertTrue(EggSlotsView.disguises(ticket: ticket, grade: .common, roll: 0),
+                         "\(ticket) 가 위장을 못 받는다")
         }
-        XCTAssertTrue(DittoDisguise.hits(grade: .common, roll: 0),
-                      "커먼 + roll 0 인데도 위장이 안 걸린다 — 등급권이 닿을 위장 자체가 죽었다")
+        for generation in 1...9 {
+            guard let ticket = ShopItem.generationTicket(for: generation) else { continue }
+            XCTAssertFalse(EggSlotsView.disguises(ticket: ticket, grade: .common, roll: 0),
+                          "\(ticket) 가 세대 제한을 깨고 위장을 받았다")
+        }
     }
 }

@@ -4,7 +4,11 @@ import SwiftUI
 /// 포인트를 주는 곳과 쓰는 곳이 한 구역에 모여 있어야 포인트가 무엇인지 읽힌다.
 struct ProfessorBoxSection: View {
     let store: PlayerStore
-    @State private var reveal: ItemDrawResult?
+    /// 연출 상태는 여기서 갖지 않는다 — `ShopTabView` 가 갖고 있다가 자기 탭 프레임(320pt) 위에
+    /// 띄운다. 이 구역 자체는 52pt 남짓이라, 여기서 `.overlay` 로 직접 띄우면 `RevealTheater`
+    /// 무대(150pt + 결과줄)가 이 자리보다 커서 뒤 목록이 비친다(딥리뷰 지적, v1.16.2 의 알 뽑기
+    /// 회귀와 같은 부류) — `ShopTabView.swift` 의 `.overlay` 참고.
+    @Binding var reveal: ItemDrawResult?
 
     private var l: L { store.l }
 
@@ -35,13 +39,6 @@ struct ProfessorBoxSection: View {
             .disabled(!store.canDrawItem)
             Text(Self.footnote(store: store))
                 .font(.system(size: 8)).foregroundStyle(.tertiary)
-        }
-        .overlay {
-            if let reveal {
-                ItemRevealView(result: reveal, l: l, language: store.language) {
-                    self.reveal = nil
-                }
-            }
         }
     }
 }
