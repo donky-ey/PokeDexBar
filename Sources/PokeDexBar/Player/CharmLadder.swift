@@ -14,31 +14,17 @@ enum CharmLadder {
     static let basePrice = 250_000_000
     static let growth = 2
 
+    /// 값 사다리 — 계산은 `DoublingLadder` 가 한다(아이템 뽑기와 공유).
+    static let ladder = DoublingLadder(base: basePrice)
+
     /// 이 단계를 사는 값. 1단계 미만은 값이 없다.
-    static func price(tier: Int) -> Int? {
-        guard tier >= 1, tier <= maxSafeTier else { return nil }
-        return basePrice * pow2(tier - 1)
-    }
+    static func price(tier: Int) -> Int? { ladder.price(step: tier) }
 
     /// 여기까지 올리는 데 든 총액 — 화면이 "지금까지 얼마 썼나" 를 보여줄 때 쓴다.
-    static func cumulative(through tier: Int) -> Int {
-        guard tier >= 1 else { return 0 }
-        return basePrice * (pow2(min(tier, maxSafeTier)) - 1)
-    }
+    static func cumulative(through tier: Int) -> Int { ladder.cumulative(through: tier) }
 
-    /// **오버플로 방어 — 값에서 유도한다.** 가격이 2배씩 뛰므로 단계가 커지면 `Int` 를 넘고,
-    /// Swift 의 곱셈은 트랩이라 프로세스가 죽는다(CLAUDE.md 의 값 범위 검증).
-    ///
-    /// 손으로 40 이라고 적었다가 실제로 밟았다 — `basePrice` 가 2.5억이라 누적이 `Int.max` 를
-    /// 넘는 지점은 40 이 아니라 **35** 다. 상한은 `basePrice` 를 고치면 같이 움직여야 하므로
-    /// 상수로 두지 않고 여기서 센다(누적 `base × (2^t − 1)` 이 들어가는 가장 큰 t).
-    static let maxSafeTier: Int = {
-        var tier = 1
-        while Int.max / basePrice >= (1 << (tier + 1)) - 1 { tier += 1 }
-        return tier
-    }()
-
-    private static func pow2(_ n: Int) -> Int { 1 << min(max(0, n), 62) }
+    /// 오버플로 방어의 상한. `basePrice` 에서 유도되므로 값을 고치면 같이 움직인다.
+    static var maxSafeTier: Int { ladder.maxStep }
 
     /// 단계마다 붙는 이득. 부적마다 다르고, **지금 효과가 4단계에 오도록** 역산한 값이다 —
     /// 그래야 기존 구매자를 4단계에 놓았을 때 손해도 이득도 아니게 된다.
