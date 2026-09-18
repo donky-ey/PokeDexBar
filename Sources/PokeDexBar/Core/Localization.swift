@@ -506,13 +506,6 @@ struct L {
     /// 똑같은 문자열이면 그 래핑 자체가 거짓 신호다.
     func itemDrawCount(_ count: Int) -> String { "×\(count)" }
     var professorBoxTitle: String { t("박사의 상자", "Professor's Box", "はかせのはこ") }
-    var itemDrawFreeToday: String {
-        t("오늘 한 판은 무료예요", "Today's first draw is free", "きょうの1回はむりょうです")
-    }
-    func itemDrawPrice(_ points: Int) -> String {
-        t("다음 판 \(points)포인트", "Next draw costs \(points) points",
-          "つぎは\(points)ポイント")
-    }
     func itemDrawNeedsPoints(_ points: Int) -> String {
         t("\(points)포인트가 필요해요", "You need \(points) points", "\(points)ポイントが必要です")
     }
@@ -520,6 +513,27 @@ struct L {
         t("오늘은 여기까지예요", "That is all for today", "きょうはここまでです")
     }
     var itemDrawButton: String { t("상자 열기", "Open the box", "はこを開ける") }
+    /// 버튼에 값을 얹는다 — **누르는 곳과 치르는 값이 같은 자리**에 있어야 한다. 각주에 두었더니
+    /// "이번에 얼마 내는지 모르겠다"가 됐다(사용자 지적). 알 뽑기 타일이 값을 안에 적는 것과 같다.
+    var itemDrawButtonFree: String {
+        t("상자 열기 · 무료", "Open the box · free", "はこを開ける · むりょう")
+    }
+    func itemDrawButtonPriced(_ points: Int) -> String {
+        t("상자 열기 · \(points)P", "Open the box · \(points)P", "はこを開ける · \(points)P")
+    }
+    /// **사다리를 미리 말한다.** 첫 판이 무료라고만 하면 연타하다가 세 번째에 값이 네 배가 된 것을
+    /// 뒤늦게 안다(사용자 지적). 뽑기 전에도 다음 값이 보여야 한다.
+    func itemDrawLadder(_ next: Int) -> String {
+        t("값은 그날 안에서 두 배씩 올라요 — 다음 판 \(next)P",
+          "The price doubles with each draw today — next is \(next)P",
+          "ねだんはその日のうちに倍ずつ上がります — つぎは\(next)P")
+    }
+    /// 확률 줄에 서는 세대 확정권의 이름 — 세대 번호는 뽑을 때 정해지므로 여기서는 안 적는다.
+    var itemDrawGenerationEgg: String { t("세대 알", "Gen Egg", "せだいタマゴ") }
+    /// 확률 줄에 서는 등급 확정권의 이름 — 등급 이름(`Grade.label`)에서 유도한다.
+    func itemDrawGradeEgg(_ grade: String) -> String {
+        t("\(grade) 알", "\(grade) Egg", "\(grade)タマゴ")
+    }
     func eggCountdownDaysHours(_ days: Int, _ hours: Int) -> String {
         t("\(days)일 \(hours)시간", "\(days)d \(hours)h", "\(days)日\(hours)時間")
     }

@@ -20,6 +20,14 @@ extension PlayerStore {
         return ItemDrawBalance.ladder.price(step: state.paidItemDraws + 1)
     }
 
+    /// **이 판 다음** 판의 값. 각주가 사다리를 미리 말할 때 쓴다 — 지금 값이 아니라 다음 값을
+    /// 보여야 "두 배씩 오른다"가 숫자로 읽힌다. 상한을 넘으면 nil.
+    var itemDrawPriceAfterNext: Int? {
+        // 무료 판을 쓰고 나면 유료 1단계가 다음이고, 유료 n 판을 썼으면 n+2 단계가 다음이다.
+        let step = itemDrawIsFree ? 1 : state.paidItemDraws + 2
+        return ItemDrawBalance.ladder.price(step: step)
+    }
+
     /// 지금 뽑을 수 있나 — 화면의 버튼이 이 하나만 본다.
     var canDrawItem: Bool {
         guard let price = nextItemDrawPrice else { return false }

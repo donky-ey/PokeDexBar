@@ -54,4 +54,33 @@ extension ItemDrawBalance {
         }
         return pool.last!   // 반올림 여분으로 끝까지 온 경우
     }
+
+    /// 상품 하나의 표시 이름. 확정권은 **짧은 이름**을 쓴다 — 확률 줄에 "레어 알 확정권"을 여섯 번
+    /// 세우면 줄이 세 줄로 불어 무엇이 들어 있는지가 오히려 안 읽힌다. 등급 이름은 `Grade.label`
+    /// 에서 유도하므로 등급 문구를 고치면 여기도 따라 움직인다.
+    nonisolated static func prizeName(_ prize: ItemPrize, _ lang: AppLanguage) -> String {
+        let l = L(lang)
+        switch prize {
+        case .generationTicket:
+            return l.itemDrawGenerationEgg
+        case .item(let item, _):
+            guard let grade = item.guaranteedGrade else { return item.label(lang) }
+            return l.itemDrawGradeEgg(grade.label(lang))
+        }
+    }
+
+    /// 확률 줄. **표에서 유도한다** — 손으로 적으면 가중치를 고칠 때 문구가 조용히 거짓이 된다
+    /// (알 뽑기의 `EggSlotsView.oddsText` 가 `EggBalance.odds` 에서 유도하는 것과 같은 이유).
+    ///
+    /// 이름이 곧 "무엇이 들어 있나"의 답이라 별도 설명줄을 두지 않는다.
+    nonisolated static func oddsText(_ lang: AppLanguage) -> String {
+        pool.map { "\(prizeName($0.prize, lang)) \(percentText($0.weight))" }
+            .joined(separator: " · ")
+    }
+
+    /// 천분율 → 표시용 백분율. **소수 한 자리를 자르면 안 된다** — 45‰ 는 4% 가 아니라 4.5% 이고,
+    /// 자르면 에픽·레전더리가 실제보다 낮게 적힌 채로 나간다. 천분율이라 한 자리에서 정확히 떨어진다.
+    nonisolated static func percentText(_ weight: Int) -> String {
+        weight % 10 == 0 ? "\(weight / 10)%" : "\(weight / 10).\(weight % 10)%"
+    }
 }

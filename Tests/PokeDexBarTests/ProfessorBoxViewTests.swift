@@ -31,10 +31,12 @@ final class ProfessorBoxViewTests: XCTestCase {
         XCTAssertLessThan(goals.lowerBound, box.lowerBound, "상자가 의뢰보다 위에 있다")
     }
 
-    /// 무료 판이 남았으면 그렇게 말한다.
-    func testTheFreeDrawIsAnnounced() {
+    /// 무료 판이 남았어도 각주는 **사다리**를 말한다 — 무료라는 사실은 버튼이 이미 말하고
+    /// (`상자 열기 · 무료`), 각주 자리는 "다음 판부터 얼마인가"에 쓴다(사용자 지적으로 바뀐 설계).
+    func testTheFreeDrawShowsTheLadderNotJustFree() {
         let store = makeStore()
-        XCTAssertEqual(ProfessorBoxSection.footnote(store: store), store.l.itemDrawFreeToday)
+        XCTAssertEqual(ProfessorBoxSection.buttonTitle(store: store), store.l.itemDrawButtonFree)
+        XCTAssertEqual(ProfessorBoxSection.footnote(store: store), store.l.itemDrawLadder(20))
     }
 
     /// 포인트가 모자라면 **왜 못 누르는지** 말한다 — 회색 버튼만 두고 이유를 안 적어
@@ -46,11 +48,14 @@ final class ProfessorBoxViewTests: XCTestCase {
                        store.l.itemDrawNeedsPoints(20))
     }
 
-    /// 살 수 있으면 값이 아니라 다음 값을 알려 준다 — 대조군. 없으면 "늘 이유만 낸다"도 통과한다.
-    func testWithEnoughPointsItShowsThePrice() {
+    /// 살 수 있으면 이유가 아니라 **다음 값**을 알려 준다 — 대조군. 없으면 "늘 이유만 낸다"도
+    /// 통과한다. 이번 판 값은 버튼이 들고 있다.
+    func testWithEnoughPointsItShowsTheNextPriceNotABlockedReason() {
         let store = makeStore()
         store.grantPointsForTesting(1000)
         _ = store.drawItem()
-        XCTAssertEqual(ProfessorBoxSection.footnote(store: store), store.l.itemDrawPrice(20))
+        XCTAssertEqual(ProfessorBoxSection.buttonTitle(store: store),
+                       store.l.itemDrawButtonPriced(20))
+        XCTAssertEqual(ProfessorBoxSection.footnote(store: store), store.l.itemDrawLadder(40))
     }
 }

@@ -12,13 +12,23 @@ struct ProfessorBoxSection: View {
 
     private var l: L { store.l }
 
-    /// 줄 아래 한 줄. 못 누를 때는 **왜 못 누르는지**가 온다 — 회색 버튼만 두면 물어볼 곳이 없다.
+    /// 버튼 문구. **값이 여기 붙는다** — 각주에 두었더니 "이번에 얼마 내는지 모르겠다"가 됐다
+    /// (사용자 지적). 값이 모자라도 계속 보인다 — 얼마가 필요한지 알아야 기다릴 수 있다.
+    static func buttonTitle(store: PlayerStore) -> String {
+        let l = store.l
+        guard let price = store.nextItemDrawPrice else { return l.itemDrawButton }
+        return price == 0 ? l.itemDrawButtonFree : l.itemDrawButtonPriced(price)
+    }
+
+    /// 줄 아래 한 줄. 누를 수 있으면 **사다리를 미리** 말하고(연타하다 값이 네 배가 된 것을 뒤늦게
+    /// 아는 일을 막는다), 못 누르면 **왜 못 누르는지**가 온다 — 회색 버튼만 두면 물어볼 곳이 없다.
     static func footnote(store: PlayerStore) -> String {
         let l = store.l
         guard let price = store.nextItemDrawPrice else { return l.itemDrawSoldOut }
-        if store.itemDrawIsFree { return l.itemDrawFreeToday }
-        return store.state.researchPoints >= price
-            ? l.itemDrawPrice(price) : l.itemDrawNeedsPoints(price)
+        guard store.state.researchPoints >= price else { return l.itemDrawNeedsPoints(price) }
+        // 다음 값이 없다면(상한) 사다리를 말할 것이 없으므로 지금 상태만 말한다.
+        guard let next = store.itemDrawPriceAfterNext else { return l.itemDrawSoldOut }
+        return l.itemDrawLadder(next)
     }
 
     var body: some View {
@@ -32,13 +42,19 @@ struct ProfessorBoxSection: View {
                     .font(.system(size: 9, weight: .medium)).monospacedDigit()
                     .foregroundStyle(.secondary)
             }
-            Button(l.itemDrawButton) {
+            // 확률이 버튼 **위**에 선다 — 무엇이 들어 있는지 보고 나서 누르게. 아래에 두면
+            // 누른 뒤에야 읽는다. 품목 이름이 곧 "무슨 기능인가"의 답이다(사용자 지적).
+            Text(ItemDrawBalance.oddsText(store.language))
+                .font(.system(size: 8)).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(Self.buttonTitle(store: store)) {
                 if let result = store.drawItem() { reveal = result }
             }
             .buttonStyle(.bordered).controlSize(.small)
             .disabled(!store.canDrawItem)
             Text(Self.footnote(store: store))
                 .font(.system(size: 8)).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
