@@ -246,6 +246,13 @@ A labelled Draw tile stands at the head of the hatching row, so the thing you sp
 </td>
 </tr>
 <tr>
+<td width="45%" align="center"><img src="assets/professor-box.png" width="300" alt="The Professor's Box in three states: today's free draw, the next draw priced at 20 points, and the same row dimmed when you are short"></td>
+<td width="55%" valign="middle">
+<h3>🎁 The Professor's Box</h3>
+Research points had one use — taking a Pokémon he offers you. Now they also open a box once a day for free, and again within the day at a price that doubles each time: 20, then 40, then 80. Inside are EXP Candy, <b>Massage Coupons</b> that add a day of friendship to one Pokémon, egg tickets by grade, and <b>generation tickets</b> that hatch only from the generation named on them. The doubling is what keeps it honest: points come from releasing Pokémon, so a flat price would turn eggs into candy on a loop.
+</td>
+</tr>
+<tr>
 <td width="55%" valign="middle">
 <h3>🥚 Ready on the clock, opened by you</h3>
 Draw up to 3 eggs at once (6 with a slot upgrade) — each grade gets its own shell colour and speckle count, so you can tell what's incubating at a glance. Every egg counts down on its own wall-clock timer — 30 minutes for a Common up to 24 hours for a Legendary — live on Home even while you're away, and a notification tells you once it's ready. It then waits there, cracked, until you tap Open — the cracked egg rocks, bursts, and the Pokémon springs out of it.

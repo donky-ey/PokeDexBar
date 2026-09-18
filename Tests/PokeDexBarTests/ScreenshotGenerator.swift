@@ -1025,6 +1025,10 @@ final class ScreenshotGeneratorTests: XCTestCase {
         // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
         try write(png(drawSlotBanner()), "draw-slot.png")
 
+        // 박사의 상자 — 연구 포인트로 도는 아이템 뽑기. 오늘 무료·다음 판 20포인트·포인트 부족
+        // 세 상태가 한 화면에 세로로. §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
+        try write(png(professorBoxBanner()), "professor-box.png")
+
         // 문제 제보 — 크래시 배너(홈)와 설정의 제보 줄을 위아래로. **픽스처에 크래시 기록을
         // 심어야 배너가 찍힌다** — 안 심으면 아무리 다시 생성해도 빈 자리만 나온다(설정
         // 스크린샷에 플로팅 펫이 꺼져 있어 새 토글이 영영 안 찍히던 함정과 같은 부류).
@@ -1631,6 +1635,30 @@ final class ScreenshotGeneratorTests: XCTestCase {
             row(wallet: EggBalance.drawPrice * 40, eggs: 1)     // 뽑을 수 있다
             row(wallet: EggBalance.drawPrice / 2, eggs: 1)      // 지갑이 모자라다
             row(wallet: EggBalance.drawPrice * 40, eggs: 3)     // 자리가 찼다
+        }
+        .frame(width: PopoverMetrics.contentWidth)
+        .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    /// 박사의 상자 세 상태를 세로로 — 무료, 유료(값 표시), 포인트 부족.
+    private func professorBoxBanner() -> some View {
+        let now = ScreenshotFixture.now
+        func row(points: Int, spent: Bool) -> ProfessorBoxSection {
+            let store = PlayerStore(fileURL: FileManager.default.temporaryDirectory
+                                        .appendingPathComponent("box-\(UUID().uuidString).json"),
+                                    rng: SeededRNG(seed: 9), now: { now },
+                                    defaults: UserDefaults(suiteName: "ptb-box-\(UUID().uuidString)")!)
+            store.setLanguage(.en)
+            store.seedForTesting(wallet: 0, slots: 3, eggs: 0, at: now)
+            store.grantPointsForTesting(points)
+            if spent { store.mutate { $0.freeItemDrawUsed = true } }
+            return ProfessorBoxSection(store: store)
+        }
+        return VStack(alignment: .leading, spacing: 14) {
+            row(points: 120, spent: false)   // 오늘 무료
+            row(points: 120, spent: true)    // 다음 판 20포인트
+            row(points: 5, spent: true)      // 포인트 부족
         }
         .frame(width: PopoverMetrics.contentWidth)
         .padding(16)
