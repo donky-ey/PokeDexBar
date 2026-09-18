@@ -29,6 +29,10 @@ struct PlayerState: Codable, Sendable {
     /// 토큰으로는 박사와 거래할 수 없다. 섞으면 토큰을 안 쓰고도 재화가 도는 순환이 생겨,
     /// "쓴 토큰이 곧 재화" 라는 이 앱의 전제가 흐려진다.
     var researchPoints = 0
+    /// 오늘 무료 한 판을 썼나. 하루 경계에서 비워지는 **로컬 장부**다.
+    var freeItemDrawUsed = false
+    /// 오늘 유료로 몇 판 뽑았나 — 다음 값이 이 수에서 나온다.
+    var paidItemDraws = 0
     /// 무지개 부적 — 전국도감 완성 미션의 보상. 진행(어느 기기에서든 참).
     var ownsRainbowCharm = false
     /// 수령한 도감 미션 id 들. 진행.
@@ -174,6 +178,10 @@ struct PlayerState: Codable, Sendable {
         inventory = value(.inventory, [:])
         // 관대 디코딩의 짝 — 값 범위 검증. 산술에 쓰이는 수치이므로 자른다.
         researchPoints = min(ReleaseBalance.maxPoints, max(0, value(.researchPoints, 0)))
+        freeItemDrawUsed = value(.freeItemDrawUsed, false)
+        // 관대 디코딩의 짝 — 값 범위 검증. 이 수가 `1 << n` 에 들어가므로 큰 값은 오버플로
+        // 트랩으로 프로세스를 죽인다. 상한은 사다리가 감당하는 단계까지다.
+        paidItemDraws = min(ItemDrawBalance.ladder.maxStep, max(0, value(.paidItemDraws, 0)))
         claimedDexMissions = value(.claimedDexMissions, [])
         claimedCollections = value(.claimedCollections, [])
         // 값 범위를 안 자른다 — 해시 입력일 뿐이라 어떤 값이 와도 산술이 넘치지 않는다

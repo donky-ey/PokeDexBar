@@ -113,6 +113,9 @@ final class PlayerStore {
             state.dailyCounts = [:]
             state.claimedDailyQuests = []
             state.claimedDailyBonus = false
+            // 박사의 상자도 같은 로컬 장부다 — 무료권과 값 사다리가 여기서 함께 내려간다.
+            state.freeItemDrawUsed = false
+            state.paidItemDraws = 0
         }
         // 롤오버로 오늘 총량이 0으로 재설정된 경우도 여기서 걸러진다 — 그래도 위 리셋은
         // save() 로 반드시 디스크에 반영해야 한다(로컬 장부가 메모리에만 남으면 안 된다).
@@ -405,6 +408,11 @@ final class PlayerStore {
     /// 테스트·개발용 아이템 지급. 세이브를 직접 고치는 대신 이 경로를 쓴다.
     func grantForTesting(_ item: ShopItem, count: Int) {
         mutate { $0.inventory[item.rawValue, default: 0] += count }
+    }
+
+    /// 테스트·개발용 박사 포인트 지급.
+    func grantPointsForTesting(_ points: Int) {
+        mutate { $0.researchPoints = min(ReleaseBalance.maxPoints, $0.researchPoints + points) }
     }
 
     /// 테스트 전용 — 지갑·슬롯·알 개수를 직접 세팅한다(적립 경로를 돌리지 않고).
