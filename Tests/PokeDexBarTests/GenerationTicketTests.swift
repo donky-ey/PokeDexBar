@@ -62,17 +62,55 @@ final class GenerationTicketTests: XCTestCase {
         XCTAssertTrue(EggBalance.speciesIndex(index(), inGeneration: 10).isEmpty)
     }
 
-    /// 확정권 목록을 뷰가 손으로 나열하지 않는다 — 나열하면 새 확정권이 조용히 안 보인다.
-    func testTheTicketRowIsDerivedNotHandListed() throws {
+    /// `EggSlotsView.swift` 의 주석을 걷어낸 소스. 통짜 `contains(...)` 는 바로 위 주석의
+    /// 같은 낱말에 걸려 코드가 지워져도 통과하므로, 아래 두 소스 검증 테스트가 공유해서 쓴다.
+    private static func eggSlotsViewCode() throws -> String {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/PokeDexBar/UI/EggSlotsView.swift")
         let source = try String(contentsOf: url, encoding: .utf8)
-        // 주석을 먼저 걷어낸다 — 통짜 검색은 바로 위 주석의 같은 낱말에 걸린다.
-        let code = source.split(separator: "\n")
+        return source.split(separator: "\n")
             .map { $0.contains("//") ? String($0[..<$0.range(of: "//")!.lowerBound]) : String($0) }
             .joined(separator: "\n")
+    }
+
+    /// 확정권 목록을 뷰가 손으로 나열하지 않는다 — 나열하면 새 확정권이 조용히 안 보인다.
+    func testTheTicketRowIsDerivedNotHandListed() throws {
+        let code = try Self.eggSlotsViewCode()
         XCTAssertFalse(code.contains("[ShopItem.rareEggTicket"), "확정권을 손으로 나열하고 있다")
         XCTAssertTrue(code.contains("guaranteedGeneration != nil"), "세대권이 목록에 안 든다")
+    }
+
+    /// 세대권은 메타몽 위장을 타면 안 된다. 메타몽(132)은 1세대라, 9세대권이 메타몽을 내면 그
+    /// 티켓이 스스로 한 "이 세대만" 약속을 깬다. 위장 굴림 자체(`DittoDisguise.hits`)는 등급만
+    /// 보고 세대를 모르므로, `drawWithTicket` 이 `ticket.guaranteedGeneration == nil` 로 그
+    /// 호출을 막고 있는지를 소스에서 확인한다 — `drawWithTicket` 은 뷰의 private 비동기 메서드라
+    /// 여기서 직접 부를 수 없다(이 파일의 다른 소스 검증 테스트와 같은 이유).
+    func testGenerationTicketsGateOutTheDittoDisguise() throws {
+        let code = try Self.eggSlotsViewCode()
+        guard let funcRange = code.range(of: "private func drawWithTicket") else {
+            XCTFail("drawWithTicket 을 못 찾았다")
+            return
+        }
+        let body = code[funcRange.lowerBound...]
+        guard let hitsRange = body.range(of: "DittoDisguise.hits") else {
+            XCTFail("DittoDisguise.hits 호출이 drawWithTicket 에서 사라졌다 — 등급권의 위장이 없어졌다")
+            return
+        }
+        let before = body[..<hitsRange.lowerBound]
+        XCTAssertTrue(before.contains("ticket.guaranteedGeneration == nil"),
+                      "세대권이 메타몽 위장을 걸러내는 게이트가 drawWithTicket 에 없다")
+    }
+
+    /// 대조군 — 등급권(세대 제한이 없는 확정권)은 게이트를 그대로 통과한다. 위 테스트가 "항상
+    /// 막는" 조건으로 몰래 바뀌어도(예: `true &&`) 안 잡히는 것을 막는다. 위장 굴림 자체도 여전히
+    /// 살아 있다 — 이 조건이 전부 사라지면(`hits` 삭제) 이 테스트가 대신 걸린다.
+    func testGradeTicketsStillPassTheDittoGate() {
+        for ticket in [ShopItem.rareEggTicket, .epicEggTicket, .legendaryEggTicket] {
+            XCTAssertNil(ticket.guaranteedGeneration,
+                        "\(ticket) 가 세대를 갖고 있다 — 대조군 전제가 깨졌다")
+        }
+        XCTAssertTrue(DittoDisguise.hits(grade: .common, roll: 0),
+                      "커먼 + roll 0 인데도 위장이 안 걸린다 — 등급권이 닿을 위장 자체가 죽었다")
     }
 }

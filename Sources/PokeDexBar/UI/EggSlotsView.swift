@@ -338,9 +338,14 @@ struct EggSlotsView: View {
         drawTask = Task {
             defer { drawing = false }
             guard let index = try? await provider.baseSpeciesIndex(), !index.isEmpty else {
+                // 그 사이 뷰가 사라져 취소됐으면(팝오버 닫힘 등) 착지하지 않는다.
+                guard !Task.isCancelled else { return }
                 drawError = l.shopDrawFetchFailed
                 return
             }
+            // 그 사이 뷰가 사라져 취소됐으면(팝오버 닫힘 등) 착지하지 않는다 — 늦게 도착한
+            // 조회가 다음 뽑기와 경합해 조용히 이기는 걸 막는다.
+            guard !Task.isCancelled else { return }
             let pool = ticket.guaranteedGeneration.map {
                 EggBalance.speciesIndex(index, inGeneration: $0)
             } ?? index
@@ -350,8 +355,14 @@ struct EggSlotsView: View {
             }
             let grade = ticket.guaranteedGrade
                 ?? EggBalance.rollGrade(store.nextRandomUnit())
-            let chosen = EggBalance.pickSpecies(from: pool, grade: grade,
+            var chosen = EggBalance.pickSpecies(from: pool, grade: grade,
                                                 roll: store.nextRandomUnit())
+            // 메타몽 위장은 **세대 제한이 없을 때만** 건다 — 메타몽은 132(1세대)라, 9세대권이
+            // 메타몽을 내면 그 티켓이 스스로 한 약속을 깬다. 등급권의 동작은 예전 그대로다.
+            if ticket.guaranteedGeneration == nil,
+               DittoDisguise.hits(grade: grade, roll: store.nextRandomUnit()) {
+                chosen = DittoDisguise.speciesID
+            }
             // 성장곡선·성비는 인덱스에서 그대로 싣는다 — 일반 뽑기(`draw()`)와 같은 규칙.
             let entry = index.first(where: { $0.id == chosen })
             let growthRate = entry?.growthRate ?? .mediumFast
