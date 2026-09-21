@@ -34,27 +34,36 @@ enum ShopItem: String, CaseIterable, Sendable {
     /// 보상 자리로 남겨 둔다**(사용자 결정 ③). 상점 버튼·가방 표시·사용 경로는 전부 살아
     /// 있으므로 어느 기능이든 인벤토리에 넣기만 하면 그대로 돈다. 테스트가 이 상태를 잠근다.
     case rareEggTicket, epicEggTicket, legendaryEggTicket
+    /// 마사지 쿠폰 — 한 마리의 친밀도를 24시간만큼 올린다. **팔지 않는다**(박사의 상자에서만).
+    /// 본가의 마사지(친밀도를 올려 주는 시설)에서 온 이름이다.
+    case massageCoupon
+    /// 세대 알 확정권 — **그 세대의 종만** 나오는 알 한 개. 등급은 평소 확률로 굴린다.
+    /// 등급 확정권과 달리 세대만 한정하므로 `guaranteedGrade` 는 nil 이다.
+    case gen1EggTicket, gen2EggTicket, gen3EggTicket, gen4EggTicket, gen5EggTicket
+    case gen6EggTicket, gen7EggTicket, gen8EggTicket, gen9EggTicket
 
     var price: Int {
-        switch self {
-        case .expCandy: 500_000_000
-        case .shinyCandy: 3_000_000_000
-        case .megaStone: 2_000_000_000
-        case .dynamaxMushroom: 2_000_000_000
-        case .shinyCharm: 3_000_000_000
-        case .expCharm: 4_000_000_000
-        case .fortuneCharm: 5_000_000_000
-        // 못 사는 물건의 가격 — 상점 목록에서 빠지므로 표시될 일이 없고, 혹시 새 화면이
+        // 못 사는 물건의 값 — 상점 목록에서 빠지므로 표시될 일이 없고, 혹시 새 화면이
         // 실수로 노출해도 살 수 없는 값이다.
-        case .rainbowCharm, .rareEggTicket, .epicEggTicket, .legendaryEggTicket: Int.max
+        guard isSold else { return Int.max }
+        switch self {
+        case .expCandy: return 500_000_000
+        case .shinyCandy: return 3_000_000_000
+        case .megaStone: return 2_000_000_000
+        case .dynamaxMushroom: return 2_000_000_000
+        case .shinyCharm: return 3_000_000_000
+        case .expCharm: return 4_000_000_000
+        case .fortuneCharm: return 5_000_000_000
+        default: return Int.max
         }
     }
 
-    /// 상점에 진열되는가. 무지개 부적·알 확정권은 미션 보상 전용이라 상점에 안 선다.
+    /// 상점에 진열되는가. 무지개 부적·확정권·마사지 쿠폰은 보상 전용이라 상점에 안 선다.
     var isSold: Bool {
         switch self {
-        case .rainbowCharm, .rareEggTicket, .epicEggTicket, .legendaryEggTicket: false
-        default: true
+        case .rainbowCharm, .rareEggTicket, .epicEggTicket, .legendaryEggTicket, .massageCoupon:
+            false
+        default: guaranteedGeneration == nil
         }
     }
 
@@ -78,6 +87,27 @@ enum ShopItem: String, CaseIterable, Sendable {
         }
     }
 
+    /// 세대 확정권이 한정하는 세대. 세대권이 아니면 nil.
+    var guaranteedGeneration: Int? {
+        switch self {
+        case .gen1EggTicket: 1
+        case .gen2EggTicket: 2
+        case .gen3EggTicket: 3
+        case .gen4EggTicket: 4
+        case .gen5EggTicket: 5
+        case .gen6EggTicket: 6
+        case .gen7EggTicket: 7
+        case .gen8EggTicket: 8
+        case .gen9EggTicket: 9
+        default: nil
+        }
+    }
+
+    /// 세대 → 그 세대의 확정권. 없는 세대면 nil.
+    static func generationTicket(for generation: Int) -> ShopItem? {
+        allCases.first { $0.guaranteedGeneration == generation }
+    }
+
     /// 표시용 이름 — 언어별(ko/en/ja). `Grade.label(_:)`/`PokemonNature.name(_:)` 와 같은 관례.
     func label(_ lang: AppLanguage) -> String {
         let names: (String, String, String)
@@ -94,6 +124,14 @@ enum ShopItem: String, CaseIterable, Sendable {
         case .epicEggTicket: names = ("에픽 알 확정권", "Epic Egg Ticket", "エピックタマゴかくていけん")
         case .legendaryEggTicket:
             names = ("레전더리 알 확정권", "Legendary Egg Ticket", "でんせつタマゴかくていけん")
+        case .massageCoupon: names = ("마사지 쿠폰", "Massage Coupon", "マッサージけん")
+        case .gen1EggTicket, .gen2EggTicket, .gen3EggTicket, .gen4EggTicket, .gen5EggTicket,
+             .gen6EggTicket, .gen7EggTicket, .gen8EggTicket, .gen9EggTicket:
+            // 세대 숫자는 값에서 온다 — 아홉 줄을 손으로 적으면 하나가 어긋난다.
+            let generation = guaranteedGeneration ?? 0
+            names = ("\(generation)세대 알 확정권",
+                     "Gen \(generation) Egg Ticket",
+                     "\(generation)せだいタマゴかくていけん")
         }
         switch lang { case .ko: return names.0; case .en: return names.1; case .ja: return names.2 }
     }
@@ -149,6 +187,16 @@ enum ShopItem: String, CaseIterable, Sendable {
             texts = ("그 등급이 확정인 무료 알 뽑기 한 번 — 상점의 알 뽑기에서 씁니다",
                      "One free egg draw with the grade guaranteed — used at the Shop's egg draw",
                      "その等級かくていの無料タマゴ抽選1回 — ショップのタマゴ抽選でつかいます")
+        case .massageCoupon:
+            texts = ("지정한 포켓몬과 함께한 시간을 24시간 늘립니다",
+                     "Adds 24 hours to the time you have spent with a chosen Pokémon",
+                     "指定したポケモンと過ごした時間を24時間増やします")
+        case .gen1EggTicket, .gen2EggTicket, .gen3EggTicket, .gen4EggTicket, .gen5EggTicket,
+             .gen6EggTicket, .gen7EggTicket, .gen8EggTicket, .gen9EggTicket:
+            let generation = guaranteedGeneration ?? 0
+            texts = ("그 세대의 포켓몬만 나오는 알 한 개 (등급은 평소대로)",
+                     "One egg that can only hatch a Gen \(generation) Pokémon (grade rolls as usual)",
+                     "そのせだいのポケモンだけが生まれるタマゴ1個（グレードはいつも通り）")
         }
         switch lang { case .ko: return texts.0; case .en: return texts.1; case .ja: return texts.2 }
     }

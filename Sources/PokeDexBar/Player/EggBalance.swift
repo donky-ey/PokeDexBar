@@ -94,6 +94,16 @@ enum EggBalance {
     /// 확정권·박사의 제안 전부 여기를 지난다) 이 한 곳에서 빼면 전 경로가 막힌다.
     static let rewardOnlySpecies: Set<Int> = [486]
 
+    /// 후보를 한 세대로 좁힌다 — 세대 확정권이 쓰는 유일한 문이다.
+    ///
+    /// **`pickSpecies` 를 새로 만들지 않는다.** 그 함수가 종 선택의 유일한 관문이라(상점 뽑기·
+    /// 확정권·박사의 제안이 전부 여기를 지난다) 거른 인덱스를 넘기는 것으로 충분하고, 등급이
+    /// 빈 풀을 만나면 아래 등급으로 걷는 규칙도 세대 제한을 유지한 채 그대로 적용된다.
+    static func speciesIndex(_ index: [BaseSpecies], inGeneration generation: Int) -> [BaseSpecies] {
+        guard let range = DexMissions.generations[generation] else { return [] }
+        return index.filter { range.contains($0.id) }
+    }
+
     /// - Parameter unseenIn: 이미 가진 종(`dex`). 주면 그 안에 **없는** 종이 `unseenBoost` 배
     ///   가중을 받는다. nil 이면 가중을 아예 안 곱한다 — 알 뽑기가 쓰는 기본값이다.
     static func pickSpecies(from index: [BaseSpecies], grade: Grade, roll: Double,

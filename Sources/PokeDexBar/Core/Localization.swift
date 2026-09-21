@@ -158,6 +158,13 @@ struct L {
           "Can't draw right now. Check your currency and open slots.",
           "今は引けません。所持金と空きスロットを確認してください。")
     }
+    /// 세대 확정권이 걸러낸 후보가 하나도 없을 때 — 네트워크 실패가 아니라 그 세대에 맞는
+    /// 종을 못 찾은 것이라 `shopDrawFetchFailed`("부화 후보를 받지 못했어요")를 쓰면 거짓말이 된다.
+    var shopDrawNoMatchingSpecies: String {
+        t("이 확정권에 맞는 후보를 찾지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+          "Couldn't find a match for this ticket. Please try again shortly.",
+          "このチケットに合う候補が見つかりませんでした。しばらくして再試行してください。")
+    }
     func shopFreeSlots(_ free: Int, _ total: Int) -> String {
         t("빈 슬롯 \(free) / \(total)", "Open slots \(free) / \(total)", "空きスロット \(free) / \(total)")
     }
@@ -220,6 +227,11 @@ struct L {
     }
     func useShinyCandy(_ remaining: Int) -> String {
         t("반짝이는 사탕 ×\(remaining)", "Shiny Candy ×\(remaining)", "ひかるアメ ×\(remaining)")
+    }
+    /// 마사지 쿠폰 버튼 — 남은 장수를 함께 적는다(사탕 버튼과 같은 관례).
+    func useMassageCoupon(_ count: Int) -> String {
+        t("마사지 쿠폰 쓰기 (\(count))", "Use Massage Coupon (\(count))",
+          "マッサージけんを使う (\(count))")
     }
     // MARK: 발견 카드 — 파트너가 물어 온 것을 알려 준다. 확인은 흐름을 막지 않는다.
     func discoveryFoundBy(_ name: String, _ count: Int) -> String {
@@ -486,6 +498,41 @@ struct L {
     var eggClaim: String { t("확인", "Open", "かくにん") }
     var hatchedMovedToBox: String {
         t("박스에 들어갔어요", "Added to your Box", "ボックスに入りました")
+    }
+    /// 아이템 연출의 아랫줄 — 어디로 갔는지 말한다.
+    var itemDrawLanded: String { t("가방에 넣었어요", "Added to your Bag", "バッグに入れました") }
+    /// 개수가 둘 이상일 때의 표기 — "×3" 은 곱셈 기호와 숫자라 세 언어가 다를 이유가 없다
+    /// (상점 목록의 `"×\(owned)"` 도 같은 표기를 쓴다). `t()` 로 감싸지 않는다 — 세 갈래가
+    /// 똑같은 문자열이면 그 래핑 자체가 거짓 신호다.
+    func itemDrawCount(_ count: Int) -> String { "×\(count)" }
+    var professorBoxTitle: String { t("박사의 상자", "Professor's Box", "はかせのはこ") }
+    func itemDrawNeedsPoints(_ points: Int) -> String {
+        t("\(points)포인트가 필요해요", "You need \(points) points", "\(points)ポイントが必要です")
+    }
+    var itemDrawSoldOut: String {
+        t("오늘은 여기까지예요", "That is all for today", "きょうはここまでです")
+    }
+    var itemDrawButton: String { t("상자 열기", "Open the box", "はこを開ける") }
+    /// 버튼에 값을 얹는다 — **누르는 곳과 치르는 값이 같은 자리**에 있어야 한다. 각주에 두었더니
+    /// "이번에 얼마 내는지 모르겠다"가 됐다(사용자 지적). 알 뽑기 타일이 값을 안에 적는 것과 같다.
+    var itemDrawButtonFree: String {
+        t("상자 열기 · 무료", "Open the box · free", "はこを開ける · むりょう")
+    }
+    func itemDrawButtonPriced(_ points: Int) -> String {
+        t("상자 열기 · \(points)P", "Open the box · \(points)P", "はこを開ける · \(points)P")
+    }
+    /// **사다리를 미리 말한다.** 첫 판이 무료라고만 하면 연타하다가 세 번째에 값이 네 배가 된 것을
+    /// 뒤늦게 안다(사용자 지적). 뽑기 전에도 다음 값이 보여야 한다.
+    func itemDrawLadder(_ next: Int) -> String {
+        t("값은 그날 안에서 두 배씩 올라요 — 다음 판 \(next)P",
+          "The price doubles with each draw today — next is \(next)P",
+          "ねだんはその日のうちに倍ずつ上がります — つぎは\(next)P")
+    }
+    /// 확률 줄에 서는 세대 확정권의 이름 — 세대 번호는 뽑을 때 정해지므로 여기서는 안 적는다.
+    var itemDrawGenerationEgg: String { t("세대 알", "Gen Egg", "せだいタマゴ") }
+    /// 확률 줄에 서는 등급 확정권의 이름 — 등급 이름(`Grade.label`)에서 유도한다.
+    func itemDrawGradeEgg(_ grade: String) -> String {
+        t("\(grade) 알", "\(grade) Egg", "\(grade)タマゴ")
     }
     func eggCountdownDaysHours(_ days: Int, _ hours: Int) -> String {
         t("\(days)일 \(hours)시간", "\(days)d \(hours)h", "\(days)日\(hours)時間")

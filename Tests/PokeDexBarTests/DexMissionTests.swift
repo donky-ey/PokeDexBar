@@ -150,19 +150,19 @@ final class DexMissionTests: XCTestCase {
         store.mutate { $0.inventory[ShopItem.epicEggTicket.rawValue] = 2 }
         let before = store.state.wallet
 
-        let egg = store.redeemEggTicket(grade: .epic, speciesID: 7)
+        let egg = store.redeemEggTicket(.epicEggTicket, grade: .epic, speciesID: 7)
         XCTAssertEqual(egg?.grade, .epic, "확정 등급이 아니다")
         XCTAssertEqual(store.count(of: ShopItem.epicEggTicket), 1, "한 장이 안 줄었다")
         XCTAssertEqual(store.state.wallet, before, "무료여야 하는데 재화가 줄었다")
 
         // 슬롯을 다 채우면 실패하고 권은 그대로다.
         while store.freeSlots > 0 { store.placeEgg(grade: .common, speciesID: 1, shiny: false) }
-        XCTAssertNil(store.redeemEggTicket(grade: .epic, speciesID: 7))
+        XCTAssertNil(store.redeemEggTicket(.epicEggTicket, grade: .epic, speciesID: 7))
         XCTAssertEqual(store.count(of: ShopItem.epicEggTicket), 1,
                        "알을 못 놓았는데 확정권이 사라졌다")
 
-        // 없는 등급의 권 — 커먼 확정권은 존재하지 않는다.
-        XCTAssertNil(store.redeemEggTicket(grade: .common, speciesID: 1))
+        // 안 가진 확정권 — 레어 확정권은 이 테스트에서 한 장도 안 줬다.
+        XCTAssertNil(store.redeemEggTicket(.rareEggTicket, grade: .rare, speciesID: 1))
     }
 
     /// 세대 완성 — 그 세대의 전 종이라야 달성이고, 다른 세대 종은 안 낀다.

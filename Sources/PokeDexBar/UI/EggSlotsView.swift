@@ -106,14 +106,16 @@ struct EggSlotsView: View {
             }
             // 확정권은 **뽑기 바로 아래**가 자리다(상점에 있을 때부터 그랬다) — 개봉이 늘 알이
             // 태어나는 자리에서 일어나야 한다. 가진 것이 있을 때만 선다.
-            ForEach([ShopItem.rareEggTicket, .epicEggTicket, .legendaryEggTicket], id: \.self) { ticket in
-                if let grade = ticket.guaranteedGrade, store.count(of: ticket) > 0 {
-                    Button(l.shopTicketDraw(ticket.label(store.language), store.count(of: ticket))) {
-                        drawWithTicket(grade)
-                    }
-                    .buttonStyle(.bordered).controlSize(.mini)
-                    .disabled(store.freeSlots == 0 || drawing)
+            // 가진 확정권만 선다. 목록을 손으로 적으면 새 확정권이 조용히 안 보인다.
+            ForEach(ShopItem.allCases.filter {
+                ($0.guaranteedGrade != nil || $0.guaranteedGeneration != nil)
+                    && store.count(of: $0) > 0
+            }, id: \.self) { ticket in
+                Button(l.shopTicketDraw(ticket.label(store.language), store.count(of: ticket))) {
+                    drawWithTicket(ticket)
                 }
+                .buttonStyle(.bordered).controlSize(.mini)
+                .disabled(store.freeSlots == 0 || drawing)
             }
             // 감면은 알마다가 아니라 부화 전체에 걸리는 상태라 슬롯이 아니라 줄 아래 한 번 적는다.
             // 이게 없으면 카운트다운만 짧아져서 왜 빨라졌는지 알 길이 없다.
@@ -129,6 +131,12 @@ struct EggSlotsView: View {
             }
         }
         .onChange(of: now) { _, date in announceRipeEggs(at: date) }
+        .onDisappear {
+            // 팝오버가 닫혀 이 뷰가 사라지면 진행 중인 뽑기 조회도 함께 끊는다 — 살려두면
+            // 티켓은 이미 쓰였고 알도 이미 놓인 채로, 다음에 연 새 뷰의 뽑기와 경합해 이
+            // 연출만 조용히 사라진다(`guard !Task.isCancelled` 가 지키려는 바로 그 경우).
+            drawTask?.cancel()
+        }
         // 거둔 개체를 한 번 보여준다 — 확인을 누른 보람이 있어야 하고, 이걸 안 보면 무엇이
         // 나왔는지 박스에 들어가서야 알게 된다.
         .overlay {
@@ -327,35 +335,62 @@ struct EggSlotsView: View {
         }
     }
 
-    /// 확정권 뽑기 — 등급이 정해져 있고 무료라는 점만 다르고, 종 선택·이로치·연출은 일반
-    /// 뽑기와 같은 길을 걷는다(메타몽 위장 포함 — 확정권이라고 위장이 안 오면 그게 특례다).
-    private func drawWithTicket(_ grade: Grade) {
+    /// 확정권 한 장을 쓴다. **등급권**은 등급을 고정하고 종은 평소대로 고르며,
+    /// **세대권**은 종의 후보를 그 세대로 좁히고 등급은 평소 확률로 굴린다.
+    private func drawWithTicket(_ ticket: ShopItem) {
+        guard let provider, !drawing else { return }
         drawing = true
         drawError = nil
         drawTask = Task {
             defer { drawing = false }
-            guard let provider, let index = try? await provider.baseSpeciesIndex(),
-                  !index.isEmpty else {
+            guard let index = try? await provider.baseSpeciesIndex(), !index.isEmpty else {
+                // 그 사이 뷰가 사라져 취소됐으면(팝오버 닫힘 등) 착지하지 않는다.
                 guard !Task.isCancelled else { return }
                 drawError = l.shopDrawFetchFailed
                 return
             }
+            // 그 사이 뷰가 사라져 취소됐으면(팝오버 닫힘 등) 착지하지 않는다 — 늦게 도착한
+            // 조회가 다음 뽑기와 경합해 조용히 이기는 걸 막는다.
             guard !Task.isCancelled else { return }
-            var chosen = EggBalance.pickSpecies(from: index, grade: grade,
+            let pool = ticket.guaranteedGeneration.map {
+                EggBalance.speciesIndex(index, inGeneration: $0)
+            } ?? index
+            guard !pool.isEmpty else {
+                // 네트워크는 이미 받았다 — 실패한 건 그 세대에 맞는 종을 찾는 쪽이다.
+                // `shopDrawFetchFailed`("부화 후보를 받지 못했어요")를 쓰면 조회 실패로 오해한다.
+                drawError = l.shopDrawNoMatchingSpecies
+                return
+            }
+            let grade = ticket.guaranteedGrade
+                ?? EggBalance.rollGrade(store.nextRandomUnit())
+            var chosen = EggBalance.pickSpecies(from: pool, grade: grade,
                                                 roll: store.nextRandomUnit())
-            if DittoDisguise.hits(grade: grade, roll: store.nextRandomUnit()) {
+            // 메타몽 위장은 **세대 제한이 없을 때만** 건다 — 메타몽은 132(1세대)라, 9세대권이
+            // 메타몽을 내면 그 티켓이 스스로 한 약속을 깬다. 등급권의 동작은 예전 그대로다.
+            // 판정은 `disguises(ticket:grade:roll:)` 순수 함수로 떼어 직접 테스트한다 —
+            // 소스를 문자열로 훑는 대신 게이트가 실제로 거르는지를 값으로 확인한다.
+            if ticket.guaranteedGeneration == nil,
+               Self.disguises(ticket: ticket, grade: grade, roll: store.nextRandomUnit()) {
                 chosen = DittoDisguise.speciesID
             }
+            // 성장곡선·성비는 인덱스에서 그대로 싣는다 — 일반 뽑기(`draw()`)와 같은 규칙.
             let entry = index.first(where: { $0.id == chosen })
             let growthRate = entry?.growthRate ?? .mediumFast
             let genderRate = entry?.genderRate ?? GenderBalance.defaultRate
-            guard let egg = store.redeemEggTicket(grade: grade, speciesID: chosen,
+            guard let egg = store.redeemEggTicket(ticket, grade: grade, speciesID: chosen,
                                                   growthRate: growthRate, genderRate: genderRate) else {
                 drawError = l.shopDrawUnavailable
                 return
             }
-            reveal = (egg.grade, egg.shiny)
+            reveal = (grade: egg.grade, shiny: egg.shiny)
         }
+    }
+
+    /// 확정권 한 장이 메타몽 위장을 받을 수 있나. **세대권은 못 받는다** — 메타몽(132)은
+    /// 1세대라, 세대 제한이 있는 확정권이 메타몽을 내면 스스로 한 "이 세대만" 약속을 깬다.
+    /// 순수 함수라 `drawWithTicket` 을 문자열로 훑지 않고 게이트 자체를 값으로 테스트한다.
+    nonisolated static func disguises(ticket: ShopItem, grade: Grade, roll: Double) -> Bool {
+        ticket.guaranteedGeneration == nil && DittoDisguise.hits(grade: grade, roll: roll)
     }
 
     /// 뽑기 확률 표기. 밸런스 표에서 만들어 문구와 수치가 어긋나지 않게 한다.
