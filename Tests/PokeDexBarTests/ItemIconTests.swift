@@ -15,12 +15,31 @@ final class ItemIconTests: XCTestCase {
         XCTAssertEqual(ItemIcon.drawing(for: .gen9EggTicket), .generationTicket(9))
     }
 
-    /// **등급권은 알 그림으로 넘긴다** — 연출 가운데에 그 등급의 진짜 알이 뜨는 것이 상품 자체를
-    /// 보여주는 가장 좋은 그림이라, 새로 그리지 않는다.
-    func testGradeTicketsDeferToTheEggArt() {
-        XCTAssertEqual(ItemIcon.drawing(for: .rareEggTicket), .egg(.rare))
-        XCTAssertEqual(ItemIcon.drawing(for: .epicEggTicket), .egg(.epic))
-        XCTAssertEqual(ItemIcon.drawing(for: .legendaryEggTicket), .egg(.legendary))
+    /// **등급권은 알이 아니라 알이 그려진 표다** — 손에 든 것은 교환권이고, 알은 이걸 써야 나온다.
+    /// 알 그림을 그대로 쓰면 세대권은 표이고 등급권은 알이라 같은 확정권끼리 다른 물건처럼 보인다.
+    func testGradeTicketsAreTicketsWithAnEggOnThem() {
+        XCTAssertEqual(ItemIcon.drawing(for: .rareEggTicket), .gradeTicket(.rare))
+        XCTAssertEqual(ItemIcon.drawing(for: .epicEggTicket), .gradeTicket(.epic))
+        XCTAssertEqual(ItemIcon.drawing(for: .legendaryEggTicket), .gradeTicket(.legendary))
+    }
+
+    /// 등급마다 표 색이 다르고, 셋 다 **원색보다 연하다** — 원색 그대로면 그 위의 같은 등급 알이
+    /// 묻힌다. 등급색 자체는 `RevealStage` 가 단일 소스로 갖고 있고 여기서 흰쪽으로 섞는다.
+    func testGradeTicketsArePalerThanTheGradeColour() throws {
+        var seen: [String] = []
+        for (grade, stage) in [(Grade.rare, RevealStage.blue), (.epic, .purple),
+                               (.legendary, .orange)] {
+            let paper = try XCTUnwrap(NSColor(ItemIcon.ticketColor(for: grade))
+                .usingColorSpace(.sRGB))
+            let base = try XCTUnwrap(NSColor(stage.color).usingColorSpace(.sRGB))
+            XCTAssertGreaterThan(paper.brightnessComponent + paper.redComponent
+                                 + paper.greenComponent + paper.blueComponent,
+                                 base.brightnessComponent + base.redComponent
+                                 + base.greenComponent + base.blueComponent,
+                                 "\(grade) 표가 등급색보다 안 연하다")
+            seen.append(paper.description)
+        }
+        XCTAssertEqual(Set(seen).count, 3, "등급끼리 표 색이 겹친다")
     }
 
     /// 이번 범위 밖 품목에는 그림이 없다 — 대조군. 없으면 "전부 사탕을 돌려준다"도 통과한다.
@@ -130,6 +149,15 @@ final class ItemIconTests: XCTestCase {
             try pixels($0)
         }
         XCTAssertEqual(Set(buffers).count, 3, "같은 그림이 나온다")
+    }
+
+    /// 확정권들이 **같은 표 모양을 공유하므로**, 그 위에 얹은 것이 실제로 그려지지 않으면
+    /// 전부 같은 그림이 된다. 세대권의 숫자가 통째로 빠진 전례가 정확히 이것이다.
+    func testEveryTicketKindDrawsSomethingDifferentOnTheSameShape() throws {
+        let tickets: [ShopItem] = [.massageCoupon, .gen1EggTicket,
+                                   .rareEggTicket, .epicEggTicket, .legendaryEggTicket]
+        let buffers = try tickets.map { try pixels($0) }
+        XCTAssertEqual(Set(buffers).count, tickets.count, "표 위의 내용이 안 그려진다")
     }
 
     /// 세대권끼리도 숫자가 달라 서로 다른 그림이다 — 숫자가 안 그려지면 아홉 장이 전부 같아진다

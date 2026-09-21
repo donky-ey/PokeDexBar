@@ -17,13 +17,14 @@ struct ItemIcon: View {
         case coupon
         /// 세대 확정권 — 같은 표 모양에 세대 숫자만 다르다.
         case generationTicket(Int)
-        /// 등급 확정권은 **그 등급의 진짜 알 그림**으로 넘긴다. 연출 가운데에 상품 자체가 큼직하게
-        /// 뜨는 것이 이 앱에서 가장 좋은 그림이라, 새로 그리지 않는다.
-        case egg(Grade)
+        /// 등급 확정권 — **알이 아니라 알이 그려진 표**다. 처음엔 알 그림을 그대로 썼는데,
+        /// 그러면 세대권은 표이고 등급권은 알이라 같은 확정권끼리 다른 물건처럼 보였다
+        /// (사용자 지적). 손에 든 것은 알이 아니라 교환권이고, 알은 이걸 써야 나온다.
+        case gradeTicket(Grade)
     }
 
     static func drawing(for item: ShopItem) -> Drawing? {
-        if let grade = item.guaranteedGrade { return .egg(grade) }
+        if let grade = item.guaranteedGrade { return .gradeTicket(grade) }
         if let generation = item.guaranteedGeneration { return .generationTicket(generation) }
         switch item {
         case .expCandy: return .candy
@@ -38,8 +39,24 @@ struct ItemIcon: View {
     private static let candyColor = Color(red: 0.96, green: 0.72, blue: 0.32)
     /// 마사지 쿠폰 — 연한 장밋빛.
     private static let couponColor = Color(red: 0.93, green: 0.56, blue: 0.63)
-    /// 세대권 — 쿠폰과 같은 표 모양이라 색으로 갈린다.
-    private static let generationColor = Color(red: 0.54, green: 0.73, blue: 0.93)
+    /// 세대권 — **종이색**이다. 처음엔 파랑이었는데 레어 등급색(`RevealStage.blue`)과 거의 같아,
+    /// 등급권도 표가 되면서 둘이 구별이 안 됐다. 세대권이 말하는 것은 등급이 아니라 세대라,
+    /// 등급색 어휘에서 비켜서는 편이 맞다 — 숫자가 내용을 맡는다.
+    private static let generationColor = Color(red: 0.90, green: 0.87, blue: 0.78)
+
+    /// 등급 확정권의 표 색 — 등급색은 `RevealStage` 가 이미 단일 소스로 갖고 있고, 여기서
+    /// **흰쪽으로 섞어 연하게** 만든다. 원색 그대로 쓰면 그 위에 얹은 같은 등급의 알이 묻힌다
+    /// (보라 위 보라가 특히 안 보였다). 표는 종이고 알이 인쇄물이라, 종이가 연한 편이 맞다.
+    static func ticketColor(for grade: Grade) -> Color {
+        let base = RevealStage.allCases.first { $0.grade == grade }?.color ?? .white
+        guard let rgb = NSColor(base).usingColorSpace(.sRGB) else { return base }
+        func paled(_ v: CGFloat) -> Double { Double(v + (1 - v) * Self.paleness) }
+        return Color(red: paled(rgb.redComponent), green: paled(rgb.greenComponent),
+                     blue: paled(rgb.blueComponent))
+    }
+
+    /// 흰쪽으로 섞는 정도. 0 이면 원색, 1 이면 흰색이다.
+    private static let paleness: CGFloat = 0.52
 
     var body: some View {
         switch Self.drawing(for: item) {
@@ -54,8 +71,11 @@ struct ItemIcon: View {
                     .foregroundStyle(.black.opacity(0.62))
                     .minimumScaleFactor(0.4)
             }
-        case .egg(let grade):
-            EggIcon(grade: grade, size: size)
+        case .gradeTicket(let grade):
+            // 표 위에 **그 등급의 진짜 알 그림**을 얹는다 — 무엇을 보장하는 표인지 그림이 말한다.
+            ticket(Self.ticketColor(for: grade)) {
+                EggIcon(grade: grade, size: size * 0.40)
+            }
         case nil:
             EmptyView()
         }
@@ -80,8 +100,8 @@ struct ItemIcon: View {
                                        dash: [max(1, size * 0.06)]))
             // 숫자는 절취선 **왼쪽** 본판에 앉는다 — 표에서 내용이 적히는 자리다.
             content()
-                .frame(width: size * 0.62, alignment: .center)
-                .offset(x: -size * 0.15)
+                .frame(width: size * 0.56, alignment: .center)
+                .offset(x: -size * 0.16)
         }
         .frame(width: size, height: size)
     }
