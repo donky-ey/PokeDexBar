@@ -59,6 +59,11 @@ extension PlayerStore {
             s.box.removeAll { ids.contains($0.id) }
             s.researchPoints = min(ReleaseBalance.maxPoints, s.researchPoints + total)
         }
+        // **보낸 만큼 센다.** 이 줄이 없어서 박스에서 일괄로 보내면 오늘의 목표가 안 움직였다
+        // (사용자 제보). 한 번의 `mutate` 로 끝내려고 마리마다 `releaseToProfessor` 를 부르지
+        // 않게 되면서, 그 안에 있던 계수까지 같이 빠진 것이다 — 진입점이 둘인데 계수가 한쪽에만
+        // 붙어 있으면 이런 일이 난다. 세는 값은 요청한 마릿수가 아니라 **실제로 보낸 수**다.
+        countDailyActivity(.sendToProfessor, by: sendable.count)
         return total
     }
 
