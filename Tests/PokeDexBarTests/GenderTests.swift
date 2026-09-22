@@ -326,7 +326,7 @@ final class GenderTests: XCTestCase {
     func testTheAPIGenderCodeMapsCorrectly() {
         func detail(_ gender: Int?) -> [EvolutionDetail] {
             [EvolutionDetail(trigger: nil, item: nil, held_item: nil, min_happiness: nil,
-                             min_level: nil, gender: gender, base_form: nil)]
+                             min_level: nil, gender: gender, base_form: nil, required_pokemon_form: nil)]
         }
         XCTAssertEqual(PokeAPIClient.gender(from: detail(1)), .female)
         XCTAssertEqual(PokeAPIClient.gender(from: detail(2)), .male)

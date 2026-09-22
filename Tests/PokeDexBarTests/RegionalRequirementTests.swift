@@ -17,18 +17,22 @@ final class RegionalRequirementTests: XCTestCase {
 
     /// 모래두지의 실제 응답 모양 — 한 갈래(#28)에 레벨 22 와 얼음의돌이 함께 온다.
     ///
-    /// **얼음의돌 줄에는 `base_form: sandshrew-alola` 가 붙어 있다**(실제 응답 확인). 예전
-    /// 픽스처는 그 필드를 빼고 있었고, 그래서 파서가 줄의 주인을 휴리스틱으로 추측하는 동안
-    /// 테스트는 통과했다 — 픽스처가 파서와 같은 공백을 공유한 것이다(CLAUDE.md: 내 픽스처는
-    /// 증거가 아니다).
+    /// **얼음의돌 줄의 주인은 `required_pokemon_form: sandshrew-alola` 에 적혀 있고,
+    /// `base_form` 은 null 이다**(evolution-chain 전수 재확인, 2026-09-22 — 576줄 모두 null).
+    ///
+    /// 이 픽스처는 한때 `base_form` 에 값을 손으로 넣고 "실제 응답 확인"이라 적어 두었다.
+    /// 응답에 없는 값이었고, 파서도 같은 필드만 보고 있어서 **둘 다 틀린 채로 통과했다** —
+    /// 그 사이 지방 조건이 26갈래 전부에서 원종으로 샜다(기본 야도란이 가라두구팔찌를 요구).
+    /// CLAUDE.md 의 "내 픽스처는 증거가 아니다"를 이 파일이 그대로 밟은 자리다.
     private func sandshrewDetails() -> [EvolutionDetail] {
         [EvolutionDetail(trigger: NamedRef(name: "level-up", url: nil), item: nil,
                          held_item: nil, min_happiness: nil, min_level: 22, gender: nil,
-                         base_form: nil),
+                         base_form: nil, required_pokemon_form: nil),
          EvolutionDetail(trigger: NamedRef(name: "use-item", url: nil),
                          item: NamedRef(name: "ice-stone", url: nil),
                          held_item: nil, min_happiness: nil, min_level: nil, gender: nil,
-                         base_form: NamedRef(name: "sandshrew-alola", url: nil))]
+                         base_form: nil,
+                         required_pokemon_form: NamedRef(name: "sandshrew-alola", url: nil))]
     }
 
     private func sandshrewLine() -> EvoLine {
@@ -92,7 +96,7 @@ final class RegionalRequirementTests: XCTestCase {
         let details = [EvolutionDetail(trigger: NamedRef(name: "use-item", url: nil),
                                        item: NamedRef(name: "water-stone", url: nil),
                                        held_item: nil, min_happiness: nil, min_level: nil,
-                                       gender: nil, base_form: nil)]
+                                       gender: nil, base_form: nil, required_pokemon_form: nil)]
         XCTAssertEqual(PokeAPIClient.requirement(from: details, speciesID: 134, parentLevel: 1),
                        .item("water-stone"))
         XCTAssertNil(PokeAPIClient.regionalRequirement(from: details),
@@ -103,7 +107,7 @@ final class RegionalRequirementTests: XCTestCase {
     func testALevelOnlyBranchGetsNoRegionalOverride() {
         let details = [EvolutionDetail(trigger: NamedRef(name: "level-up", url: nil), item: nil,
                                        held_item: nil, min_happiness: nil, min_level: 16,
-                                       gender: nil, base_form: nil)]
+                                       gender: nil, base_form: nil, required_pokemon_form: nil)]
         XCTAssertEqual(PokeAPIClient.requirement(from: details, speciesID: 2, parentLevel: 1),
                        .level(16))
         XCTAssertNil(PokeAPIClient.regionalRequirement(from: details))
@@ -115,7 +119,7 @@ final class RegionalRequirementTests: XCTestCase {
     func testALevelInsideTheSameDetailStillLosesToTheItem() {
         let one = [EvolutionDetail(trigger: NamedRef(name: "level-up", url: nil),
                                    item: NamedRef(name: "fire-stone", url: nil),
-                                   held_item: nil, min_happiness: nil, min_level: 30, gender: nil, base_form: nil)]
+                                   held_item: nil, min_happiness: nil, min_level: 30, gender: nil, base_form: nil, required_pokemon_form: nil)]
         XCTAssertEqual(PokeAPIClient.requirement(from: one, speciesID: 4, parentLevel: 1),
                        .item("fire-stone"), "같은 줄인데 레벨이 도구를 이겼다")
         XCTAssertNil(PokeAPIClient.regionalRequirement(from: one),
