@@ -104,6 +104,13 @@ A Box fills in the order things arrived, which is fine until it isn't. <b>Tidy</
 <td width="45%" align="center"><img src="assets/box-tidy.png" width="300" alt="A Box shown twice: as acquired, then tidied by highest level so Snorlax leads and the level-6 Spearow falls to the end"></td>
 </tr>
 <tr>
+<tr>
+<td width="55%" valign="middle">
+<h3>🔎 Find one without paging for it</h3>
+Type a name and the Box shows only what matches. The form and region prefixes come along, so <b>Galar</b> brings up that whole set, and the species number works too. Korean players can type initial consonants — <b>ㄴㅇ</b> finds 나옹 — which turns on only when the query is all consonants, so a half-typed syllable still searches normally. Searching filters the view and never rearranges the Box; changing the query clears any bulk selection, so what you see stays what you send.
+</td>
+<td width="45%" align="center"><img src="assets/box-search.png" width="300" alt="The same Box searched twice: by initial consonants, and by part of a name"></td>
+</tr>
 <td width="55%" valign="middle">
 <h3>Some change by who you keep close</h3>
 Palafin turns Hero the way it does in the games — not when it comes out, but when it steps back. Put it at your side, swap someone else in, and it returns changed; swap again and it drops back. Terapagos is simpler: it wears its Terastal Form for as long as it is with you, and a Tera Orb takes it the rest of the way to Stellar.

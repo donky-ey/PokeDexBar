@@ -996,6 +996,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
         // 박스 정리 — 같은 박스를 정리 전후로 나란히. 이 릴리스가 새로 여는 화면이라
         // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
         try write(png(boxTidyBanner()), "box-tidy.png")
+        try write(png(boxSearchBanner()), "box-search.png")
         try write(png(genderBanner()), "gender-banner.png")
         try write(png(formChangesBanner()), "form-changes.png")
         try write(png(gradeBadgeBanner()), "grade-badge.png")
@@ -1662,6 +1663,52 @@ final class ScreenshotGeneratorTests: XCTestCase {
         }
         .frame(width: PopoverMetrics.contentWidth)
         .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    /// 이름 검색 — 같은 박스에 질의만 다르게 걸어 나란히 둔다. 왼쪽은 초성("ㅍ"), 오른쪽은
+    /// 보통의 부분 일치("리자")다. 검색이 걸린 화면은 `@State` 라, 뷰가 초기 질의를 받는다.
+    ///
+    /// **명단은 픽스처에 이름이 있는 종만 쓴다** — 이름은 네트워크로 오는 값이라, 없는 종은
+    /// "#54" 로 떠서 이름 검색에 안 걸린다. 처음에 그걸 모르고 아무 종이나 넣었다가 "ㄱ" 이
+    /// 하나도 안 걸린 그림이 나왔다.
+    private func boxSearchBanner() -> some View {
+        let now = ScreenshotFixture.now
+        // (baseID, speciesID) — 진화한 개체는 라인의 base 로 이름을 찾는다.
+        let roster: [(Int, Int)] = [
+            (25, 25), (4, 4), (669, 669), (4, 5), (4, 6), (25, 26),
+            (133, 133), (133, 134), (133, 135), (133, 136), (201, 201), (848, 848),
+        ]
+        func store() -> PlayerStore {
+            let store = PlayerStore(fileURL: FileManager.default.temporaryDirectory
+                                        .appendingPathComponent("search-\(UUID().uuidString).json"),
+                                    rng: SeededRNG(seed: 12), now: { now },
+                                    defaults: UserDefaults(suiteName: "ptb-search-\(UUID().uuidString)")!)
+            store.setLanguage(.ko)
+            store.seedForTesting(wallet: 0, slots: 1, eggs: 0, at: now)
+            store.mutate { state in
+                state.box = roster.enumerated().map { index, entry in
+                    Individual(baseID: entry.0, speciesID: entry.1, pathIDs: [entry.0, entry.1],
+                               nature: .hardy, exp: GrowthRate.mediumFast.totalExp(at: 30),
+                               obtainedAt: now.addingTimeInterval(Double(index)),
+                               grade: .common, growthRate: .mediumFast)
+                }
+            }
+            return store
+        }
+        func box(_ query: String, _ caption: String) -> some View {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(caption).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                BoxTabView(store: store(), lines: ScreenshotFixture.lines, onNeedLine: { _ in },
+                           selection: .constant(nil), query: query)
+                    .frame(width: PopoverMetrics.contentWidth)
+            }
+        }
+        return HStack(alignment: .top, spacing: 16) {
+            box("ㅍ", "초성으로")
+            box("리자", "이름 일부로")
+        }
+        .padding(14)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 

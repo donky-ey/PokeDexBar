@@ -20,14 +20,19 @@ struct BoxTabView: View {
     /// 「선택」 버튼을 눌러야 들어간다 — 이 초기값은 그 버튼을 누른 뒤의 상태를 테스트가
     /// 재현하기 위한 것이다(`picked` 는 id 를 직접 안 받는다 — 렌더된 `BoxCell` 을 탭해서
     /// 채우는 것도 검증의 일부라, 값을 심는 대신 실제 탭 경로를 타게 한다).
+    ///
+    /// `query` 도 같은 이유로 받는다 — 실사용에서는 늘 빈 값으로 시작하고, 이 초기값은 검색이
+    /// 걸린 화면을 스크린샷 생성기가 재현하기 위한 것이다(`@State` 라 밖에서 심을 길이 없다).
     init(store: PlayerStore, lines: [Int: EvoLine], onNeedLine: @escaping (Int) -> Void,
-         selection: Binding<UUID?>, fillFrame: Bool = true, selecting: Bool = false) {
+         selection: Binding<UUID?>, fillFrame: Bool = true, selecting: Bool = false,
+         query: String = "") {
         self.store = store
         self.lines = lines
         self.onNeedLine = onNeedLine
         self._selection = selection
         self.fillFrame = fillFrame
         self._selecting = State(initialValue: selecting)
+        self._query = State(initialValue: query)
     }
 
     private var l: L { store.l }
@@ -130,7 +135,7 @@ struct BoxTabView: View {
     @State private var page = 0
     /// 이름 검색 질의. **보기일 뿐이라 저장소를 안 건드린다** — 정리(`sortBox`)는 박스를 실제로
     /// 재배치하지만 검색은 보고 있는 동안만 거른다.
-    @State private var query = ""
+    @State private var query: String
     /// 선택 모드인가. 모드 밖에서는 칸을 누르면 지금처럼 상세로 간다 —
     /// **되돌릴 수 없는 조작으로 가는 문은 눌러서 연다.**
     @State private var selecting = false
