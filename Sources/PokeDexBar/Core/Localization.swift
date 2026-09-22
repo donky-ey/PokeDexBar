@@ -256,6 +256,12 @@ struct L {
     func boxTitle(_ number: Int) -> String { t("박스 \(number)", "Box \(number)", "ボックス \(number)") }
     func boxSlotUsage(_ used: Int, _ total: Int) -> String { "\(used) / \(total)" }
     /// 박스 헤더의 정렬 메뉴. **상태가 아니라 명령**이라 "정렬 기준"이 아니라 "정리"라고 부른다.
+    var boxSearchPlaceholder: String { t("이름 검색", "Search by name", "なまえでけんさく") }
+    /// 검색이 안 맞은 것과 박스가 빈 것은 다른 상태다 — 같은 화면을 보여주면 왜 비었는지 모른다.
+    func boxSearchNoResults(_ query: String) -> String {
+        t("\"\(query)\" 와 맞는 아이가 없어요", "Nothing matches \"\(query)\"",
+          "\"\(query)\" に合う子がいません")
+    }
     var boxSortMenu: String { t("정리", "Tidy", "せいり") }
     var detailNature: String { t("성격", "Nature", "せいかく") }
     // MARK: 별표 — 즐겨찾기 겸 보호(포켓몬 GO 규칙)

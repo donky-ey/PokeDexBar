@@ -128,6 +128,9 @@ struct BoxTabView: View {
     private let columns = Array(repeating: GridItem(.fixed(48), spacing: 5),
                                 count: BoxTabView.columnCount)
     @State private var page = 0
+    /// 이름 검색 질의. **보기일 뿐이라 저장소를 안 건드린다** — 정리(`sortBox`)는 박스를 실제로
+    /// 재배치하지만 검색은 보고 있는 동안만 거른다.
+    @State private var query = ""
     /// 선택 모드인가. 모드 밖에서는 칸을 누르면 지금처럼 상세로 간다 —
     /// **되돌릴 수 없는 조작으로 가는 문은 눌러서 연다.**
     @State private var selecting = false
@@ -177,7 +180,29 @@ struct BoxTabView: View {
         .frame(height: selecting ? Self.selectingHeight : Self.baseHeight, alignment: .top)
     }
 
-    private var pageCount: Int { Self.pageCount(forBoxCount: store.state.box.count) }
+    /// 검색에 걸린 개체들. 질의가 비면 박스 전체다.
+    ///
+    /// **맞추는 값은 화면에 보이는 그 이름**(`displayName`)이다 — 종 이름이 아니라 폼·지방
+    /// 접두사가 붙은 것. 그래서 "갈라르"만 쳐도 그 무리가 걸리고, 위장 중인 메타몽은 "???" 라
+    /// 위장한 종 이름으로 안 걸린다(걸리면 정체가 검색창으로 샌다).
+    private var visibleBox: [Individual] {
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return store.state.box }
+        return store.state.box.filter {
+            BoxSearch.matches(query: query, name: displayName($0), speciesID: $0.displaySpeciesID)
+        }
+    }
+
+    private func displayName(_ individual: Individual) -> String {
+        individual.displayName(speciesName: Self.speciesName(individual, in: lines, store.language),
+                               store.language)
+    }
+
+    /// 검색했는데 하나도 안 걸린 상태. 박스가 원래 빈 것과는 다르다.
+    private var noSearchResults: Bool {
+        !query.trimmingCharacters(in: .whitespaces).isEmpty && visibleBox.isEmpty
+    }
+
+    private var pageCount: Int { Self.pageCount(forBoxCount: visibleBox.count) }
     private var currentPage: Int { Self.clampedPage(page, pageCount: pageCount) }
 
     /// 이 상자에 놓인 개체들 — 빈 자리는 nil. 고정 30칸이라 뒤가 비어도 칸은 그린다.
@@ -186,7 +211,7 @@ struct BoxTabView: View {
     /// `store.sortBox(_:)` 로 저장소 자체를 재배치하는 일회성 명령이고, 화면은 그 결과를 그대로
     /// 비출 뿐이다. 여기서 또 정렬하면 정리해도 화면이 안 바뀐 것처럼 보인다.
     private var slots: [Individual?] {
-        let all = store.state.box
+        let all = visibleBox
         let start = currentPage * Self.pageSize
         return (0..<Self.pageSize).map { offset in
             let index = start + offset
@@ -194,9 +219,43 @@ struct BoxTabView: View {
         }
     }
 
+    /// 이름 검색 한 줄. 질의가 바뀌면 **담아 둔 선택을 비운다** — 안 그러면 검색으로 가려진
+    /// 개체가 담긴 채로 남아, 보이지도 않는 아이가 일괄 보내기에 딸려 나간다.
+    private var searchField: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 9)).foregroundStyle(.tertiary)
+            TextField(l.boxSearchPlaceholder, text: $query)
+                .textFieldStyle(.plain)
+                .font(.system(size: 10))
+                .onChange(of: query) { _, _ in
+                    picked = []
+                    bulkStep = 0
+                }
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 9)).foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 6).padding(.vertical, 3)
+        .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+    }
+
     private var grid: some View {
         VStack(spacing: 6) {
             boxHeader
+            searchField
+            // 검색이 안 맞은 것과 박스가 빈 것은 다른 상태다 — 같은 빈 격자를 보여주면 왜 비었는지
+            // 모른다. 격자는 아예 접는다: 빈 칸 서른 개 아래에 문구만 두면 팝오버만 길어진다.
+            if noSearchResults {
+                Text(l.boxSearchNoResults(query.trimmingCharacters(in: .whitespaces)))
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 40)
+            } else {
             LazyVGrid(columns: columns, spacing: 5) {
                 ForEach(Array(slots.enumerated()), id: \.offset) { _, individual in
                     if let individual {
@@ -237,6 +296,7 @@ struct BoxTabView: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(Color.secondary.opacity(0.22), lineWidth: 1)
+            }
             }
             if selecting { bulkBar }
             if store.state.box.isEmpty {
