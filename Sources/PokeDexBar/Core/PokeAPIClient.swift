@@ -399,18 +399,25 @@ actor PokeAPIClient: PokeProviding {
     }
 
     /// 성별 제한 — **요구 조건과 따로 싣는다.** 조건 enum 에 넣으면 "새벽의돌 **그리고** 수컷"
-    /// (엘레이드)처럼 둘을 동시에 요구하는 갈래를 표현할 수 없다. 여섯 갈래뿐이지만 그 여섯이
-    /// 전부 도구·레벨 조건과 겹친다.
+    /// (엘레이드)처럼 둘을 동시에 요구하는 갈래를 표현할 수 없다.
+    ///
+    /// **암수 두 줄이 다 있으면 제한이 아니다.** 전수 확인(540체인, 2026-09-22): 성별 값이 있는
+    /// 갈래는 아홉인데 그중 셋(맛보돈·배쓰나이·냐스퍼)은 두 줄이 **같은 자식 종**을 가리키고
+    /// 갈리는 것은 폼이다(`oinkologne-male`/`oinkologne-female`). 예전에는 "처음 만난 성별"을
+    /// 그대로 제한으로 읽어서, 셋 다 수컷 줄이 먼저인 탓에 **암컷이 전부 진화를 못 했다**
+    /// (사용자 제보: 맛보돈 암컷). 줄 순서에 기대면 다음 데이터 갱신에 반대 성별이 막힌다.
+    ///
+    /// 진짜 제한은 한 성별만 나오는 여섯이다 — 도롱충이(비버니/나메일)·세꼬비·야도뇽·
+    /// 키르리아·눈꼬마. 그쪽은 그대로 막아야 한다(안 막으면 수컷 눈꼬마가 눈여아가 된다).
     static func gender(from details: [EvolutionDetail]?) -> Gender? {
         guard let details else { return nil }
-        for d in details {
-            switch d.gender {
-            case 1: return .female
-            case 2: return .male
-            default: continue
-            }
+        let stated = Set(details.compactMap(\.gender))
+        guard stated.count == 1, let only = stated.first else { return nil }
+        switch only {
+        case 1: return .female
+        case 2: return .male
+        default: return nil
         }
-        return nil
     }
 
     private func allIDs(_ n: EvoNode) -> [Int] { [n.speciesID] + n.children.flatMap(allIDs) }
@@ -480,7 +487,10 @@ struct EvolutionDetail: Decodable, Sendable {
     let min_happiness: Int?
     /// 본가 `min_level`. 명시가 없는 갈래(장소·기술 등)는 nil — `EvoBalance` 규칙으로 채운다.
     let min_level: Int?
-    /// 성별 제한(1=암컷, 2=수컷). 제한이 없으면 nil — 전 1025종에서 여섯 갈래만 값이 있다.
+    /// 이 줄이 어느 성별의 것인가(1=암컷, 2=수컷). 값이 없으면 nil.
+    ///
+    /// **"값이 있다 = 제한이 있다"가 아니다.** 아홉 갈래에 값이 있는데 그중 셋은 암수 두 줄이
+    /// 같은 자식 종을 가리켜 폼만 가른다 — 판정은 `Self.gender(from:)` 이 한다.
     let gender: Int?
     /// **응답에서 이 필드는 지금 전부 null 이다.** 전 540체인 576줄 전수 확인(2026-09-22):
     /// 값이 있는 줄이 하나도 없다. 줄의 주인은 아래 `required_pokemon_form` 이 들고 있다.
