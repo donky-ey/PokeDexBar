@@ -94,6 +94,13 @@ extension PlayerStore {
         guard let egg = placeEgg(grade: grade, speciesID: speciesID, shiny: shiny,
                                  growthRate: growthRate, genderRate: genderRate) else { return nil }
         mutate { Self.consume(ticket, in: &$0) }
+        // **확정권 개봉도 뽑기로 센다**(사용자 결정). 같은 줄의 버튼을 눌러 같은 연출이 뜨는
+        // 같은 동작이고, 박사의 상자가 확정권을 뿌리게 된 뒤로는 상자에서 받은 권으로 알을 까도
+        // 목표가 안 움직이면 어긋나 보인다.
+        //
+        // 계수를 `placeEgg` 로 내려 한 번에 풀 수는 없다 — 파트너가 물어온 알도 그 함수를
+        // 지나는데 그건 뽑은 것이 아니다. 진입점마다 의미가 달라 여기에 붙는다.
+        countDailyActivity(.drawEggs)
         return egg
     }
 }

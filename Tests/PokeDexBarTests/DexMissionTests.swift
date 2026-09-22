@@ -165,6 +165,36 @@ final class DexMissionTests: XCTestCase {
         XCTAssertNil(store.redeemEggTicket(.rareEggTicket, grade: .rare, speciesID: 1))
     }
 
+    /// **확정권으로 여는 것도 뽑기로 센다**(사용자 결정). 사용자 입장에서는 같은 줄의 버튼을
+    /// 눌러 같은 연출이 뜨는 같은 동작이고, 박사의 상자가 확정권을 뿌리게 된 뒤로는 상자에서
+    /// 받은 권으로 알을 까도 목표가 안 움직이면 더 어긋나 보인다.
+    ///
+    /// **계수를 `placeEgg` 에 넣어 한 번에 풀 수는 없다** — 파트너가 물어온 알(`FoundEgg`)도
+    /// 그 함수를 지나는데, 그건 뽑은 것이 아니다. 경로마다 의미가 달라 진입점에 붙는다.
+    func testRedeemingATicketCountsAsADraw() {
+        let store = makeStore()
+        store.mutate { $0.inventory[ShopItem.epicEggTicket.rawValue] = 1 }
+        store.redeemEggTicket(.epicEggTicket, grade: .epic, speciesID: 7)
+        XCTAssertEqual(store.state.dailyCounts[DailyQuest.Kind.drawEggs.rawValue], 1,
+                       "확정권 개봉이 뽑기 목표에 안 잡혔다")
+    }
+
+    /// 실패한 개봉은 안 센다 — 권이 없거나 자리가 없으면 아무 일도 안 일어난 것이다.
+    func testAFailedRedemptionCountsNothing() {
+        let store = makeStore()
+        XCTAssertNil(store.redeemEggTicket(.rareEggTicket, grade: .rare, speciesID: 1))
+        XCTAssertNil(store.state.dailyCounts[DailyQuest.Kind.drawEggs.rawValue])
+    }
+
+    /// 대조군 — **파트너가 물어온 알은 뽑기가 아니다.** 이 구분이 없으면 계수를 `placeEgg` 로
+    /// 내려도 된다는 뜻이 되고, 그러면 주운 알까지 목표를 채운다.
+    func testAFoundEggIsNotADraw() {
+        let store = makeStore()
+        store.placeEgg(grade: .common, speciesID: 1, shiny: false)
+        XCTAssertNil(store.state.dailyCounts[DailyQuest.Kind.drawEggs.rawValue],
+                     "알을 놓기만 해도 뽑기로 세고 있다")
+    }
+
     /// 세대 완성 — 그 세대의 전 종이라야 달성이고, 다른 세대 종은 안 낀다.
     func testGenerationCompletionCountsOnlyThatGeneration() throws {
         let store = makeStore()

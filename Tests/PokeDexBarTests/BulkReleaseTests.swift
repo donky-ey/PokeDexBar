@@ -334,5 +334,47 @@ final class BulkReleaseTests: XCTestCase {
         for lang in AppLanguage.allCases {
             XCTAssertFalse(L(lang).riskyShinyMark.isEmpty, "\(lang)")
         }
+    }    /// **일괄 보내기도 오늘의 목표에 잡혀야 한다.** 사용자 제보: 상세 화면에서 한 마리씩 보내면
+    /// 잡히는데 박스에서 일괄로 보내면 안 잡힌다. 일괄 경로가 한 번의 `mutate` 로 끝내려고
+    /// 마리마다 `releaseToProfessor` 를 부르지 않게 되면서, 그 안에 있던 계수까지 같이 빠졌다.
+    func testBulkReleaseCountsTowardTheDailyQuest() {
+        let store = makeStore()
+        let a = make(.common, path: [10]), b = make(.common, path: [11])
+        let c = make(.rare, path: [12])
+        store.addForTesting(a); store.addForTesting(b); store.addForTesting(c)
+
+        store.releaseManyToProfessor(individualIDs: [a.id, b.id, c.id])
+        XCTAssertEqual(store.state.dailyCounts[DailyQuest.Kind.sendToProfessor.rawValue], 3,
+                       "일괄로 보낸 마릿수가 목표에 안 잡혔다")
     }
+
+    /// **보낸 만큼** 센다 — 못 보낸 것(파트너·없는 id)은 빼고. 한 번만 세면 20마리를 보내도 1이다.
+    func testBulkReleaseCountsOnlyWhatItActuallySent() {
+        let store = makeStore()
+        let partner = make(.common, path: [20]), sent = make(.common, path: [21])
+        store.addForTesting(partner); store.addForTesting(sent)
+        store.setPartner(partner.id)
+
+        store.releaseManyToProfessor(individualIDs: [partner.id, sent.id, UUID()])
+        XCTAssertEqual(store.state.dailyCounts[DailyQuest.Kind.sendToProfessor.rawValue], 1,
+                       "못 보낸 것까지 셌거나, 보낸 것을 안 셌다")
+    }
+
+    /// 대조군 — 한 마리씩 보내는 경로는 원래 잡혔고 계속 잡혀야 한다.
+    func testSingleReleaseStillCounts() {
+        let store = makeStore()
+        let one = make(.common, path: [30])
+        store.addForTesting(one)
+        store.releaseToProfessor(individualID: one.id)
+        XCTAssertEqual(store.state.dailyCounts[DailyQuest.Kind.sendToProfessor.rawValue], 1)
+    }
+
+    /// 아무것도 못 보냈으면 아무것도 안 센다.
+    func testAFailedBulkReleaseCountsNothing() {
+        let store = makeStore()
+        store.releaseManyToProfessor(individualIDs: [UUID(), UUID()])
+        XCTAssertNil(store.state.dailyCounts[DailyQuest.Kind.sendToProfessor.rawValue])
+    }
+
+
 }
