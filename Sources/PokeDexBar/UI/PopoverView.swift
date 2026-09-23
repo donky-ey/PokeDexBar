@@ -387,8 +387,8 @@ struct PopoverView: View {
 
     // MARK: 박스 — 진화 라인 로드
 
-    /// 박스가 진화 후보를 보여주려면 라인이 필요하다. 개체가 화면에 들어올 때 한 번만 받아둔다.
-    /// 같은 종 개체가 여럿 보이면 각 행의 `.task` 가 동시에 이 함수를 부르므로, `loadingLines` 에
+    /// 박스 검색과 진화 후보에 필요한 라인. 박스 전체와 상세 화면의 요청을 공유한다.
+    /// 여러 화면이 같은 라인을 요청할 수 있으므로, `loadingLines` 에
     /// 먼저 등록해 나머지 호출을 조기 반환시킨다 — 실패해도 `defer` 로 등록을 지워 재시도는 막지 않는다.
     private func loadLine(_ baseID: Int) {
         guard Self.shouldStartLoadingLine(baseID, loadedIDs: Set(evoLines.keys), loadingIDs: loadingLines) else { return }

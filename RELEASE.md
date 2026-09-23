@@ -49,6 +49,7 @@ status item(AX)→팝오버 오픈(AXPress)까지 7개 체크. 5단계는 터미
 - [ ] **랜딩 페이지** (`gh-pages` 브랜치 `index.html`) — hero·features·companion·install·works-with·요구사항·푸터.
   - 릴리스 배지는 **동적**(`img.shields.io/github/v/release/...`) → 버전 자동 반영. **기능/문구만 수동.**
   - i18n 사전 **en/ko/ja 동시** 갱신 + 마크업 키 ⊆ 사전, en==ko==ja 키 정합 유지.
+  - 게시 전 `node /tmp/ptb-gh-pages/scripts/check-page.cjs`로 JavaScript 문법과 번역 키 정합 검증.
   - 갱신은 worktree 로: `git worktree add /tmp/ptb-gh-pages gh-pages` → 편집 → commit/push → `git worktree remove`.
 - [ ] **homebrew-tap cask** caveats — 설치 요구사항(의존성 등) 최신인지. 버전은 release.sh 가 갱신.
 

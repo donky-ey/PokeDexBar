@@ -183,6 +183,17 @@ struct BoxTabView: View {
         // 들어갈 때 한 번, 확인 단계가 늘 때마다 또. 넘침을 고치면서 흔들림을 들여온 자리였다.
         // 위로 붙여 두면 늘어난 높이는 전부 아래(=`bulkBar` 가 자라는 쪽)로만 간다.
         .frame(height: selecting ? Self.selectingHeight : Self.baseHeight, alignment: .top)
+        // Search must not depend on which page (or filtered cells) has appeared.
+        // Keep requests on the box itself, including when a query has no results.
+        .task(id: requiredLineIDs) {
+            for id in requiredLineIDs.sorted() where lines[id] == nil {
+                onNeedLine(id)
+            }
+        }
+    }
+
+    private var requiredLineIDs: Set<Int> {
+        Set(store.state.box.flatMap { [$0.baseID, $0.displayLineID] })
     }
 
     /// 검색에 걸린 개체들. 질의가 비면 박스 전체다.
@@ -236,6 +247,7 @@ struct BoxTabView: View {
                 .onChange(of: query) { _, _ in
                     picked = []
                     bulkStep = 0
+                    page = 0
                 }
             if !query.isEmpty {
                 Button { query = "" } label: {
@@ -286,10 +298,6 @@ struct BoxTabView: View {
                             case .ignore:
                                 break   // 못 고르는 아이(파트너)를 눌러도 아무 일도 안 일어난다.
                             }
-                        }
-                        // 진화 가능 표시를 그리려면 라인이 필요하다 — 보이는 칸만 요청한다.
-                        .task(id: individual.baseID) {
-                            if lines[individual.baseID] == nil { onNeedLine(individual.baseID) }
                         }
                     } else {
                         emptySlot

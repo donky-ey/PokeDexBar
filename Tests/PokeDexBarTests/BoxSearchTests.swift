@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import PokeDexBar
 
 /// 박스 이름 검색 — 판정은 순수 함수라 직접 물어본다.
@@ -105,6 +106,7 @@ final class BoxSearchTests: XCTestCase {
         let body = String(code[onChange.upperBound...].prefix(200))
         XCTAssertTrue(body.contains("picked = []"), "검색이 바뀌어도 선택이 안 비워진다")
         XCTAssertTrue(body.contains("bulkStep = 0"), "확인 단계가 안 되돌려진다")
+        XCTAssertTrue(body.contains("page = 0"), "새 검색은 첫 결과 페이지부터 보여야 한다")
     }
 
     /// 검색은 **보기일 뿐이다** — 저장소를 재배치하는 `sortBox` 와 달리 박스 자체를 안 건드린다.
@@ -122,5 +124,74 @@ final class BoxSearchTests: XCTestCase {
     /// 대조군 — 위장이 아닌 개체는 종 이름으로 정상적으로 찾힌다.
     func testAnUndisguisedPokemonIsFoundNormally() {
         XCTAssertTrue(BoxSearch.matches(query: "캐터피", name: "캐터피", speciesID: 10))
+    }
+}
+
+/// Exercise the actual view lifecycle with a cold name cache and an unvisited page.
+@MainActor
+final class BoxSearchLoadingTests: XCTestCase {
+    private func verifyUnvisitedPage(query: String) async {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("box-search-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let store = PlayerStore(fileURL: file, rng: SeededRNG(seed: 1))
+        let now = Date(timeIntervalSince1970: 0)
+        let target = Individual(baseID: 172, speciesID: 25, pathIDs: [172, 25],
+                                nature: .hardy, obtainedAt: now, grade: .common)
+        store.mutate {
+            $0.language = .ko
+            $0.box = (0..<60).map { _ in
+                Individual(baseID: 1, speciesID: 1, pathIDs: [1],
+                           nature: .hardy, obtainedAt: now, grade: .common)
+            } + [target, Individual(baseID: 172, speciesID: 25, pathIDs: [172, 25],
+                                     nature: .hardy, obtainedAt: now, grade: .common)]
+        }
+        let first = EvoLine(baseID: 1, tree: .init(speciesID: 1, children: []),
+                            rarity: .common, names: [1: ["en": "Bulbasaur"]])
+        let loaded = expectation(description: "Request a name from the unvisited third page")
+        let added = expectation(description: "Request a name when the box gains another species")
+        var requested: [Int] = []
+        let request: (Int) -> Void = { id in
+            requested.append(id)
+            if id == 172 { loaded.fulfill() }
+            if id == 7 { added.fulfill() }
+        }
+        BoxCell.resetConstructed()
+        defer { BoxCell.isRecording = false }
+        let host = NSHostingView(rootView: BoxTabView(
+            store: store, lines: [1: first], onNeedLine: request,
+            selection: .constant(nil), query: query
+        ).frame(width: PopoverMetrics.width))
+        host.layoutSubtreeIfNeeded()
+        XCTAssertFalse(BoxCell.constructed.contains { $0.id == target.id })
+        await fulfillment(of: [loaded], timeout: 3)
+        XCTAssertEqual(requested, [172], "Skip cached lines and deduplicate repeated species")
+
+        // Complete the data request while the query stays active. No page visit is needed.
+        let line = EvoLine(baseID: 172, tree: .init(speciesID: 172, children: []),
+                           rarity: .common, names: [25: ["en": "Pikachu", "ko": "피카츄", "ja": "ピカチュウ"]])
+        BoxCell.resetConstructed()
+        host.rootView = BoxTabView(
+            store: store, lines: [1: first, 172: line], onNeedLine: request,
+            selection: .constant(nil), query: query
+        ).frame(width: PopoverMetrics.width)
+        host.layoutSubtreeIfNeeded()
+        if !query.isEmpty {
+            XCTAssertTrue(BoxCell.constructed.contains { $0.id == target.id },
+                          "A matching Pokemon must appear as soon as its name arrives")
+        }
+        store.addForTesting(Individual(baseID: 7, speciesID: 7, pathIDs: [7],
+                                        nature: .hardy, obtainedAt: now, grade: .common))
+        host.layoutSubtreeIfNeeded()
+        await fulfillment(of: [added], timeout: 3)
+        XCTAssertEqual(requested, [172, 7])
+    }
+
+    func testOpeningTheBoxLoadsNamesBeyondTheFirstPage() async {
+        await verifyUnvisitedPage(query: "")
+    }
+
+    func testAnInitiallyEmptySearchStillLoadsAndFindsAnUnvisitedPokemon() async {
+        await verifyUnvisitedPage(query: "피카")
     }
 }

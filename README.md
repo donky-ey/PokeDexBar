@@ -107,7 +107,7 @@ A Box fills in the order things arrived, which is fine until it isn't. <b>Tidy</
 <tr>
 <td width="55%" valign="middle">
 <h3>🔎 Find one without paging for it</h3>
-Type a name and the Box shows only what matches. The form and region prefixes come along, so <b>Galar</b> brings up that whole set, and the species number works too. Korean players can type initial consonants — <b>ㄴㅇ</b> finds 나옹 — which turns on only when the query is all consonants, so a half-typed syllable still searches normally. Searching filters the view and never rearranges the Box; changing the query clears any bulk selection, so what you see stays what you send.
+Type a name and the Box searches every page, including Pokémon on pages you have not opened. Matching Pokémon appear as their names load. Changing the query returns to the first results page. The form and region prefixes come along, so <b>Galar</b> brings up that whole set, and the species number works too. Korean players can type initial consonants — <b>ㄴㅇ</b> finds 나옹 — which turns on only when the query is all consonants, so a half-typed syllable still searches normally. Searching filters the view and never rearranges the Box; changing the query clears any bulk selection, so what you see stays what you send.
 </td>
 <td width="45%" align="center"><img src="assets/box-search.png" width="300" alt="The same Box searched twice: by initial consonants, and by part of a name"></td>
 </tr>
