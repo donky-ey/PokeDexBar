@@ -481,14 +481,14 @@
           <span class="txt">brew install --cask donky-ey/tap/poke-dex-bar</span>
           <span class="cp" data-i18n="copy">Copy</span>
         </button>
-        <p data-i18n="i.brewD">The app is ad-hoc / self-signed, and the cask strips the quarantine attribute for you — nothing else to do.</p>
+        <p data-i18n="i.brewD">Official releases from v1.18.2 are signed with Developer ID and notarized by Apple. Homebrew verifies the download checksum and preserves macOS security checks.</p>
       </div>
 
       <div class="card">
         <span class="k">Direct download</span>
         <h3 data-i18n="i.zipT">Without Homebrew</h3>
         <a class="dl" href="https://github.com/donky-ey/PokeDexBar/releases/latest/download/PokeDexBar.zip" data-i18n="i.zipBtn">⬇ PokeDexBar.zip</a>
-        <p data-i18n-html="i.zipD">Unzip it and drag <code>PokeDexBar.app</code> into <code>/Applications</code>. On first launch, right-click it → <b>Open</b>, or run <code>xattr -dr com.apple.quarantine /Applications/PokeDexBar.app</code> once.</p>
+        <p data-i18n-html="i.zipD">Unzip it and drag <code>PokeDexBar.app</code> into <code>/Applications</code>, then open it normally. Releases from v1.18.2 are notarized by Apple; no quarantine removal or Gatekeeper exception is required.</p>
       </div>
     </div>
 
@@ -584,10 +584,10 @@
       "i.eyebrow": "Install",
       "i.h2": "One command, about a minute",
       "i.brewT": "The recommended way",
-      "i.brewD": "The app is ad-hoc / self-signed, and the cask strips the quarantine attribute for you — nothing else to do.",
+      "i.brewD": "Official releases from v1.18.2 are signed with Developer ID and notarized by Apple. Homebrew verifies the download checksum and preserves macOS security checks.",
       "i.zipT": "Without Homebrew",
       "i.zipBtn": "⬇ PokeDexBar.zip",
-      "i.zipD": "Unzip it and drag <code>PokeDexBar.app</code> into <code>/Applications</code>. On first launch, right-click it → <b>Open</b>, or run <code>xattr -dr com.apple.quarantine /Applications/PokeDexBar.app</code> once.",
+      "i.zipD": "Unzip it and drag <code>PokeDexBar.app</code> into <code>/Applications</code>, then open it normally. Releases from v1.18.2 are notarized by Apple; no quarantine removal or Gatekeeper exception is required.",
       "i.req": "Requires <b>macOS 14 (Sonoma) or later</b>, Apple Silicon or Intel. First release: <code>v1.0.0</code>. Prefer to build it yourself? <code>swift build</code> · <code>swift test</code> · <code>./scripts/build-app.sh</code>.",
 
       "foot.releases": "Releases",
@@ -669,10 +669,10 @@
       "i.eyebrow": "설치",
       "i.h2": "명령 하나, 1분 남짓",
       "i.brewT": "추천하는 방법",
-      "i.brewD": "앱은 ad-hoc/자체 서명이고, cask가 quarantine 속성을 대신 벗겨 줍니다 — 더 할 일은 없어요.",
+      "i.brewD": "v1.18.2부터 공식 배포본은 Developer ID로 서명하고 Apple 공증을 받습니다. Homebrew는 다운로드 체크섬을 확인하며 macOS 보안 검사를 유지합니다.",
       "i.zipT": "Homebrew 없이",
       "i.zipBtn": "⬇ PokeDexBar.zip",
-      "i.zipD": "압축을 풀고 <code>PokeDexBar.app</code>을 <code>/Applications</code>로 옮기세요. 첫 실행에서는 우클릭 → <b>열기</b>를 누르거나, <code>xattr -dr com.apple.quarantine /Applications/PokeDexBar.app</code>을 한 번 실행하면 됩니다.",
+      "i.zipD": "압축을 풀고 <code>PokeDexBar.app</code>을 <code>/Applications</code>로 옮긴 다음 그대로 실행하세요. v1.18.2부터 Apple 공증을 받아 격리 속성 제거나 Gatekeeper 예외 설정이 필요하지 않습니다.",
       "i.req": "<b>macOS 14(Sonoma) 이상</b>, Apple Silicon 또는 Intel. 첫 릴리스는 <code>v1.0.0</code>입니다. 직접 빌드하고 싶다면 <code>swift build</code> · <code>swift test</code> · <code>./scripts/build-app.sh</code>.",
 
       "foot.releases": "릴리스",
@@ -754,10 +754,10 @@
       "i.eyebrow": "インストール",
       "i.h2": "コマンドひとつ、1分ほど",
       "i.brewT": "おすすめの方法",
-      "i.brewD": "アプリは ad-hoc / 自己署名で、cask が quarantine 属性を代わりに外します — 他にすることはありません。",
+      "i.brewD": "v1.18.2 以降の公式リリースは Developer ID で署名し、Apple の公証を受けています。Homebrew はチェックサムを検証し、macOS のセキュリティチェックを維持します。",
       "i.zipT": "Homebrew を使わない場合",
       "i.zipBtn": "⬇ PokeDexBar.zip",
-      "i.zipD": "解凍して <code>PokeDexBar.app</code> を <code>/Applications</code> に移動します。初回起動時は右クリック →<b>開く</b>、または <code>xattr -dr com.apple.quarantine /Applications/PokeDexBar.app</code> を一度実行してください。",
+      "i.zipD": "解凍して <code>PokeDexBar.app</code> を <code>/Applications</code> に移動し、通常どおり開いてください。v1.18.2 以降は Apple の公証を受けており、隔離属性の削除や Gatekeeper の例外設定は不要です。",
       "i.req": "<b>macOS 14 (Sonoma) 以降</b>、Apple Silicon または Intel。最初のリリースは <code>v1.0.0</code> です。自分でビルドするなら <code>swift build</code> · <code>swift test</code> · <code>./scripts/build-app.sh</code>。",
 
       "foot.releases": "リリース",
