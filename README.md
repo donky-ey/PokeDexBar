@@ -339,25 +339,20 @@ macOS 14+ (Apple Silicon or Intel). That's it — token usage is read directly f
 brew install --cask donky-ey/tap/poke-dex-bar
 ```
 
-ad-hoc/self-signed; the cask strips the quarantine attribute on install.
+Official releases from v1.18.2 are signed with Developer ID and notarized by Apple. Homebrew verifies the download checksum and preserves macOS security checks.
 
 ### Manual install (without Homebrew)
 
 Prefer not to use Homebrew? Download `PokeDexBar.zip` from the [latest release](https://github.com/donky-ey/PokeDexBar/releases/latest), unzip it, and drag `PokeDexBar.app` into `/Applications`.
 
-Because the app is ad-hoc/self-signed (not notarized under an Apple Developer account), Gatekeeper shows an "unidentified developer" warning on first launch. Clear it once, either way:
-
-- **Finder:** right-click (or Control-click) `PokeDexBar.app` → **Open** → **Open** again in the dialog.
-- **Terminal:** `xattr -dr com.apple.quarantine /Applications/PokeDexBar.app`
-
-(The Homebrew cask strips quarantine for you, so it needs no extra step.)
+Open the app normally. No quarantine removal or Gatekeeper exception is required for notarized releases.
 
 ### Build from source
 
 ```bash
 swift build                  # debug
 swift test                   # unit tests
-./scripts/build-app.sh       # release → PokeDexBar.app → /Applications
+./scripts/build-app.sh       # local release build → build/PokeDexBar.app
 ```
 
 ## Data sources

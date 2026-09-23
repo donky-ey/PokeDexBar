@@ -20,7 +20,7 @@ PTB_NOTES_FILE=/tmp/notes.md ./scripts/release.sh 2.1.1
 1. **test-gate** (`./scripts/test-gate.sh`) — 전체 테스트 + 로직 커버리지. 실패 시 중단.
 2. **문서 일관성 검토** — 정적 버전 배지·제거된 의존성(예: `ccusage`) 잔존을 자동 경고 + 아래 수동 체크리스트 출력. 경고 시 진행 여부를 묻는다.
 3. **VERSION 범프** (`scripts/build-app.sh`, 아직 미커밋).
-4. **빌드 + zip** (`build/PokeDexBar.zip`) + 빌드 버전 일치 확인 — **push 전 검증**(실패해도 범프 미커밋이라 origin/main 무손상).
+4. **Developer ID 빌드 → Apple 공증 → 티켓 첨부 → ZIP 재생성·검증** (`build/PokeDexBar.zip`) + 버전 일치 확인. 서명·공증·Gatekeeper 검증 실패 시 push 전에 중단.
 5. **커밋 + push** (`git push origin main`, 빌드 성공 후).
 6. **GitHub Release** 생성 (노트는 `PTB_NOTES_FILE` 또는 최소 노트).
 7. **Homebrew cask** 버전 갱신 (`donky-ey/homebrew-tap`).
@@ -65,10 +65,44 @@ brew update && brew upgrade --cask poke-dex-bar
 
 `brew list --cask --versions poke-dex-bar` 와 `/Applications/PokeDexBar.app` 버전이 새 버전인지 확인.
 
-## 서명 (2026-07-08 부터)
+## Developer ID signing and notarization
 
-릴리스 빌드는 이 머신의 `PokeDexBar Local` 자체서명 인증서로 서명된다
-(`scripts/create-signing-cert.sh` 로 생성, keychain 에만 존재 — 레포 미커밋).
-- designated requirement 가 버전 간 고정 → 사용자의 Keychain "항상 허용"이 업데이트 후에도 유지.
-- 전환 직후 첫 업데이트 1회는 기존(ad-hoc 시절) 허용이 무효라 마지막 프롬프트가 뜰 수 있음.
-- 인증서를 분실/재생성하면 DR 이 바뀌어 전 사용자 재프롬프트 — 재생성 금지(스크립트가 가드).
+Release builds use `Developer ID Application: Donggi Lee (K6AYHZNZZ2)` with
+Hardened Runtime and a secure timestamp. Install the certificate and its private
+key through Xcode. Local builds without `CODESIGN_IDENTITY` use ad-hoc signing
+and are not distribution artifacts.
+
+Store notarization credentials once in the release Mac's Keychain:
+
+```bash
+xcrun notarytool store-credentials PokeDexBar --team-id K6AYHZNZZ2
+```
+
+Enter your Apple Account and an app-specific password interactively. Never put
+passwords in this repository or release notes. This Keychain profile belongs to
+Apple's release tooling; the running app does not create or access it.
+
+To build and notarize without publishing or installing:
+
+```bash
+CODESIGN_IDENTITY='Developer ID Application: Donggi Lee (K6AYHZNZZ2)' ./scripts/build-app.sh
+./scripts/notarize-app.sh
+```
+
+`release.sh` checks the identity and credentials before changing the version.
+`notarize-app.sh` verifies the Apple Developer ID chain and team, requires Apple's
+`Accepted` response, staples and validates the ticket, and runs Gatekeeper on both
+the app and the app extracted from the final ZIP. No failed attempt leaves a
+release ZIP behind. `python3 scripts/test-notarization.py` exercises rejection,
+service failure, ticket failure, and Gatekeeper rejection, including rejection
+only after extraction. These tests run in `test-gate.sh`.
+
+The old gate checked a fixed self-signed certificate, not whether macOS would
+allow a downloaded app. Homebrew's quarantine removal and the development Mac's
+local trust could conceal this gap. A valid signature alone is not acceptance.
+The Homebrew template now preserves quarantine and pins the final ZIP's SHA-256.
+
+Version 1.18.2 is the first notarized release. Releases through 1.18.1 remain
+self-signed. All three READMEs and the landing page describe the new installation
+flow. Switching signing identities may require users to grant existing Keychain
+access again.

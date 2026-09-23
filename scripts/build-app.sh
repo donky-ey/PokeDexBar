@@ -101,23 +101,14 @@ cat > "$APP/Contents/Library/LaunchAgents/$BUNDLE_ID.login.plist" <<AGENT
 AGENT
 
 echo "==> codesign"
-SIGN_IDENTITY="${CODESIGN_IDENTITY:-PokeDexBar Local}"
-# 안정적 Keychain ACL 을 위해서는 인증서 존재가 아니라 유효한 codesigning identity 가 필요하다.
-if security find-identity -v -p codesigning | grep -F "\"$SIGN_IDENTITY\"" >/dev/null; then
-    # 안정적 자체 서명 신원 → 재빌드해도 Keychain "항상 허용" 유지
-    codesign --force -s "$SIGN_IDENTITY" "$APP"
+# Local builds use ad-hoc signing. Releases explicitly supply Developer ID.
+SIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+    codesign --force --sign - "$APP"
 else
-    # 인증서 없음 → ad-hoc (빌드마다 cdhash 변경 = Keychain 재프롬프트 가능)
-    if [[ "${PTB_REQUIRE_STABLE_SIGN:-0}" == "1" ]]; then
-        # 릴리스 경로(release.sh 가 세팅). ad-hoc 릴리스는 사용자 Keychain 승인을 깨므로 절대 금지.
-        echo "   ✗ PTB_REQUIRE_STABLE_SIGN=1 인데 '$SIGN_IDENTITY' 유효 identity 없음 → ad-hoc 금지, 중단." >&2
-        echo "     ./scripts/create-signing-cert.sh 실행 후 다시 시도하세요." >&2
-        exit 1
-    fi
-    echo "   ('$SIGN_IDENTITY' 유효 codesigning identity 없음 → ad-hoc 서명 — 로컬 개발용)"
-    echo "   반복 Keychain 허용 프롬프트를 줄이려면 ./scripts/create-signing-cert.sh 실행 후 다시 빌드하세요."
-    codesign --force -s - "$APP"
+    codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp "$APP"
 fi
+codesign --verify --deep --strict "$APP"
 
 # 설치는 **기본으로 하지 않는다.** 예전엔 늘 /Applications 에 복사했는데, 그러면 개발 빌드까지
 # 정식 앱 자리에 쌓이고(중복 5개까지 갔다) Homebrew 로 받은 배포본을 로컬 빌드가 조용히 덮어써서
@@ -135,9 +126,7 @@ if [[ "${PTB_INSTALL:-0}" == "1" ]]; then
     if rm -rf "$DEST/$APP_NAME.app" 2>/dev/null && cp -R "$APP" "$DEST/" 2>/dev/null; then
         :
     elif ditto "$APP" "$DEST/$APP_NAME.app" 2>/dev/null; then
-        # 빈 껍데기만 남은 경우 — 번들을 지우진 못해도 그 안에 쓰는 건 통과한다.
-        codesign --force --deep --sign "${CODESIGN_IDENTITY:-PokeDexBar Local}" \
-            "$DEST/$APP_NAME.app" >/dev/null 2>&1 || true
+        codesign --verify --deep --strict "$DEST/$APP_NAME.app"
     else
         echo "   ⚠ $DEST 설치 실패(App Management 권한). 빌드 산출물은 정상: $APP"
     fi

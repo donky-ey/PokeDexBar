@@ -18,6 +18,8 @@ cd "$(dirname "$0")/.."
 
 THRESHOLD="${THRESHOLD:-75}"
 
+python3 scripts/test-notarization.py
+
 LOGIC_CORE=(
   "Sources/PokeDexBar/Core/CompanionModel.swift"
   "Sources/PokeDexBar/Core/CompanionStore.swift"

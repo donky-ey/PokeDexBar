@@ -340,25 +340,20 @@ macOS 14+（Apple Silicon または Intel）。それだけ — トークン使�
 brew install --cask donky-ey/tap/poke-dex-bar
 ```
 
-ad-hoc／自己署名アプリのため、Cask インストール時に隔離属性を自動で除去します。
+v1.18.2 以降の公式リリースは Developer ID で署名し、Apple の公証を受けています。Homebrew はダウンロードのチェックサムを検証し、macOS のセキュリティチェックを維持します。
 
 ### 手動インストール（Homebrew なし）
 
 Homebrew を使わない場合は、[最新リリース](https://github.com/donky-ey/PokeDexBar/releases/latest) から `PokeDexBar.zip` をダウンロードして展開し、`PokeDexBar.app` を `/Applications` にドラッグします。
 
-このアプリは ad-hoc／自己署名（Apple Developer アカウントでの公証なし）のため、初回起動時に Gatekeeper が「開発元が未確認」の警告を表示します。次のいずれかで一度だけ解除してください。
-
-- **Finder:** `PokeDexBar.app` を右クリック（または Control+クリック）→ **開く** → ダイアログで再度 **開く**。
-- **ターミナル:** `xattr -dr com.apple.quarantine /Applications/PokeDexBar.app`
-
-（Homebrew Cask は隔離属性を自動で除去するため、この手順は不要です。）
+アプリを通常どおり開いてください。公証済みのリリースでは、隔離属性の削除や Gatekeeper の例外設定は不要です。
 
 ### ソースからビルド
 
 ```bash
 swift build                  # デバッグ
 swift test                   # ユニットテスト
-./scripts/build-app.sh       # release → PokeDexBar.app → /Applications
+./scripts/build-app.sh       # ローカルのリリースビルド → build/PokeDexBar.app
 ```
 
 ## データソース
