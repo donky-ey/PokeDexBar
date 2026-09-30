@@ -135,6 +135,30 @@ final class FoundEggTests: XCTestCase {
         XCTAssertEqual(store.state.eggs.count, 1)
     }
 
+    /// **마나피의 알에서는 피오네가 나온다** — 본가 설정 그대로(마나피는 피오네 알을 낳고,
+    /// 피오네는 마나피가 되지 못한다). 파트너의 baseID 를 그대로 쓰면 마나피 알이 된다.
+    func testAManaphyPartnersFoundEggHoldsAPhione() {
+        let store = makeStore()
+        var manaphy = Individual(baseID: 490, speciesID: 490, pathIDs: [490],
+                                 nature: .hardy, obtainedAt: now, grade: .legendary)
+        manaphy.eggProgress = ExpBalance.eggThreshold(grade: .legendary)
+        store.addForTesting(manaphy)
+        let line = EvoLine(baseID: 490, tree: EvoNode(speciesID: 489, children: []),
+                           rarity: .legendary, names: [:])
+
+        let egg = store.takeFoundEgg(individualID: manaphy.id, line: line)
+        XCTAssertEqual(egg?.speciesID, 489, "마나피 알에서 마나피가 나왔다 — 본가는 피오네다")
+    }
+
+    /// 대조군 — 다른 종은 여전히 자기 라인의 알을 부른다(마나피 특례가 전역 규칙이 아닌지 보증).
+    func testAnOrdinaryPartnersFoundEggStillHoldsItsOwnBase() {
+        let store = makeStore()
+        let egg = store.takeFoundEgg(individualID: charizard(store,
+                                                            exp: ExpBalance.eggThreshold(grade: .epic)).id,
+                                     line: charLine())
+        XCTAssertEqual(egg?.speciesID, 4)
+    }
+
     /// **위장 중인 개체는 알을 못 받는다.** 뷰와 스토어가 같은 술어를 쓰는지 — 예전 갈래
     /// 기능(교환권)에서 이 부분이 실제로 갈린 적이 있다.
     func testADisguisedIndividualTakesNoEgg() {

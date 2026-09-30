@@ -98,6 +98,51 @@ final class EvoRequirementParsingTests: XCTestCase {
     }
 }
 
+/// 체인 트리 조립 — **조건이 아예 없는 자식 간선은 진화가 아니다.**
+///
+/// PokéAPI DB 에는 피오네도 마나피도 진화 관계가 없는데(`evolves_from` 둘 다 null), REST 직렬화기가
+/// "한 체인에 뿌리 없는 종이 둘"인 체인 250 을 임의로 피오네→마나피로 포개 내보낸다. 진짜 진화가
+/// 아니라서 `evolution_details` 가 빈 배열인 것이 그 표식이다 — 전 데이터 전수 확인(2026-09-30):
+/// 진짜 진화 간선 치고 details 가 빈 것은 0건, 이 부류는 체인 250 하나뿐이다.
+final class FabricatedChainEdgeTests: XCTestCase {
+    /// 실제 응답에서 잘라 온 픽스처(`evolution-chain/250`, 2026-09-30 캡처).
+    private let phioneChain = """
+    {"chain": {"is_baby": false,
+      "species": {"name": "phione", "url": "https://pokeapi.co/api/v2/pokemon-species/489/"},
+      "evolution_details": [],
+      "evolves_to": [{"is_baby": false,
+        "species": {"name": "manaphy", "url": "https://pokeapi.co/api/v2/pokemon-species/490/"},
+        "evolution_details": [],
+        "evolves_to": []}]}}
+    """
+
+    func testAnEdgeWithoutDetailsIsNotAnEvolution() throws {
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(phioneChain.utf8))
+        let tree = PokeAPIClient.node(from: dto.chain)
+        XCTAssertEqual(tree.speciesID, 489)
+        XCTAssertTrue(tree.children.isEmpty, "피오네가 마나피로 진화하게 됐다 — 지어낸 간선이 살아 있다")
+    }
+
+    /// 대조군 — 조건이 실린 진짜 간선은 그대로 이어진다(`evolution-chain/18` 식스테일 모양,
+    /// 게이트가 늘 꺼져 있지 않은지 보증).
+    func testARealEdgeWithDetailsStillParses() throws {
+        let vulpixChain = """
+        {"chain": {"is_baby": false,
+          "species": {"name": "vulpix", "url": "https://pokeapi.co/api/v2/pokemon-species/37/"},
+          "evolution_details": [],
+          "evolves_to": [{"is_baby": false,
+            "species": {"name": "ninetales", "url": "https://pokeapi.co/api/v2/pokemon-species/38/"},
+            "evolution_details": [{"trigger": {"name": "use-item"}, "item": {"name": "fire-stone"},
+                                   "min_happiness": null, "min_level": null}],
+            "evolves_to": []}]}}
+        """
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(vulpixChain.utf8))
+        let tree = PokeAPIClient.node(from: dto.chain)
+        XCTAssertEqual(tree.children.map(\.speciesID), [38])
+        XCTAssertEqual(tree.children.first?.requirementRaw, .item("fire-stone"))
+    }
+}
+
 @MainActor
 final class EvolutionGateTests: XCTestCase {
     private var clock = Date(timeIntervalSince1970: 1_000_000)

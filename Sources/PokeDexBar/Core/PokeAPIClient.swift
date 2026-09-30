@@ -61,7 +61,7 @@ actor PokeAPIClient: PokeProviding {
             throw URLError(.badURL)
         }
         let chainDTO: ChainDTO = try await get(chainURL)
-        let tree = node(from: chainDTO.chain)
+        let tree = Self.node(from: chainDTO.chain)
         let rarity = Rarity.from(captureRate: baseSpecies.capture_rate,
                                  isLegendary: baseSpecies.is_legendary,
                                  isMythical: baseSpecies.is_mythical)
@@ -312,12 +312,19 @@ actor PokeAPIClient: PokeProviding {
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    private func node(from link: ChainLink, parentLevel: Int = 1) -> EvoNode {
+    static func node(from link: ChainLink, parentLevel: Int = 1) -> EvoNode {
         let speciesID = Self.id(from: link.species.url ?? "")
         let raw = Self.requirement(from: link.evolution_details, speciesID: speciesID, parentLevel: parentLevel)
         let myLevel = if case .level(let n) = raw { n } else { parentLevel }
+        // **조건이 아예 없는 자식 간선은 진화가 아니라서 잇지 않는다.** 진짜 진화 간선은 전부
+        // 조건이 실려 온다(전수 확인 2026-09-30: details 빈 진짜 간선 0건). 빈 details 는 REST
+        // 직렬화기가 진화 관계 없는 종들을 "같은 체인"이라는 이유로 포개 낸 표식이고, 그 부류는
+        // 피오네→마나피(체인 250)가 유일하다 — 본가에서 피오네는 마나피가 되지 못한다.
+        // 뿌리의 빈 details 는 정상이다(뿌리는 무엇으로부터도 진화하지 않는다) — 그래서 이 판정은
+        // `requirement` 의 `.none` 폴백이 아니라 자식을 잇는 여기에 있다.
+        let real = link.evolves_to.filter { !($0.evolution_details?.isEmpty ?? true) }
         return EvoNode(speciesID: speciesID,
-                       children: link.evolves_to.map { node(from: $0, parentLevel: myLevel) },
+                       children: real.map { node(from: $0, parentLevel: myLevel) },
                        requirementRaw: raw,
                        regionalRequirementRaw: Self.regionalRequirement(from: link.evolution_details),
                        requiredGender: Self.gender(from: link.evolution_details))

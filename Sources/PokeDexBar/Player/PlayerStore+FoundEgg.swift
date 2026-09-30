@@ -27,6 +27,13 @@ extension PlayerStore {
         return freeSlots > 0
     }
 
+    /// 파트너가 부르는 알의 종. 자기 라인의 베이스가 기본이지만 **마나피(490)는 피오네(489)
+    /// 알을 낳는다** — 본가 설정 그대로다(피오네는 마나피가 되지 못하는, 알로만 이어지는 관계.
+    /// 진화 간선 쪽은 `PokeAPIClient.node(from:)` 가 지어낸 간선을 걷어내며 같은 설정을 지킨다).
+    nonisolated static func foundEggSpecies(for baseID: Int) -> Int {
+        baseID == 490 ? 489 : baseID
+    }
+
     /// 알을 받는다. 조건을 못 채우면 아무것도 하지 않고 nil.
     ///
     /// **알을 먼저 놓고, 놓였을 때만 알 계량기를 깎는다.** 반대로 하면 슬롯이 꽉 찼을 때
@@ -39,14 +46,15 @@ extension PlayerStore {
         // 종은 확정이지만 이로치는 평소 확률로 굴린다 — 확정으로 만들면 이로치 부적이 무의미해진다.
         let shiny = EggBalance.rollShiny(nextRandomUnit(), denominator: shinyDenominator)
         // 종은 그 개체의 baseID(리자몽은 파이리를 부른다), 등급은 그 개체의 등급을 그대로 쓴다.
-        // 성장 타입은 라인에서 baseID 기준으로 다시 찾는다 — 진화한 개체의 growthRate 는 지금
-        // 폼(예: 리자몽) 기준일 수 있어, 알이 될 baseID(파이리) 의 값과 다를 수 있다. 라인이
+        let eggSpecies = Self.foundEggSpecies(for: individual.baseID)
+        // 성장 타입은 라인에서 알이 될 종 기준으로 다시 찾는다 — 진화한 개체의 growthRate 는 지금
+        // 폼(예: 리자몽) 기준일 수 있어, 알이 될 종(파이리)의 값과 다를 수 있다. 라인이
         // 아직 안 받아져 있으면(nil) 그 개체가 이미 들고 있는 값으로 물러난다.
-        let growthRate = line.growthRate(of: individual.baseID) ?? individual.growthRate
-        // 성비도 같은 이유로 라인에서 baseID 기준으로 찾는다. 라인이 아직 없으면 기본값 —
+        let growthRate = line.growthRate(of: eggSpecies) ?? individual.growthRate
+        // 성비도 같은 이유로 라인에서 알이 될 종 기준으로 찾는다. 라인이 아직 없으면 기본값 —
         // 이 알에서 나올 아이의 성별만 갈릴 뿐 다른 것은 안 바뀐다.
-        let genderRate = line.genderRate(of: individual.baseID) ?? GenderBalance.defaultRate
-        guard let egg = placeEgg(grade: individual.grade, speciesID: individual.baseID, shiny: shiny,
+        let genderRate = line.genderRate(of: eggSpecies) ?? GenderBalance.defaultRate
+        guard let egg = placeEgg(grade: individual.grade, speciesID: eggSpecies, shiny: shiny,
                                  growthRate: growthRate, genderRate: genderRate)
         else { return nil }
         // 인덱스는 `placeEgg`(state 변형 + save) 가 끝난 **뒤에 다시 찾는다** — 미리 잡아 두면
