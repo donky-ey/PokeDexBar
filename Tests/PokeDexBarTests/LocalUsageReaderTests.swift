@@ -1194,4 +1194,19 @@ final class LocalUsageReaderTests: XCTestCase {
         XCTAssertEqual(entries.first?.cacheRead, 0)
     }
 
+    /// 손상 로그 방어의 나머지 절반 — 파싱 경계 clamp(#145)는 **엔트리 하나**를 자를 뿐이고,
+    /// 캡에 걸린 엔트리 수천 개가 한 버킷에 더해지면 합계에서 다시 오버플로 트랩이 난다.
+    /// 파일은 디스크에 남으므로 새로고침·재기동마다 다시 죽는다(CLAUDE.md 관대 디코딩 규칙의 부류).
+    func testABucketFullOfClampedEntriesDoesNotTrapOnTheSum() {
+        var bucket = LocalUsageReader.Bucket()
+        let cap = LocalUsageReader.maxParsedTokenValue
+        for i in 0..<10_000 {
+            bucket.add(LocalUsageReader.Entry(id: "corrupt-\(i)", date: Date(), localDay: "2026-10-08",
+                                              model: "totally-unknown",
+                                              input: cap, output: cap, cacheWrite: cap, cacheRead: cap))
+        }
+        XCTAssertLessThanOrEqual(bucket.input, cap, "버킷 필드는 캡에서 포화해야 한다")
+        XCTAssertGreaterThan(bucket.total, 0)
+    }
+
 }

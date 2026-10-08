@@ -201,7 +201,9 @@ final class UsageStore {
     var costingSnapshots: [ProviderSnapshot] { snapshots.filter(\.reportsCost) }
 
     /// Whether any connected provider reports real spend — gates menu/header `$0.00` for flat-rate-only setups.
-    var showsCost: Bool { !costingSnapshots.isEmpty }
+    /// 비용 줄도 컴팩트 표시 규율을 따른다 — **오늘 데이터가 있는** 비용 프로바이더가 있을 때만.
+    /// 캐리어(최근 7일 사용, today nil)까지 세면 오늘 안 쓴 사용자의 메뉴바에 "$0.00" 줄이 생긴다.
+    var showsCost: Bool { costingSnapshots.contains { $0.today != nil } }
 
     var todayCostTotal: Double {
         let todayKey = LocalUsageReader.todayKey()
@@ -612,6 +614,12 @@ final class UsageStore {
                 }
             }
         }
+
+        // 캐리어는 phase 2 태스크 완료 순서로 덧붙는다 — 탭은 프로바이더 등록 순서를 지킨다
+        // (upstream #402). 정렬이 없으면 폴마다 순서가 뒤집혀 기본 탭(first)이 널뛴다.
+        let order = Dictionary(providers.enumerated().map { ($1.id, $0) },
+                               uniquingKeysWith: { first, _ in first })
+        snapshots.sort { (order[$0.providerID] ?? .max) < (order[$1.providerID] ?? .max) }
 
         // ── 한도 조회 (Keychain 프롬프트로 블로킹될 수 있어 마지막)
         if disableKeychainAccess {

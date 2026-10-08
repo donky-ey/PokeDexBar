@@ -189,6 +189,46 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(store.todayTotalTokens, 0, "캐리어는 오늘 합계에 더해지면 안 된다")
     }
 
+    /// [Review Focus 5] 캐리어는 메뉴바 컴팩트 표시 규율("오늘 사용>0")을 못 깬다 — 한도 줄도,
+    /// **비용 줄도**. showsCost 가 캐리어까지 세면 오늘 아무것도 안 쓴 사용자의 메뉴바에
+    /// "$0.00" 둘째 줄이 생긴다(안 쓴 프로바이더가 레이아웃을 바꾸는 회귀).
+    func testACarrierNeverLeaksIntoTheMenuBar() async {
+        let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: nil)
+        var enrichment = ProviderEnrichment()
+        enrichment.blocksOK = true
+        enrichment.periodsOK = true
+        enrichment.lastUsage = Date().addingTimeInterval(-3 * 86_400)
+        codex.enrichment = enrichment
+        let store = makeStore(providers: [codex], codex: codexLimits(primaryUsed: 81))
+        store.showLimitInMenu = true
+        store.showCostInMenu = true
+        await store.refresh(scheduleEmptyRetry: false)
+
+        XCTAssertTrue(store.snapshots.contains { $0.providerID == "codex" }, "전제: 캐리어 존재")
+        XCTAssertFalse(store.menuLines.contains { $0.contains("Codex") },
+                       "오늘 안 쓴 프로바이더의 한도가 메뉴바에 샜다")
+        XCTAssertFalse(store.menuLines.contains { $0.contains("$") },
+                       "캐리어만 있는데 비용 줄이 생겼다 — showsCost 가 캐리어를 센다")
+    }
+
+    /// 캐리어는 phase 2 에서 완료 순서대로 덧붙는다 — 등록 순서로 재정렬하지 않으면 폴마다
+    /// 탭 순서가 뒤집히고, 저장된 선택이 없을 때 기본 탭(first)이 널뛴다(upstream #402 마지막 헝크).
+    func testTabsKeepProviderRegistrationOrderWhenACarrierIsAppended() async {
+        let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: nil)
+        var enrichment = ProviderEnrichment()
+        enrichment.blocksOK = true
+        enrichment.periodsOK = true
+        enrichment.lastUsage = Date().addingTimeInterval(-3 * 86_400)
+        codex.enrichment = enrichment
+        let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code",
+                                       daily: todayDaily(1_000))
+        // 등록 순서: codex 가 먼저 — 캐리어(phase 2 append)는 claude 뒤에 붙으므로 정렬이 없으면 뒤집힌다.
+        let store = makeStore(providers: [codex, claude])
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertEqual(store.snapshots.map(\.providerID), ["codex", "claude_code"],
+                       "탭이 등록 순서가 아니라 phase 완료 순서로 늘어섰다")
+    }
+
     /// 대조군 — 창(7일) 밖 사용만 있으면 탭이 사라져야 한다(#56 "미사용 프로바이더 탭" 방어 유지).
     func testUseOlderThanTheWindowStillDropsTheTab() async {
         let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: nil)

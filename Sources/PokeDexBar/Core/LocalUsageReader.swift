@@ -42,7 +42,14 @@ enum LocalUsageReader {
         var cost = 0.0
         var total: Int { input + output + cacheWrite + cacheRead }
         mutating func add(_ e: Entry) {
-            input += e.input; output += e.output; cacheWrite += e.cacheWrite; cacheRead += e.cacheRead
+            // 캡에서 포화 — 엔트리별 clamp(#145)만으로는 캡에 걸린 엔트리 수천 개의 합에서
+            // 다시 트랩이 난다. 두 피연산자 모두 ≤ cap 이라 덧셈 자체는 오버플로하지 않고,
+            // min 으로 합을 다시 캡에 가둔다(total 도 4×cap ≤ Int64 안).
+            let cap = LocalUsageReader.maxParsedTokenValue
+            input = min(cap, input + e.input)
+            output = min(cap, output + e.output)
+            cacheWrite = min(cap, cacheWrite + e.cacheWrite)
+            cacheRead = min(cap, cacheRead + e.cacheRead)
             // 미가격 모델은 비용이 조용히 0 으로 접힌다 — 정체당 한 번만 로그로 드러낸다(#361).
             // 명시 비용이 있으면 표가 필요 없던 것이므로 보고하지 않는다.
             if e.explicitCost == nil, !ModelPricing.hasIntendedPrice(for: e.model) {
