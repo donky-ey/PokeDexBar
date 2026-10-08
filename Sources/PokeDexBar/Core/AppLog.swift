@@ -19,6 +19,22 @@ enum AppLog {
     /// 레퍼런스(size-capped 회전, 수 MB)에 맞춤 — 일자별 폴더는 무한 성장/정리 필요라 채택 안 함.
     private static let maxBytes = 2 * 1024 * 1024
 
+    /// 매 폴마다 반복되는 상태줄용 `write` — 같은 상태는 억제하고(`repeatAfter` 마다 1회 재확인),
+    /// 바뀐 상태는 즉시 쓴다. 판정은 `LogRepeatSuppressor`(순수)가 하고 여기는 락만 얹는다.
+    /// 틱마다 값이 바뀌는 줄(토큰 수·합계)이나 이벤트에는 쓰지 말 것 — 억제가 안 되거나 이벤트를 잃는다.
+    static func writeIfChanged(_ key: String, _ message: String, repeatAfter: TimeInterval = 3600) {
+        guard AppEnv.isBundledApp else { return }
+        suppressorLock.lock()
+        let shouldWrite = suppressor.shouldWrite(key: key, message: message, repeatAfter: repeatAfter)
+        suppressorLock.unlock()
+        guard shouldWrite else { return }
+        write(message)
+    }
+
+    /// 여러 스레드에서 변형되는 딕셔너리라(불리언 플래그와 달리) 락이 필요하다.
+    nonisolated(unsafe) private static var suppressor = LogRepeatSuppressor()
+    private static let suppressorLock = NSLock()
+
     static func write(_ message: String) {
         // 실제 .app 실행에서만 기록 — swift test / 로우 바이너리 실행이 프로덕션 로그를 오염시키지
         // 않게(형제 write 경로 writeParitySnapshot·checkLimitNotifications 와 동일 가드). 테스트가
