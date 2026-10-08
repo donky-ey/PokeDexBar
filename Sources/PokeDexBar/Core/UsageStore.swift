@@ -655,6 +655,8 @@ final class UsageStore {
             return l.limitRefreshHTTPError(status)
         case .keychainUnavailable, .credentialFormat:
             return l.limitRefreshNoCredential
+        case .credentialMissingAccountOAuth:
+            return l.limitRefreshReauthNeeded
         case .keychainInteractionNotAllowed, .keychainAccessDisabled:
             return l.limitRefreshGeneric
         }
