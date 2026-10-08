@@ -591,12 +591,22 @@ enum LocalAdditionalUsageReader {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Same ceiling as `LocalUsageReader.intValue`. `NSNumber.intValue` saturates at `Int.max`,
+    /// and the next `input + output` then traps. External logs can carry `1e30`.
     private static func intValue(_ value: Any?) -> Int {
-        if let number = value as? NSNumber { return max(0, number.intValue) }
+        if let number = value as? NSNumber, !(value is NSNull) {
+            return clampedTokenCount(number.doubleValue)
+        }
         if let string = value as? String, let number = Int(string.trimmingCharacters(in: .whitespaces)) {
-            return max(0, number)
+            return min(LocalUsageReader.maxParsedTokenValue, max(0, number))
         }
         return 0
+    }
+
+    private static func clampedTokenCount(_ value: Double) -> Int {
+        guard value.isFinite, value > 0 else { return 0 }
+        let cap = LocalUsageReader.maxParsedTokenValue
+        return value >= Double(cap) ? cap : Int(value)
     }
 
     private static func doubleValue(_ value: Any?) -> Double? {
@@ -673,6 +683,9 @@ enum LocalAdditionalUsageReader {
     }
 
     private static func columnInt(_ statement: OpaquePointer, _ index: Int32) -> Int {
-        max(0, Int(sqlite3_column_int64(statement, index)))
+        let raw = sqlite3_column_int64(statement, index)
+        if raw <= 0 { return 0 }
+        let cap = Int64(LocalUsageReader.maxParsedTokenValue)
+        return Int(min(raw, cap))
     }
 }
