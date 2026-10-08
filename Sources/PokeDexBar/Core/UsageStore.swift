@@ -515,7 +515,9 @@ final class UsageStore {
             var prevRecentRate: Double = 0
             var prevWeek: PeriodUsage?
             var prevMonth: PeriodUsage?
+            var prevLastUsage: Date?
             if let previous = snapshots.first(where: { $0.providerID == provider.id }) {
+                prevLastUsage = previous.lastUsage
                 if previous.today?.date == todayKey { prevToday = previous.today }
                 prevBlock = previous.activeBlock
                 prevRecentRate = previous.recentTokensPerMinute
@@ -534,7 +536,13 @@ final class UsageStore {
                 today = nil         // 성공했지만 오늘 데이터 없음 (예: Codex 미사용)
             }
 
-            if today != nil {
+            // 오늘 데이터가 없어도 최근 7일 내 사용이 있으면 탭을 유지한다(upstream #336/#402) —
+            // 주/월이 달력 경계에서 0 이 된 월요일 아침, 금요일에 쓴 도구의 탭·공식 한도가
+            // 사라지는 회귀 방지. 오늘 합계에는 안 더해진다(today nil).
+            let recentlyUsed = prevLastUsage.map {
+                Date().timeIntervalSince($0) <= LocalUsageReader.recentUseWindow
+            } == true
+            if today != nil || recentlyUsed {
                 newSnapshots.append(ProviderSnapshot(
                     providerID: provider.id,
                     displayName: provider.displayName,
@@ -544,7 +552,8 @@ final class UsageStore {
                     weekTotal: prevWeek,
                     monthTotal: prevMonth,
                     fetchedAt: Date(),
-                    reportsCost: provider.reportsCost))
+                    reportsCost: provider.reportsCost,
+                    lastUsage: prevLastUsage))
             }
         }
         snapshots = newSnapshots
@@ -573,7 +582,13 @@ final class UsageStore {
                     // 미사용 프로바이더까지 탭이 떠서 "안 썼는데 왜 뜨지" 회귀가 난다. 블록이 있을 때만
                     // 그 시점의 주/월도 함께 보존한다.
                     let hasActiveBlock = enrichment.blocksOK && enrichment.activeBlock != nil
-                    if hasActiveBlock, let provider = providers.first(where: { $0.id == id }) {
+                    // 활성 블록 외에 **최근 7일 내 사용**도 캐리어 사유다(upstream #336/#402) —
+                    // lastUsage 는 0토큰 synthetic 을 걸러 계산되므로 #56(설치만 한 프로바이더)과
+                    // 충돌하지 않고, 7일 밖이면 여전히 탭이 사라진다(대조군 테스트).
+                    let recentlyUsed = enrichment.periodsOK && enrichment.lastUsage.map {
+                        Date().timeIntervalSince($0) <= LocalUsageReader.recentUseWindow
+                    } == true
+                    if hasActiveBlock || recentlyUsed, let provider = providers.first(where: { $0.id == id }) {
                         snapshots.append(ProviderSnapshot(
                             providerID: id, displayName: provider.displayName, today: nil,
                             activeBlock: enrichment.activeBlock,
@@ -581,7 +596,8 @@ final class UsageStore {
                             weekTotal: enrichment.periodsOK ? enrichment.weekTotal : nil,
                             monthTotal: enrichment.periodsOK ? enrichment.monthTotal : nil,
                             fetchedAt: Date(),
-                            reportsCost: provider.reportsCost))
+                            reportsCost: provider.reportsCost,
+                            lastUsage: enrichment.periodsOK ? enrichment.lastUsage : nil))
                     }
                     continue
                 }
@@ -592,6 +608,7 @@ final class UsageStore {
                 if enrichment.periodsOK {
                     snapshots[index].weekTotal = enrichment.weekTotal
                     snapshots[index].monthTotal = enrichment.monthTotal
+                    snapshots[index].lastUsage = enrichment.lastUsage
                 }
             }
         }

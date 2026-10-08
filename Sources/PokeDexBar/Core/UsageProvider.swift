@@ -30,4 +30,8 @@ struct ProviderEnrichment: Sendable {
     var weekTotal: PeriodUsage?
     var monthTotal: PeriodUsage?
     var periodsOK = false
+    /// 토큰이 있는 가장 최근 엔트리. 주/월 합계와 달리 달력 경계에서 리셋되지 않아, 최근에 썼지만
+    /// 오늘은 안 쓴 프로바이더의 탭(과 공식 한도)을 지킨다(upstream #336/#402).
+    /// 0토큰 synthetic 레코드는 사용이 아니다 — 설치만 한 프로바이더는 숨은 채로 남는다(#56).
+    var lastUsage: Date? = nil
 }

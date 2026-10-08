@@ -30,6 +30,7 @@ struct LocalClaudeProvider: UsageProvider {
             entries: entries, periodKey: LocalUsageReader.monthKey(now),
             fromDay: fmt.string(from: monthStart), toDay: fmt.string(from: now))
         r.periodsOK = true
+        r.lastUsage = entries.lazy.filter { $0.total > 0 }.map(\.date).max()
         return r
     }
 }
@@ -63,6 +64,7 @@ struct LocalGeminiProvider: UsageProvider {
         r.monthTotal = LocalUsageReader.period(entries: entries, periodKey: LocalUsageReader.monthKey(now),
                                                fromDay: fmt.string(from: monthStart), toDay: fmt.string(from: now))
         r.periodsOK = true
+        r.lastUsage = entries.lazy.filter { $0.total > 0 }.map(\.date).max()
         return r
     }
 }
@@ -96,6 +98,7 @@ struct LocalGrokProvider: UsageProvider {
         r.monthTotal = LocalUsageReader.period(entries: entries, periodKey: LocalUsageReader.monthKey(now),
                                                fromDay: fmt.string(from: monthStart), toDay: fmt.string(from: now))
         r.periodsOK = true
+        r.lastUsage = entries.lazy.filter { $0.total > 0 }.map(\.date).max()
         return r
     }
 }
@@ -134,6 +137,7 @@ struct LocalCodexProvider: UsageProvider {
         r.weekTotal = week
         r.monthTotal = month
         r.periodsOK = true
+        r.lastUsage = entries.lazy.filter { $0.total > 0 }.map(\.date).max()
         return r
     }
 }

@@ -14,6 +14,9 @@ enum LocalUsageReader {
 
     /// 활성 블록(번 레이트)과 enrichment 스캔 하한이 공유하는 5시간 롤링 윈도우 길이.
     static let blockWindow: TimeInterval = 5 * 3600
+    /// 이 창 안에 쓴 프로바이더는 유휴일에도 탭을 유지한다 — 주간 쿼터 창과 같은 길이: 그 바의
+    /// 잔여량이 의미 있으려면 도구를 그 창 안에서 쓴 것이다(upstream #336).
+    static let recentUseWindow: TimeInterval = 7 * 86_400
     /// "지금 돌아가고 있나"를 재는 짧은 창(`recentRate`). 5분인 이유: 에이전트가 생각하거나
     /// 사용자가 타이핑하는 수십 초 공백에는 안 식고, 손을 뗀 뒤엔 5분 안에 0으로 돌아온다.
     static let recentWindow: TimeInterval = 5 * 60
@@ -1389,7 +1392,8 @@ enum LocalUsageReader {
     /// (OpenCode/Hermes 경로엔 이미 `now-7일` 하한이 있었으나 Claude/Codex/Gemini 경로엔 없어
     /// 드리프트했다 — 네 프로바이더가 이 단일 소스를 공유하게 통일.)
     static func enrichmentScanStart(now: Date) -> Date {
-        min(startOfMonth(now), startOfWeek(now), now.addingTimeInterval(-blockWindow))
+        min(startOfMonth(now), startOfWeek(now), now.addingTimeInterval(-blockWindow),
+            now.addingTimeInterval(-LocalUsageReader.recentUseWindow))
     }
 
     static func monthKey(_ date: Date) -> String {

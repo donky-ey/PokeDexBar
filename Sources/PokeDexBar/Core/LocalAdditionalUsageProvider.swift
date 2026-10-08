@@ -72,6 +72,7 @@ private func enrichment(entries: [LocalUsageReader.Entry]) -> ProviderEnrichment
         entries: entries, periodKey: LocalUsageReader.monthKey(now),
         fromDay: formatter.string(from: monthStart), toDay: formatter.string(from: now))
     result.periodsOK = true
+    result.lastUsage = entries.lazy.filter { $0.total > 0 }.map(\.date).max()
     return result
 }
 

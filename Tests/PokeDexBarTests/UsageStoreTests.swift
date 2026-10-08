@@ -169,6 +169,39 @@ final class UsageStoreTests: XCTestCase {
                    defaults: testDefaults)
     }
 
+    /// [회귀 upstream #336/#402] 공식 한도는 계정 속성이지만 팝오버는 스냅샷을 통해서만 닿는다.
+    /// 주/월 합계는 달력 경계에서 0 이 되므로, 3일 전에 쓴 프로바이더(금→월, 월초)가
+    /// 탭과 한도를 함께 잃었다. 최근 7일 내 사용이 있으면 탭을 유지한다.
+    func testRecentUseKeepsTheTabAcrossCalendarResets() async {
+        let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: nil)
+        var enrichment = ProviderEnrichment()
+        enrichment.blocksOK = true
+        enrichment.weekTotal = PeriodUsage(period: "w", totalTokens: 0, totalCost: 0)
+        enrichment.monthTotal = PeriodUsage(period: "m", totalTokens: 0, totalCost: 0)
+        enrichment.periodsOK = true
+        enrichment.lastUsage = Date().addingTimeInterval(-3 * 86_400)
+        codex.enrichment = enrichment
+        let store = makeStore(providers: [codex])
+        await store.refresh(scheduleEmptyRetry: false)
+
+        XCTAssertTrue(store.snapshots.contains { $0.providerID == "codex" },
+                      "최근 사용이 유휴일의 탭(과 한도)을 지켜야 한다")
+        XCTAssertEqual(store.todayTotalTokens, 0, "캐리어는 오늘 합계에 더해지면 안 된다")
+    }
+
+    /// 대조군 — 창(7일) 밖 사용만 있으면 탭이 사라져야 한다(#56 "미사용 프로바이더 탭" 방어 유지).
+    func testUseOlderThanTheWindowStillDropsTheTab() async {
+        let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: nil)
+        var enrichment = ProviderEnrichment()
+        enrichment.blocksOK = true
+        enrichment.periodsOK = true
+        enrichment.lastUsage = Date().addingTimeInterval(-LocalUsageReader.recentUseWindow - 86_400)
+        codex.enrichment = enrichment
+        let store = makeStore(providers: [codex])
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertFalse(store.snapshots.contains { $0.providerID == "codex" })
+    }
+
     private func makeStatusStore(_ stub: FakeStatusProvider) -> UsageStore {
         let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code", daily: todayDaily(1_000))
         return UsageStore(providers: [claude], claudeLimitsProvider: FakeClaudeLimits(status: nil),
