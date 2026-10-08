@@ -15,7 +15,10 @@ let package = Package(
             name: "PokeDexBarTests",
             dependencies: ["PokeDexBar"],
             path: "Tests/PokeDexBarTests",
-            resources: [.copy("Fixtures/CodexFork")]
+            resources: [
+                .copy("Fixtures/CodexFork"),
+                .copy("Fixtures/CodexSubagent"),
+            ]
         ),
     ]
 )
