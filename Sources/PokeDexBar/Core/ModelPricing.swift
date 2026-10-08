@@ -57,6 +57,34 @@ enum ModelPricing {
         return .zero
     }
 
+    /// 이 모델에 **의도된** 가격이 있는가 — 표의 행 또는 패밀리 폴백(grok 의 .zero 포함).
+    /// 어느 쪽도 아니면 미가격이고, 비용이 조용히 0 으로 집계된다.
+    static func hasIntendedPrice(for model: String) -> Bool {
+        if table[model] != nil { return true }
+        let m = model.lowercased()
+        return m.hasPrefix("grok") || m.contains("opus") || m.contains("sonnet") || m.contains("haiku")
+            || m.contains("gpt") || m.contains("codex") || m.contains("o4") || m.contains("o3")
+            || (m.hasPrefix("gemini") && (m.contains("pro") || m.contains("flash")))
+    }
+
+    /// 표가 가격을 못 매기는 모델은 "0원" 말고는 흔적이 없다(upstream #361 — Opus 5.5 가
+    /// 스크린샷을 받고서야 발견). 정체당 한 번만 로그에 남겨 새 모델이 보이게 한다.
+    static func noteUnpriced(_ model: String) {
+        guard firstUnpricedSighting(model) else { return }
+        AppLog.write("Unpriced model: \(model) — ModelPricing.table 에 행이 생길 때까지 비용이 0 으로 집계된다")
+    }
+
+    /// `model` 을 처음 봤을 때만 true — `noteUnpriced` 의 dedupe. 정규화는 가격 조회와 맞춘다
+    /// (소문자 + 프로바이더 접두 제거: "ANTHROPIC/X" 와 "x" 는 같은 모델).
+    static func firstUnpricedSighting(_ model: String) -> Bool {
+        let key = model.lowercased().split(separator: "/").last.map(String.init) ?? model.lowercased()
+        unpricedLock.lock(); defer { unpricedLock.unlock() }
+        return unpricedSeen.insert(key).inserted
+    }
+
+    nonisolated(unsafe) private static var unpricedSeen: Set<String> = []
+    private static let unpricedLock = NSLock()
+
     static func cost(model: String, input: Int, output: Int, cacheWrite: Int, cacheRead: Int) -> Double {
         let r = rate(for: model)
         return Double(input) * r.input

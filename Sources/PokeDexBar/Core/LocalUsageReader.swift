@@ -40,6 +40,11 @@ enum LocalUsageReader {
         var total: Int { input + output + cacheWrite + cacheRead }
         mutating func add(_ e: Entry) {
             input += e.input; output += e.output; cacheWrite += e.cacheWrite; cacheRead += e.cacheRead
+            // 미가격 모델은 비용이 조용히 0 으로 접힌다 — 정체당 한 번만 로그로 드러낸다(#361).
+            // 명시 비용이 있으면 표가 필요 없던 것이므로 보고하지 않는다.
+            if e.explicitCost == nil, !ModelPricing.hasIntendedPrice(for: e.model) {
+                ModelPricing.noteUnpriced(e.model)
+            }
             cost += e.explicitCost.flatMap { $0 > 0 ? $0 : nil }
                 ?? ModelPricing.cost(model: e.model, input: e.input, output: e.output,
                                      cacheWrite: e.cacheWrite, cacheRead: e.cacheRead)
