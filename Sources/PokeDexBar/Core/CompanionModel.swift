@@ -3,6 +3,15 @@ import Foundation
 /// 앱 언어. 포켓몬 이름은 PokéAPI 다국어 names 에서 가져온다.
 enum AppLanguage: String, Codable, Sendable, CaseIterable {
     case ko, en, ja
+
+    /// 날짜·요일 현지화용 로케일 — 앱 표시 언어를 따른다(절대 리셋 시각 등).
+    var displayLocale: Locale {
+        switch self {
+        case .ko: Locale(identifier: "ko_KR")
+        case .en: Locale(identifier: "en_US")
+        case .ja: Locale(identifier: "ja_JP")
+        }
+    }
     /// PokéAPI language.name 후보(첫 매칭 사용)
     var apiCodes: [String] {
         switch self {

@@ -189,6 +189,16 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(store.todayTotalTokens, 0, "캐리어는 오늘 합계에 더해지면 안 된다")
     }
 
+    /// 절대 리셋 시각(#263)의 포맷 선택 — 6시간 안/오늘이면 시:분만, 며칠 뒤(주간 한도)면
+    /// 요일·일자까지. "in 2 days" 카운트다운만으론 언제 풀리는지 감이 안 와 붙이는 접미사다.
+    func testResetClockTemplatePicksDayDetailOnlyWhenFar() {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        XCTAssertEqual(PopoverView.resetClockFormatTemplate(reset: now.addingTimeInterval(3600), now: now),
+                       "HHmm", "1시간 뒤는 시:분만")
+        XCTAssertEqual(PopoverView.resetClockFormatTemplate(reset: now.addingTimeInterval(3 * 86_400), now: now),
+                       "EEEEdHHmm", "사흘 뒤는 요일·일자 포함")
+    }
+
     /// [Review Focus 5] 캐리어는 메뉴바 컴팩트 표시 규율("오늘 사용>0")을 못 깬다 — 한도 줄도,
     /// **비용 줄도**. showsCost 가 캐리어까지 세면 오늘 아무것도 안 쓴 사용자의 메뉴바에
     /// "$0.00" 둘째 줄이 생긴다(안 쓴 프로바이더가 레이아웃을 바꾸는 회귀).
