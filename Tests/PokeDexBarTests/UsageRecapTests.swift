@@ -287,6 +287,20 @@ final class UsageRecapTests: XCTestCase {
         XCTAssertEqual(recap(ledger(since: key(2026, 9, 1), days), .month).bestStreak, 6)
     }
 
+    /// 원장 배선 — **정의만 있고 호출이 빠지면** 리캡이 영영 빈 화면이다(실제로 #332 포팅에서
+    /// 배선 헝크 2개가 조용히 리젝트됐다). 함수가 아니라 refresh 경로의 동작으로 잠근다.
+    @MainActor
+    func testRefreshRecordsTheDailyLedgerAndPersistsIt() async {
+        let defaults = UserDefaults(suiteName: "recap-wire-\(UUID().uuidString)")!
+        let p = LedgerWireProvider()
+        let store = UsageStore(providers: [p], autoRefresh: false, defaults: defaults)
+        await store.refresh(scheduleEmptyRetry: false)
+        let today = LocalUsageReader.todayKey()
+        XCTAssertGreaterThan(store.dailyLedger.tokens(on: today), 0, "refresh 가 원장을 안 쓴다")
+        let reloaded = UsageStore(providers: [], autoRefresh: false, defaults: defaults)
+        XCTAssertGreaterThan(reloaded.dailyLedger.tokens(on: today), 0, "원장이 defaults 에 영속되지 않았다")
+    }
+
     /// [Review Focus 4] 리캡의 '이번 주'와 팝오버 주간 행의 '이번 주'가 같은 날짜 집합이어야 한다 —
     /// 주 시작 정의가 갈리면 두 화면이 서로 다른 주간 합계를 보여준다.
     func testRecapWeekMatchesThePopoverWeekDefinition() {
@@ -357,5 +371,24 @@ final class UsageRecapRenderingTests: XCTestCase {
                 XCTAssertEqual(image.width, Int(PopoverMetrics.contentWidth))
             }
         }
+    }
+}
+
+/// 원장 배선 테스트 전용 — 오늘 하루짜리 monthDaily 를 내는 최소 프로바이더.
+private struct LedgerWireProvider: UsageProvider {
+    let id = "claude_code"
+    let displayName = "Claude Code"
+    func fetchDaily() async throws -> DailyUsage? { nil }
+    func fetchEnrichment() async -> ProviderEnrichment {
+        var e = ProviderEnrichment()
+        e.blocksOK = true
+        e.periodsOK = true
+        let today = LocalUsageReader.todayKey()
+        e.monthDaily = [DailyUsage(date: today, inputTokens: 100, outputTokens: 0,
+                                   cacheCreationTokens: 0, cacheReadTokens: 0,
+                                   totalTokens: 100, totalCost: 0)]
+        e.monthTotal = PeriodUsage(period: today, totalTokens: 100, totalCost: 0)
+        e.lastUsage = Date()
+        return e
     }
 }

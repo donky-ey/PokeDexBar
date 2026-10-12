@@ -432,6 +432,7 @@ final class UsageStore {
         showCostInMenu = d.object(forKey: "showCostInMenu") as? Bool ?? false
         showLimitInMenu = d.object(forKey: "showLimitInMenu") as? Bool ?? false
         limitDisplayMode = LimitDisplayMode(rawValue: d.string(forKey: "limitDisplayMode") ?? "") ?? .used
+        dailyLedger = UsageLedger.load(from: d)
         limitNotifications = d.object(forKey: "limitNotifications") as? Bool ?? true
         updateNotificationsEnabled = d.object(forKey: "updateNotificationsEnabled") as? Bool ?? true
         statusChecksEnabled = d.object(forKey: "statusChecksEnabled") as? Bool ?? true
@@ -723,6 +724,10 @@ final class UsageStore {
         let order = Dictionary(providers.enumerated().map { ($1.id, $0) },
                                uniquingKeysWith: { first, _ in first })
         snapshots.sort { (order[$0.providerID] ?? .max) < (order[$1.providerID] ?? .max) }
+
+        // 일별 원장은 여기서 갱신한다 — monthDaily 는 phase 2 에서만 채워지므로, phase 1 직후에
+        // 기록하면 설치 후 첫 갱신에서 사용량 요약이 통째로 빈다.
+        recordDailyLedger()
 
         // ── 한도 조회 (Keychain 프롬프트로 블로킹될 수 있어 마지막)
         if disableKeychainAccess {

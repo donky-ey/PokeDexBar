@@ -642,6 +642,31 @@ struct L {
     var todayCost: String { t("오늘 API 환산 ($)", "Today's API equivalent ($)", "本日のAPI換算 ($)") }
     var limitPercent: String { t("한도 %", "Limit %", "上限 %") }
     /// 일별 추이 막대 행의 제목. 범위가 "이번 달"임을 문구에 담는다 — 롤링 30일로 읽히면 안 된다.
+    /// 페이스 대비 단계 이름. paceHint 와 같은 이유로 "적정"처럼 규범적인 말은 피하고
+    /// 소진 속도만 묘사한다.
+    func paceTier(_ tier: PaceTier) -> String {
+        switch tier {
+        case .wayUnder: return t("여유 많음", "Well under pace", "かなり余裕")
+        case .under: return t("여유", "Under pace", "余裕あり")
+        case .onPace: return t("페이스대로", "On pace", "ペース通り")
+        case .slightlyOver: return t("조금 빠름", "Slightly fast", "やや速い")
+        case .over: return t("빠름", "Fast", "速い")
+        case .wayOver: return t("매우 빠름", "Very fast", "とても速い")
+        }
+    }
+    /// 페이스 대비 차이(%p). **쓴 양**으로 말한다 — "앞섬/위" 같은 위치 표현은 잔량 모드에서
+    /// 채움이 마커보다 짧게 그려질 때 방향이 반대로 읽힌다(#286 부류). 0 이면 문구 없음.
+    /// 유럽어는 단계 이름("Under pace")이 이미 "페이스"를 말하므로 여기선 반복하지 않는다.
+    func paceDelta(_ points: Int) -> String? {
+        if points > 0 {
+            return t("페이스보다 \(points)%p 더 씀", "\(points) pts more used", "ペースより\(points)pt多く使用")
+        }
+        if points < 0 {
+            let n = -points
+            return t("페이스보다 \(n)%p 덜 씀", "\(n) pts less used", "ペースより\(n)pt少なく使用")
+        }
+        return nil
+    }
     /// 페이스 눈금 툴팁. "적정 사용량"으로 부르지 않는다 — 권고가 아니라 "이 속도면 리셋 전에
     /// 소진된다"는 기준선이다.
     func paceHint(_ percent: String) -> String {
