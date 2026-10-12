@@ -422,10 +422,12 @@ struct PopoverView: View {
                 Text(TokenFormatter.compact(store.todayTotalTokens))
                     .font(.system(size: 28, weight: .bold))
                     .monospacedDigit()
-                Text(TokenFormatter.grouped(store.todayTotalTokens))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                if store.todayTotalTokens >= 1_000 {
+                    Text(TokenFormatter.grouped(store.todayTotalTokens))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
                 Spacer()
                 if store.showsCost {
                     UsageCostText(cost: store.todayUsageCost, l: l)
@@ -434,21 +436,20 @@ struct PopoverView: View {
                 }
             }
 
-            // 주간/월간 누적 (전 서비스 합산 — 오늘 합계와 함께 통합 통계)
-            if store.weekTotalTokens > 0 || store.monthTotalTokens > 0 {
-                HStack(spacing: 14) {
-                    periodLabel(l.thisWeek, tokens: store.weekTotalTokens, cost: store.showsCost ? store.weekUsageCost : nil)
-                    periodLabel(l.thisMonth, tokens: store.monthTotalTokens, cost: store.showsCost ? store.monthUsageCost : nil)
-                    Spacer()
-                    Button { nav.showingRecap = true } label: {
-                        Image(systemName: "chart.bar.xaxis")
-                    }
-                    .buttonStyle(.borderless)
-                    .help(l.recapOpen)
-                    .accessibilityLabel(l.recapOpen)
+            // 주간/월간 누적 (전 서비스 합산) — 조용한 날에도 기간 합계와 기록(recap) 진입을
+            // 유지한다(upstream #377).
+            HStack(spacing: 14) {
+                periodLabel(l.thisWeek, tokens: store.weekTotalTokens, cost: store.showsCost ? store.weekUsageCost : nil)
+                periodLabel(l.thisMonth, tokens: store.monthTotalTokens, cost: store.showsCost ? store.monthUsageCost : nil)
+                Spacer()
+                Button { nav.showingRecap = true } label: {
+                    Image(systemName: "chart.bar.xaxis")
                 }
-                .padding(.top, 2)
+                .buttonStyle(.borderless)
+                .help(l.recapOpen)
+                .accessibilityLabel(l.recapOpen)
             }
+            .padding(.top, 2)
 
             MonthDailyTrend(series: store.monthDailyTotals,
                             showsCost: store.showsCost,
@@ -548,8 +549,9 @@ struct PopoverView: View {
 
     /// 선택 프로바이더의 상태 페이지 인시던트(있을 때만) — Claude/OpenAI API 장애를 앱 고장으로
     /// 오인하지 않게. 표시 전용(알림 아님). 인시던트 없거나 상태조회 꺼짐이면 아무것도 안 그림.
-    /// 범위(v1): 선택된 provider 탭 한정. 오늘 안 쓴 provider 는 탭/스냅샷이 없어 배너도 안 뜬다 —
-    /// 오인이 실제로 생기는 케이스(오늘 써서 이상 수치를 보는데 한도는 nil)는 로컬 사용 스냅샷이 있어
+    /// 범위(v1): 선택된 provider 탭 한정. 표시 자격이 없는(기록·최근 사용 전무) provider 는
+    /// 탭/스냅샷이 없어 배너도 안 뜬다(#377 이후 유휴일 캐리어는 탭이 남는다) — 오인이 실제로
+    /// 생기는 케이스(오늘 써서 이상 수치를 보는데 한도는 nil)는 로컬 사용 스냅샷이 있어
     /// 탭이 존재하므로 커버된다. 전 provider 전역 인시던트 행은 추후.
     @ViewBuilder
     private var providerStatusBanner: some View {

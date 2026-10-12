@@ -691,25 +691,22 @@ final class UsageStore {
                 today = nil         // 성공했지만 오늘 데이터 없음 (예: Codex 미사용)
             }
 
-            // 오늘 데이터가 없어도 최근 7일 내 사용이 있으면 탭을 유지한다(upstream #336/#402) —
-            // 주/월이 달력 경계에서 0 이 된 월요일 아침, 금요일에 쓴 도구의 탭·공식 한도가
-            // 사라지는 회귀 방지. 오늘 합계에는 안 더해진다(today nil).
-            let recentlyUsed = prevLastUsage.map {
-                Date().timeIntervalSince($0) <= LocalUsageReader.recentUseWindow
-            } == true
-            if today != nil || recentlyUsed {
-                newSnapshots.append(ProviderSnapshot(
-                    providerID: provider.id,
-                    displayName: provider.displayName,
-                    today: today,
-                    activeBlock: prevBlock,
-                    recentTokensPerMinute: prevRecentRate,
-                    weekTotal: prevWeek,
-                    monthTotal: prevMonth,
-                    fetchedAt: Date(),
-                    reportsCost: provider.reportsCost,
-                    lastUsage: prevLastUsage))
-            }
+            let snapshot = ProviderSnapshot(
+                providerID: provider.id,
+                displayName: provider.displayName,
+                today: today,
+                activeBlock: prevBlock,
+                recentTokensPerMinute: prevRecentRate,
+                weekTotal: prevWeek,
+                monthTotal: prevMonth,
+                fetchedAt: Date(),
+                reportsCost: provider.reportsCost,
+                lastUsage: prevLastUsage,
+                monthDaily: prevMonthDaily)
+            // 유휴일에도 지난 기록은 보여야 한다(upstream #377) — phase 2 가 다시 채우기 전까지
+            // 보존. "보일 자격"(hasDisplayableUsage)에는 최근 7일 내 사용(lastUsage, #336/#402)도
+            // 포함된다. 오늘 합계에는 안 더해진다(today nil).
+            if snapshot.hasDisplayableUsage { newSnapshots.append(snapshot) }
         }
         snapshots = newSnapshots
 
@@ -731,29 +728,22 @@ final class UsageStore {
             }
             for await (id, enrichment) in group {
                 guard let index = snapshots.firstIndex(where: { $0.providerID == id }) else {
-                    // 캐리어 스냅샷은 "**실제 활성 5h 블록**이 있을 때만" 만든다(어제 늦은밤 코딩이 5h
-                    // 윈도우에 남아 자정 후 오늘 토큰 0인 경우 — forecast·"현재 블록" 행 보존). 주/월
-                    // 누적만으로 만들면, weekTotal 이 옵셔널이 아니라(토큰 0이어도 non-nil) 오늘·최근
-                    // 미사용 프로바이더까지 탭이 떠서 "안 썼는데 왜 뜨지" 회귀가 난다. 블록이 있을 때만
-                    // 그 시점의 주/월도 함께 보존한다.
-                    let hasActiveBlock = enrichment.blocksOK && enrichment.activeBlock != nil
-                    // 활성 블록 외에 **최근 7일 내 사용**도 캐리어 사유다(upstream #336/#402) —
-                    // lastUsage 는 0토큰 synthetic 을 걸러 계산되므로 #56(설치만 한 프로바이더)과
-                    // 충돌하지 않고, 7일 밖이면 여전히 탭이 사라진다(대조군 테스트).
-                    let recentlyUsed = enrichment.periodsOK && enrichment.lastUsage.map {
-                        Date().timeIntervalSince($0) <= LocalUsageReader.recentUseWindow
-                    } == true
-                    if hasActiveBlock || recentlyUsed, let provider = providers.first(where: { $0.id == id }) {
-                        snapshots.append(ProviderSnapshot(
+                    // 유휴일에도 지난 기록은 쓸모가 있다(upstream #377). 단 "값이 있다"가 아니라
+                    // **양수 사용**이어야 한다 — 로컬 프로바이더는 토큰 0짜리 주/월 요약도 non-nil
+                    // 로 돌려주므로, nil 검사로 만들면 설치만 한 프로바이더 탭이 샌다(#56 부류).
+                    // 최근 7일 내 사용(lastUsage, #336/#402)도 같은 판정(hasDisplayableUsage)에 산다.
+                    if let provider = providers.first(where: { $0.id == id }) {
+                        let snapshot = ProviderSnapshot(
                             providerID: id, displayName: provider.displayName, today: nil,
-                            activeBlock: enrichment.activeBlock,
-                            recentTokensPerMinute: enrichment.recentTokensPerMinute,
+                            activeBlock: enrichment.blocksOK ? enrichment.activeBlock : nil,
+                            recentTokensPerMinute: enrichment.blocksOK ? enrichment.recentTokensPerMinute : 0,
                             weekTotal: enrichment.periodsOK ? enrichment.weekTotal : nil,
                             monthTotal: enrichment.periodsOK ? enrichment.monthTotal : nil,
                             fetchedAt: Date(),
                             reportsCost: provider.reportsCost,
                             lastUsage: enrichment.periodsOK ? enrichment.lastUsage : nil,
-                            monthDaily: enrichment.periodsOK ? enrichment.monthDaily : nil))
+                            monthDaily: enrichment.periodsOK ? enrichment.monthDaily : nil)
+                        if snapshot.hasDisplayableUsage { snapshots.append(snapshot) }
                     }
                     continue
                 }
@@ -769,6 +759,10 @@ final class UsageStore {
                 }
             }
         }
+
+        // 성공한 빈 스캔은 권위 있다 — 더는 보일 게 없는 캐리어를 거둔다. 실패한 읽기는
+        // periodsOK/blocksOK 게이트가 이전 값을 유지하므로 여기서 기록이 사라지지 않는다.
+        snapshots.removeAll { !$0.hasDisplayableUsage }
 
         // 캐리어는 phase 2 태스크 완료 순서로 덧붙는다 — 탭은 프로바이더 등록 순서를 지킨다
         // (upstream #402). 정렬이 없으면 폴마다 순서가 뒤집혀 기본 탭(first)이 널뛴다.
@@ -1138,5 +1132,19 @@ final class UsageStore {
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) {
             try? data.write(to: dir.appendingPathComponent("last-snapshot.json"), options: .atomic)
         }
+    }
+}
+
+private extension ProviderSnapshot {
+    /// "탭을 차지할 자격" — 양수 사용 기록이 하나라도 있는가(upstream #377).
+    /// 포크 추가: 최근 7일 내 사용(lastUsage, #336/#402)도 자격이다 — 주/월이 달력 경계에서
+    /// 0 이 된 월요일 아침, 금요일에 쓴 도구의 탭·공식 한도가 사라지는 회귀 방지.
+    var hasDisplayableUsage: Bool {
+        today != nil
+            || (activeBlock?.totalTokens ?? 0) > 0
+            || (weekTotal?.totalTokens ?? 0) > 0
+            || (monthTotal?.totalTokens ?? 0) > 0
+            || monthDaily?.contains(where: { $0.totalTokens > 0 }) == true
+            || lastUsage.map { Date().timeIntervalSince($0) <= LocalUsageReader.recentUseWindow } == true
     }
 }

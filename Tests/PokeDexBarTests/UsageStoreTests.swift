@@ -866,9 +866,8 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(store.weekTotalTokens, 90_000_000)
     }
 
-    /// 오늘·최근 미사용(활성 블록 없음)인데 주/월 기록만 있으면 캐리어를 만들지 않는다 —
-    /// weekTotal 이 항상 non-nil 이라 탭이 뜨던 회귀 방지("안 썼는데 왜 뜨지").
-    func testNoCarrierForWeekMonthOnlyWithoutActiveBlock() async {
+    /// Positive historical usage remains visible even before today's first token (#377).
+    func testCarrierForWeekMonthOnlyWithoutActiveBlock() async {
         let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: nil)
         codex.enrichment = ProviderEnrichment(
             activeBlock: nil, blocksOK: true,   // 최근 5h 사용 없음 → 블록 없음
@@ -877,8 +876,63 @@ final class UsageStoreTests: XCTestCase {
             periodsOK: true)
         let store = makeStore(providers: [codex])
         await store.refresh(scheduleEmptyRetry: false)
-        XCTAssertFalse(store.snapshots.contains { $0.providerID == "codex" },
-                       "오늘·최근 미사용 프로바이더는 탭이 뜨면 안 됨")
+
+        XCTAssertTrue(store.snapshots.contains { $0.providerID == "codex" })
+        XCTAssertEqual(store.todayTotalTokens, 0)
+        XCTAssertTrue(store.snapshots.allSatisfy { $0.todayTotalTokens == 0 })
+        XCTAssertEqual(store.weekTotalTokens, 50_000_000)
+        XCTAssertEqual(store.monthTotalTokens, 80_000_000)
+        // 포크: 업스트림 burnTier .idle ↔ 포크는 burn 레이트 0 으로 같은 사실을 본다.
+        XCTAssertEqual(UsageStore.burnPerMinute(snapshots: store.snapshots, isStale: false), 0)
+    }
+
+    func testIdleHistoryPersistsAcrossRefreshAndEnrichmentFailure() async {
+        let provider = FakeUsageProvider(id: "future_tool", displayName: "Future Tool")
+        var history = todayDaily(12_000)
+        history.date = LocalUsageReader.localDayFormatter().string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+        provider.enrichment = ProviderEnrichment(
+            activeBlock: nil, blocksOK: true,
+            weekTotal: PeriodUsage(period: "w", totalTokens: 12_000, totalCost: 0),
+            monthTotal: PeriodUsage(period: "m", totalTokens: 12_000, totalCost: 0),
+            monthDaily: [history, todayDaily(0)], periodsOK: true)
+        let store = makeStore(providers: [provider])
+
+        for _ in 0..<2 {
+            await store.refresh(scheduleEmptyRetry: false)
+            XCTAssertEqual(store.monthDailyTotals.map(\.totalTokens), [12_000, 0])
+            XCTAssertEqual(store.dailyLedger.tokens(on: history.date), 12_000)
+            XCTAssertEqual(store.todayTotalTokens, 0)
+            XCTAssertTrue(store.snapshots.allSatisfy { $0.todayTotalTokens == 0 })
+        }
+
+        provider.enrichment = ProviderEnrichment()
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertEqual(store.weekTotalTokens, 12_000)
+        XCTAssertEqual(store.monthTotalTokens, 12_000)
+        XCTAssertEqual(store.monthDailyTotals.map(\.totalTokens), [12_000, 0])
+
+        // A successful empty scan is authoritative; it must not retain a ghost provider.
+        provider.enrichment = ProviderEnrichment(blocksOK: true, periodsOK: true)
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertTrue(store.snapshots.isEmpty)
+        XCTAssertEqual(store.dailyLedger.tokens(on: history.date), 12_000)
+    }
+
+    func testIdleCarrierRequiresPositiveHistoricalValue() async {
+        for source in ["week", "month", "series", "empty", "failed"] {
+            let provider = FakeUsageProvider(id: "future_tool", displayName: "Future Tool")
+            var day = todayDaily(source == "series" ? 12_000 : 0)
+            day.date = LocalUsageReader.localDayFormatter().string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+            provider.enrichment = ProviderEnrichment(
+                blocksOK: true,
+                weekTotal: PeriodUsage(period: "w", totalTokens: source == "week" ? 12_000 : 0, totalCost: 0),
+                monthTotal: PeriodUsage(period: "m", totalTokens: source == "month" ? 12_000 : 0, totalCost: 0),
+                monthDaily: [day], periodsOK: source != "failed")
+            let store = makeStore(providers: [provider])
+            await store.refresh(scheduleEmptyRetry: false)
+            XCTAssertEqual(store.snapshots.count, ["empty", "failed"].contains(source) ? 0 : 1, source)
+            XCTAssertEqual(store.todayTotalTokens, 0, source)
+        }
     }
 
     // MARK: 확장 규약 — 프로바이더 무관 집계 (CLAUDE.md "확장 규약" 강제)
