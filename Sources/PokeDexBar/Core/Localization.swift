@@ -641,6 +641,10 @@ struct L {
     /// 곱한 금액을 "쓴 돈"이라 부르면 안 나간 돈을 나갔다고 말하는 셈이라, 이름을 환산으로 둔다.
     var todayCost: String { t("오늘 API 환산 ($)", "Today's API equivalent ($)", "本日のAPI換算 ($)") }
     var limitPercent: String { t("한도 %", "Limit %", "上限 %") }
+    /// 일별 추이 막대 행의 제목. 범위가 "이번 달"임을 문구에 담는다 — 롤링 30일로 읽히면 안 된다.
+    var dailyTrend: String { t("이번 달 일별", "Daily this month", "今月の日別") }
+    /// 추이의 최댓값 라벨 — 막대 높이가 상대값이라 절대 스케일을 한 군데는 적어줘야 한다.
+    var peakDay: String { t("최다", "Peak", "最多") }
     var limitDisplayModeLabel: String { t("한도 표시 방식", "Limit display", "上限の表示") }
     var limitDisplayUsed: String { t("사용량", "Used", "使用量") }
     var limitDisplayRemaining: String { t("남은 양", "Remaining", "残量") }

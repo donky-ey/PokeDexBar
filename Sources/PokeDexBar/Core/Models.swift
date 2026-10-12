@@ -384,6 +384,9 @@ struct ProviderSnapshot: Sendable, Identifiable {
     var reportsCost: Bool = true
     /// Mirrors `ProviderEnrichment.lastUsage`.
     var lastUsage: Date? = nil
+    /// 이번 달 일별 합계(월초→오늘, 빈 날은 0). 시리즈를 못 내는 프로바이더는 nil —
+    /// 집계는 가능한 프로바이더만 더한다. 기본값이라 기존 호출부는 무변경.
+    var monthDaily: [DailyUsage]? = nil
 
     var id: String { providerID }
     var todayTotalTokens: Int { today?.totalTokens ?? 0 }
