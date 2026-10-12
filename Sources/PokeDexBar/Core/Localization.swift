@@ -642,6 +642,13 @@ struct L {
     var todayCost: String { t("오늘 API 환산 ($)", "Today's API equivalent ($)", "本日のAPI換算 ($)") }
     var limitPercent: String { t("한도 %", "Limit %", "上限 %") }
     /// 일별 추이 막대 행의 제목. 범위가 "이번 달"임을 문구에 담는다 — 롤링 30일로 읽히면 안 된다.
+    /// 페이스 눈금 툴팁. "적정 사용량"으로 부르지 않는다 — 권고가 아니라 "이 속도면 리셋 전에
+    /// 소진된다"는 기준선이다.
+    func paceHint(_ percent: String) -> String {
+        t("페이스 — 창 시간만큼 균등하게 썼다면 지금 \(percent)입니다.",
+          "Pace — an even burn across this window would sit at \(percent) now.",
+          "ペース — この枠を均等に使っていれば今は \(percent) です。")
+    }
     var costUnavailable: String { t("계산 불가", "Unavailable", "計算不可") }
     var costEstimateHint: String { t("모델 단가로 환산한 추정 비용입니다. 구독료나 실제 청구액이 아닙니다.", "Estimated from model token rates; not a subscription fee or invoice.", "モデル単価による推定です。購読料や実際の請求額ではありません。") }
     var costReportedHint: String { t("도구가 기록한 비용입니다. 실제 청구액과 다를 수 있습니다.", "Cost recorded by the tool; it may differ from the actual bill.", "ツールが記録したコストです。実際の請求額とは異なる場合があります。") }
