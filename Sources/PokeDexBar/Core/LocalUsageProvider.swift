@@ -63,6 +63,7 @@ struct LocalGrokProvider: UsageProvider {
 struct LocalCodexProvider: UsageProvider {
     let id = "codex"
     let displayName = "Codex"
+    var cache: LocalUsageCache = .shared
 
     /// 비용은 **API 환산**이다 — 실제로 나간 돈이 아니라 "같은 양을 API 로 썼다면 얼마인가".
     /// 예전엔 Codex 만 0 으로 눌러 뒀는데(구독제라서), 그 논리대로면 정액제 사용자의 Claude Code 도
@@ -70,13 +71,13 @@ struct LocalCodexProvider: UsageProvider {
     /// 똑같이 적용한다 — 정액제 사용자에게는 "구독이 이만큼을 대신했다"로 읽힌다.
     func fetchDaily() async throws -> DailyUsage? {
         let now = Date()
-        let entries = await LocalUsageCache.shared.codexEntries(modifiedSince: Calendar.current.startOfDay(for: now))
+        let entries = await cache.codexEntries(modifiedSince: Calendar.current.startOfDay(for: now))
         return LocalUsageReader.daily(entries: entries, localDay: LocalUsageReader.todayKey())
     }
 
     func fetchEnrichment() async -> ProviderEnrichment {
         let now = Date()
-        let entries = await LocalUsageCache.shared.codexEntries(
+        let entries = await cache.codexEntries(
             modifiedSince: LocalUsageReader.enrichmentScanStart(now: now))
         return .local(entries: entries, now: now)
     }

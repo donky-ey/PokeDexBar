@@ -24,11 +24,12 @@ final class ModelPricingTests: XCTestCase {
         var bucket = LocalUsageReader.Bucket()
         bucket.add(entry(unpriced))
         bucket.add(entry("claude-fable-5"))
-        // grok 은 단가표가 없어 .zero 가 **의도된 값**이다 — 미가격으로 보고하면 매 기동 소음이 된다.
-        bucket.add(entry("grok-4-fast"))
+        // grok 행은 소스가 비용을 보고한다(ticks) — 명시 비용이 있으면 표 누락이 아니므로 보고 금지.
+        var grok = entry("grok-4-fast"); grok.explicitCost = 0.42
+        bucket.add(grok)
 
         XCTAssertFalse(ModelPricing.firstUnpricedSighting(unpriced), "미가격 모델이 보고되지 않았다")
         XCTAssertTrue(ModelPricing.firstUnpricedSighting("claude-fable-5"), "표에 있는 모델이 미가격으로 보고됐다")
-        XCTAssertTrue(ModelPricing.firstUnpricedSighting("grok-4-fast"), "의도된 zero(grok)가 미가격으로 보고됐다")
+        XCTAssertTrue(ModelPricing.firstUnpricedSighting("grok-4-fast"), "명시 비용 행이 미가격으로 보고됐다")
     }
 }

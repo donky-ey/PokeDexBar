@@ -215,18 +215,16 @@ final class MonthDailyTrendTests: XCTestCase {
         }
     }
 
-    // MARK: 비용 — 시리즈와 스칼라는 같은 규칙
+    // MARK: 비용 — 시리즈·스칼라·커버리지 일치
 
-    /// 포크는 구독제 소스도 API 환산으로 균일 표시한다(`LocalCodexProvider` 주석) — 업스트림의
-    /// `zeroCost` 매개변수는 그 철학과 달라 들여오지 않았다. 대신 시리즈 비용 합과 월 스칼라
-    /// 비용이 같은 규칙으로 계산되는지를 잠근다 — 갈리면 팝오버 월 비용과 막대 툴팁이 어긋난다.
-    func testSeriesCostMatchesTheScalarCostRule() {
+    func testEstimatedCostAndCoverageAgreeAcrossSeriesAndPeriods() throws {
         let now = day(2026, 7, 10)
         let entries = [entry("t", at: day(2026, 7, 5), output: 5_000)]
         let priced = ProviderEnrichment.local(entries: entries, now: now)
-        let seriesCost = priced.monthDaily?.reduce(0.0) { $0 + $1.totalCost } ?? 0
-        XCTAssertGreaterThan(seriesCost, 0, "전제: 단가표가 붙는 소스는 비용이 0 이 아니다")
-        XCTAssertEqual(seriesCost, priced.monthTotal?.totalCost ?? -1, accuracy: 1e-9)
+        let series = try XCTUnwrap(priced.monthDaily)
+        XCTAssertEqual(series.reduce(0.0) { $0 + $1.totalCost }, priced.monthTotal?.totalCost)
+        XCTAssertEqual(priced.monthTotal?.costCoverage, .estimate)
+        XCTAssertEqual(series.filter { $0.totalTokens > 0 }.first?.costCoverage, .estimate)
     }
 
     // MARK: 프로바이더 무관 — 시리즈를 못 주는 프로바이더가 섞여도

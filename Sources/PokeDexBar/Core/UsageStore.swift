@@ -174,7 +174,7 @@ final class UsageStore {
         guard lastUpdated != nil else { return ["—"] }
         var usage: [String] = []
         if showTokensInMenu { usage.append(TokenFormatter.compact(todayTotalTokens)) }
-        if showCostInMenu, showsCost { usage.append(TokenFormatter.costCompact(todayCostTotal)) }
+        if showCostInMenu, showsCost { usage.append(todayUsageCost.text(L(localizationLanguage), compact: true)) }
         let limit = menuLimitLine   // nil = 한도 미표시/미가용
 
         if limit != nil && usage.count == 2 {
@@ -225,9 +225,22 @@ final class UsageStore {
     /// 캐리어(최근 7일 사용, today nil)까지 세면 오늘 안 쓴 사용자의 메뉴바에 "$0.00" 줄이 생긴다.
     var showsCost: Bool { costingSnapshots.contains { $0.today != nil } }
 
-    var todayCostTotal: Double {
+    var todayUsageCost: UsageCost {
         let todayKey = LocalUsageReader.todayKey()
-        return costingSnapshots.reduce(0) { $0 + ($1.today?.date == todayKey ? ($1.today?.totalCost ?? 0) : 0) }
+        return costingSnapshots.reduce(into: UsageCost()) { total, snapshot in
+            if let day = snapshot.today, day.date == todayKey { total.add(day.usageCost) }
+        }
+    }
+    var todayCostTotal: Double { todayUsageCost.amount }
+    var weekUsageCost: UsageCost {
+        costingSnapshots.reduce(into: UsageCost()) { total, snapshot in
+            if let period = snapshot.weekTotal { total.add(period.usageCost) }
+        }
+    }
+    var monthUsageCost: UsageCost {
+        costingSnapshots.reduce(into: UsageCost()) { total, snapshot in
+            if let period = snapshot.monthTotal { total.add(period.usageCost) }
+        }
     }
 
     /// 프로바이더 탭 선택 해석 — 선호 id 가 연결돼 있으면 그것, 아니면(첫 실행/연결 해제) 첫 번째.
@@ -237,16 +250,15 @@ final class UsageStore {
     }
 
     var weekTotalTokens: Int { snapshots.reduce(0) { $0 + ($1.weekTotal?.totalTokens ?? 0) } }
-    var weekCostTotal: Double { costingSnapshots.reduce(0) { $0 + ($1.weekTotal?.totalCost ?? 0) } }
+    var weekCostTotal: Double { weekUsageCost.amount }
     var monthTotalTokens: Int { snapshots.reduce(0) { $0 + ($1.monthTotal?.totalTokens ?? 0) } }
-    var monthCostTotal: Double { costingSnapshots.reduce(0) { $0 + ($1.monthTotal?.totalCost ?? 0) } }
+    var monthCostTotal: Double { monthUsageCost.amount }
 
     /// This month's day-by-day totals summed across providers, in date order.
     ///
     /// A provider that reports no series is simply absent from the sum — the remaining providers
     /// still add up, which is how a `nil` degrades. Cost follows `monthCostTotal`: tokens from
-    /// every provider, money only from the ones that report real spend, so a flat-rate provider
-    /// cannot push an invented charge into the chart.
+    /// every provider, with source/estimate/unknown coverage preserved for partial totals.
     ///
     /// The date axis is the union of the providers' own axes. In practice they agree (all built
     /// from the same `startOfMonth(now)`), but taking the union rather than one provider's array
@@ -259,13 +271,16 @@ final class UsageStore {
             for day in series {
                 var merged = byDay[day.date] ?? DailyUsage(
                     date: day.date, inputTokens: 0, outputTokens: 0,
-                    cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 0, totalCost: 0)
+                    cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 0, totalCost: 0, costCoverage: .empty)
                 merged.inputTokens += day.inputTokens
                 merged.outputTokens += day.outputTokens
                 merged.cacheCreationTokens += day.cacheCreationTokens
                 merged.cacheReadTokens += day.cacheReadTokens
                 merged.totalTokens += day.totalTokens
-                if countsCost { merged.totalCost += day.totalCost }
+                if countsCost {
+                    merged.totalCost += day.totalCost
+                    merged.costCoverage.merge(day.costCoverage)
+                }
                 byDay[day.date] = merged
             }
         }

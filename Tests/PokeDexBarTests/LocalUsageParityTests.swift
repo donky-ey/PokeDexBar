@@ -172,13 +172,18 @@ final class CostParityAcrossProvidersTests: XCTestCase {
                                input: 1_000_000, output: 1_000_000, cacheWrite: 0, cacheRead: 0)
     }
 
-    /// Codex 모델도 단가표를 지나 0 이 아닌 값이 나와야 한다 — 이게 0 이면 예전 동작으로 돌아간 것이다.
+    /// 식별된 Codex 모델은 단가표를 지나 0 이 아닌 값이 나와야 한다.
+    /// 단, 모델 미상 폴백("codex")은 #289 부터 **미가격**이 맞다 — 이름에 codex 가 들었다고
+    /// gpt-5 단가를 빌리면 가짜 금액이 된다(turn_context 가 모델을 식별할 때까지 '불가'로 표시).
     func testCodexModelsAreNotFreeInThePricingTable() {
-        for model in ["codex", "gpt-5-codex", "gpt-5.5"] {
+        for model in ["gpt-5-codex", "gpt-5.5"] {
             let cost = ModelPricing.cost(model: model, input: 1_000_000, output: 0,
                                          cacheWrite: 0, cacheRead: 0)
             XCTAssertGreaterThan(cost, 0, "\(model) 이 단가표에서 0 으로 떨어진다")
         }
+        XCTAssertNil(ModelPricing.estimatedCost(model: "codex", input: 1_000_000, output: 0,
+                                                cacheWrite: 0, cacheRead: 0),
+                     "모델 미상 폴백이 가격을 빌렸다")
     }
 
     /// 같은 토큰 수라면 프로바이더가 달라도 환산 규칙은 모델 단가 하나로만 갈려야 한다.

@@ -5,7 +5,7 @@ protocol UsageProvider: Sendable {
     var id: String { get }
     var displayName: String { get }
     /// Whether this provider contributes to cost aggregates / per-row cost UI.
-    /// Flat-rate subscriptions (e.g. Cursor) report tokens only.
+    /// Cost provenance distinguishes source records, estimates, and unpriced usage.
     var reportsCost: Bool { get }
 
     /// 오늘 합계 (critical path) — 메뉴바 숫자와 stale 판정의 기준.
