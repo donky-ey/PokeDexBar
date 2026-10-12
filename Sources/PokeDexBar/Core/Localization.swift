@@ -643,7 +643,6 @@ struct L {
     var limitPercent: String { t("한도 %", "Limit %", "上限 %") }
     /// 일별 추이 막대 행의 제목. 범위가 "이번 달"임을 문구에 담는다 — 롤링 30일로 읽히면 안 된다.
     var costUnavailable: String { t("계산 불가", "Unavailable", "計算不可") }
-    var costLegend: String { t("≈ 추정 비용 · + 일부만 계산", "≈ Estimated cost · + Partial total", "≈ 推定コスト · + 一部のみ") }
     var costEstimateHint: String { t("모델 단가로 환산한 추정 비용입니다. 구독료나 실제 청구액이 아닙니다.", "Estimated from model token rates; not a subscription fee or invoice.", "モデル単価による推定です。購読料や実際の請求額ではありません。") }
     var costReportedHint: String { t("도구가 기록한 비용입니다. 실제 청구액과 다를 수 있습니다.", "Cost recorded by the tool; it may differ from the actual bill.", "ツールが記録したコストです。実際の請求額とは異なる場合があります。") }
     var costUnavailableHint: String { t("비용 기록이나 확인된 단가·토큰 구분이 없어 계산할 수 없습니다.", "No usable cost record or verified model rate and token breakdown is available.", "コスト記録、確認済み単価、またはトークン内訳がないため計算できません。") }
