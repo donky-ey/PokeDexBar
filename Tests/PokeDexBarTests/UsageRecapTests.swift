@@ -372,6 +372,40 @@ final class UsageRecapRenderingTests: XCTestCase {
             }
         }
     }
+
+    /// 막대 호버 툴팁(.help)과 VoiceOver 가 같은 문장을 쓴다(upstream #368) —
+    /// 사용 0(진짜 0)과 데이터 없음(기록 전/미래)을 언어별로 구분해 말한다.
+    @MainActor
+    func testBucketDescriptionsDistinguishUsageZeroAndMissingDataInEveryLanguage() throws {
+        let suite = "recap-bucket-descriptions-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        ledger(since: key(2026, 8, 1), [(key(2026, 9, 17), 12_345)]).save(to: defaults)
+        let store = UsageStore(providers: [], autoRefresh: false, defaults: defaults)
+
+        for language in AppLanguage.allCases {
+            let player = PlayerStore(fileURL: url, rng: SeededRNG(seed: 1), now: { now })
+            player.setLanguage(language)
+            for scope in RecapScope.allCases {
+                let content = RecapContent(store: store, player: player, scope: scope, offset: 0,
+                                           now: now, calendar: calendar())
+                let used = try XCTUnwrap(content.recap.buckets.first { $0.tokens == 12_345 })
+                let zero = try XCTUnwrap(content.recap.buckets.first { $0.hasData && $0.tokens == 0 })
+                let missing = try XCTUnwrap(content.recap.buckets.last { !$0.hasData })
+                XCTAssertTrue(content.accessibilityLabel(used).hasSuffix(", " + TokenFormatter.grouped(12_345)))
+                XCTAssertTrue(content.accessibilityLabel(zero).hasSuffix(", 0"))
+                XCTAssertTrue(content.accessibilityLabel(missing).hasSuffix(", " + L(language).recapNoData))
+                if scope != .year {
+                    XCTAssertTrue(content.accessibilityLabel(used).hasPrefix(content.dayLabel(used.key)))
+                } else if language == .en {
+                    XCTAssertTrue(content.accessibilityLabel(used).hasPrefix("September 2026, "))
+                    let beforeRecording = try XCTUnwrap(content.recap.buckets.first)
+                    XCTAssertFalse(beforeRecording.hasData)
+                    XCTAssertTrue(content.accessibilityLabel(beforeRecording).hasSuffix(", no data"))
+                }
+            }
+        }
+    }
 }
 
 /// 원장 배선 테스트 전용 — 오늘 하루짜리 monthDaily 를 내는 최소 프로바이더.
