@@ -71,8 +71,8 @@ final class LocalUsageReaderTests: XCTestCase {
         // Unknown model names must not borrow family prices (#289).
         XCTAssertEqual(ModelPricing.cost(model: "claude-opus-4-99", input: 1_000_000, output: 0, cacheWrite: 0, cacheRead: 0), 0, accuracy: 1e-6)
         XCTAssertEqual(ModelPricing.cost(model: "claude-fable-6", input: 1_000_000, output: 0, cacheWrite: 0, cacheRead: 0), 0, accuracy: 1e-6)
-        // An unverified future model remains unpriced (priced later by the #304 port).
-        XCTAssertEqual(ModelPricing.rate(for: "claude-opus-5"), .zero)
+        // Claude 5 family rows were added by #304 after #289 dropped the family fallback.
+        XCTAssertEqual(ModelPricing.rate(for: "claude-opus-5"), .perMillion(5, 25, 6.25, 0.5))
         XCTAssertEqual(ModelPricing.cost(model: "totally-unknown", input: 1_000_000, output: 0, cacheWrite: 0, cacheRead: 0), 0, accuracy: 1e-9)
     }
 

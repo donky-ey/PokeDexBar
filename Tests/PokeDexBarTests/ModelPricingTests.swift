@@ -32,4 +32,30 @@ final class ModelPricingTests: XCTestCase {
         XCTAssertTrue(ModelPricing.firstUnpricedSighting("claude-fable-5"), "표에 있는 모델이 미가격으로 보고됐다")
         XCTAssertTrue(ModelPricing.firstUnpricedSighting("grok-4-fast"), "명시 비용 행이 미가격으로 보고됐다")
     }
+    func testCurrentClaudeStandardRates() {
+        // https://platform.claude.com/docs/en/about-claude/pricing — base input, output, 5m cache write, cache read.
+        XCTAssertEqual(ModelPricing.rate(for: "claude-opus-5"), .perMillion(5, 25, 6.25, 0.5))
+        XCTAssertEqual(ModelPricing.rate(for: "claude-sonnet-5"), .perMillion(2, 10, 2.5, 0.2))
+    }
+
+    /// The inverse of `testUnknownNamesNeverBorrowFamilyPrices`: that test guards against a
+    /// *wrong* price, this one against *no* price. #289 dropped the model-family fallback
+    /// without adding exact rows for the identities it had been covering, so the whole Claude 5
+    /// family became unpriced and every Claude cost rendered as "unavailable" (#303) — a table
+    /// that only asserts the rows it already contains cannot catch that. Add an identity here
+    /// as soon as a provider starts reporting it.
+    func testModelsReadFromProviderLogsAreAllPriced() throws {
+        // A real Claude Code bucket split: every request logs cache creation and cache reads,
+        // so a row without a cache-write rate is unpriced in practice even when its input and
+        // output columns are filled in.
+        for model in ["claude-opus-5", "claude-sonnet-5", "claude-opus-4-8", "claude-opus-4-7",
+                      "claude-sonnet-4-6", "claude-haiku-4-5", "claude-fable-5", "claude-fable-5-1"] {
+            let cost = try XCTUnwrap(
+                ModelPricing.estimatedCost(model: model, input: 2, output: 175,
+                                           cacheWrite: 26_939, cacheRead: 42_676),
+                "\(model) resolves to no price — the usage cost row renders as unavailable")
+            XCTAssertGreaterThan(cost, 0, model)
+        }
+    }
+
 }
