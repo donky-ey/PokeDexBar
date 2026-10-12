@@ -680,29 +680,41 @@ struct PopoverView: View {
         return nearby ? "HHmm" : "EEEEdHHmm"
     }
     private func resetLabel(_ reset: Date) -> Text {
-        Text("· \(reset, style: .relative)") + resetClockSuffix(reset)
+        Text("\(reset, style: .relative)") + resetClockSuffix(reset)
     }
 
     @ViewBuilder
     private func limitRow(name: String, window: LimitWindow?) -> some View {
         if let window, let utilization = window.utilization {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(name)
-                        .font(.callout)
-                    Spacer()
-                    Text(limitPercentText(utilization))
-                        .font(.callout)
+            quotaRow(name: name, utilization: utilization, reset: window.resetDate)
+        }
+    }
+
+    /// 모든 쿼터 행이 같은 **우측 정렬 퍼센트**를 공유한다(#292) — 리셋 라벨이 퍼센트 앞에 와
+    /// 퍼센트 열이 흔들리지 않는다.
+    private func quotaRow(name: String, utilization: Double, reset: Date?,
+                          detail: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(name).font(.callout)
+                Spacer()
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
                         .monospacedDigit()
-                        .foregroundStyle(limitColor(utilization))
-                    if let reset = window.resetDate {
-                        resetLabel(reset)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
+                        .foregroundStyle(.secondary)
                 }
-                LimitProgressBar(usedPercent: utilization, tint: limitColor(utilization))
+                if let reset {
+                    resetLabel(reset)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                Text(limitPercentText(utilization))
+                    .font(.callout)
+                    .monospacedDigit()
+                    .foregroundStyle(limitColor(utilization))
             }
+            LimitProgressBar(usedPercent: utilization, tint: limitColor(utilization))
         }
     }
 
@@ -801,50 +813,15 @@ struct PopoverView: View {
     @ViewBuilder
     private func codexLimitRow(name: String, window: CodexRateLimitWindow?) -> some View {
         if let window {
-            let utilization = Double(window.usedPercent)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(name)
-                        .font(.callout)
-                    Spacer()
-                    Text(limitPercentText(utilization))
-                        .font(.callout)
-                        .monospacedDigit()
-                        .foregroundStyle(limitColor(utilization))
-                    if let reset = window.resetDate {
-                        resetLabel(reset)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                LimitProgressBar(usedPercent: utilization, tint: limitColor(utilization))
-            }
+            quotaRow(name: name, utilization: Double(window.usedPercent), reset: window.resetDate)
         }
     }
 
     @ViewBuilder
     private func codexSpendLimitRow(_ limit: CodexSpendControlLimit?) -> some View {
         if let limit {
-            let utilization = Double(limit.usedPercent)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(l.personalSpendLimit)
-                        .font(.callout)
-                    Spacer()
-                    Text("\(limit.used) / \(limit.limit)")
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                    Text(limitPercentText(utilization))
-                        .font(.callout)
-                        .monospacedDigit()
-                        .foregroundStyle(limitColor(utilization))
-                    resetLabel(limit.resetDate)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                LimitProgressBar(usedPercent: utilization, tint: limitColor(utilization))
-            }
+            quotaRow(name: l.personalSpendLimit, utilization: Double(limit.usedPercent),
+                     reset: limit.resetDate, detail: "\(limit.used) / \(limit.limit)")
         }
     }
 

@@ -189,6 +189,20 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(store.todayTotalTokens, 0, "캐리어는 오늘 합계에 더해지면 안 된다")
     }
 
+    /// [Review Focus 2] 메뉴바 한도 %도 표시 모드를 따른다(#150 업스트림 결정 — 접미사만 없음).
+    /// 팝오버가 "잔여 19%"인데 메뉴바가 "81%"면 같은 값이 두 화면에서 반대로 읽힌다.
+    func testMenuLimitLineFollowsTheDisplayMode() async {
+        let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code",
+                                       daily: todayDaily(1_000))
+        let store = makeStore(providers: [claude], claude: claudeLimits(fiveHourUtil: 81))
+        store.showLimitInMenu = true
+        await store.refresh(scheduleEmptyRetry: false)
+        store.limitDisplayMode = .used
+        XCTAssertTrue(store.menuLines.contains { $0.contains("81%") }, store.menuLines.description)
+        store.limitDisplayMode = .remaining
+        XCTAssertTrue(store.menuLines.contains { $0.contains("19%") }, "메뉴바가 잔여 모드를 무시했다")
+    }
+
     /// 절대 리셋 시각(#263)의 포맷 선택 — 6시간 안/오늘이면 시:분만, 며칠 뒤(주간 한도)면
     /// 요일·일자까지. "in 2 days" 카운트다운만으론 언제 풀리는지 감이 안 와 붙이는 접미사다.
     func testResetClockTemplatePicksDayDetailOnlyWhenFar() {
