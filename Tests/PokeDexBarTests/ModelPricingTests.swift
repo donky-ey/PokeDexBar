@@ -37,6 +37,22 @@ final class ModelPricingTests: XCTestCase {
         XCTAssertEqual(ModelPricing.rate(for: "claude-opus-5"), .perMillion(5, 25, 6.25, 0.5))
         XCTAssertEqual(ModelPricing.rate(for: "claude-opus-5-5"), .perMillion(4, 20, 5, 0.2))
         XCTAssertEqual(ModelPricing.rate(for: "claude-sonnet-5"), .perMillion(2, 10, 2.5, 0.2))
+        XCTAssertEqual(ModelPricing.rate(for: "claude-sonnet-5-5"), .perMillion(2, 10, 2.5, 0.2))
+    }
+
+    /// GPT-6 세대 요금(upstream #384) — 표 행과 272K 초과 long-context 할증 멤버십, 캐시 단가까지.
+    /// (업스트림은 자기 기존 테스트 4곳에 흩어 넣었지만 그 함수들은 포크에 없어 한 곳에 모았다.)
+    func testGpt6FrontierRatesAndLongContext() throws {
+        XCTAssertEqual(ModelPricing.rate(for: "gpt-6-sol"), .perMillion(2, 10, 2.5, 0.2))
+        XCTAssertEqual(ModelPricing.rate(for: "gpt-6.1-sol"), .perMillion(2, 10, 2.5, 0.1))
+        XCTAssertEqual(ModelPricing.rate(for: "gpt-6-luna"), .perMillion(0.1, 0.5, 0.125, 0.01))
+        XCTAssertEqual(try XCTUnwrap(ModelPricing.estimatedCost(model: "gpt-6-luna", input: 272_001, output: 1_000, cacheWrite: 0, cacheRead: 0)), 0.0551502, accuracy: 1e-12)
+        XCTAssertEqual(try XCTUnwrap(ModelPricing.estimatedCost(model: "gpt-6-sol", input: 272_001, output: 1_000, cacheWrite: 0, cacheRead: 0)), 1.103004, accuracy: 1e-12)
+        XCTAssertEqual(try XCTUnwrap(ModelPricing.estimatedCost(model: "gpt-6.1-sol", input: 272_001, output: 1_000, cacheWrite: 0, cacheRead: 0)), 1.103004, accuracy: 1e-12)
+        XCTAssertEqual(try XCTUnwrap(ModelPricing.estimatedCost(model: "gpt-6-luna", input: 100_000, output: 0, cacheWrite: 0, cacheRead: 0)), 0.01, accuracy: 1e-12)
+        XCTAssertEqual(try XCTUnwrap(ModelPricing.estimatedCost(model: "gpt-6.1-sol", input: 100_000, output: 1_000, cacheWrite: 10_000, cacheRead: 100_000)), 0.245, accuracy: 1e-12)
+        // codex-auto-review 같은 미지 이름은 가족 요금을 빌리지 않는다(#289 원칙 유지).
+        XCTAssertNil(ModelPricing.estimatedCost(model: "codex-auto-review", input: 100, output: 20, cacheWrite: 0, cacheRead: 40))
     }
 
     /// The inverse of `testUnknownNamesNeverBorrowFamilyPrices`: that test guards against a
@@ -49,7 +65,8 @@ final class ModelPricingTests: XCTestCase {
         // A real Claude Code bucket split: every request logs cache creation and cache reads,
         // so a row without a cache-write rate is unpriced in practice even when its input and
         // output columns are filled in.
-        for model in ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5", "claude-opus-4-8", "claude-opus-4-7",
+        for model in ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5", "claude-sonnet-5-5",
+                      "claude-opus-4-8", "claude-opus-4-7",
                       "claude-sonnet-4-6", "claude-haiku-4-5", "claude-fable-5", "claude-fable-5-1"] {
             let cost = try XCTUnwrap(
                 ModelPricing.estimatedCost(model: model, input: 2, output: 175,
