@@ -67,6 +67,7 @@ final class FloatingPetController: NSObject, NSWindowDelegate {
             _ = store.currentBubbleAlert
             _ = store.todayTotalTokens
             _ = store.highestLimitUtilization
+            _ = store.limitDisplayMode   // hover 툴팁 %의 파생 원천 — 수동 관찰 표면은 직접 추적
             _ = player.language
         } onChange: { [weak self] in
             Task { @MainActor in
@@ -175,6 +176,7 @@ final class FloatingPetController: NSObject, NSWindowDelegate {
         FloatingPetView.hoverTooltip(
             todayTokens: store.todayTotalTokens,
             limitUtilization: store.highestLimitUtilization,
+            mode: store.limitDisplayMode,
             l: L(player.language))
     }
 
@@ -429,10 +431,12 @@ struct FloatingPetView: View {
                             enabled: store.floatingPetBurnSpeed)
     }
 
-    static func hoverTooltip(todayTokens: Int, limitUtilization: Double?, l: L) -> String {
+    static func hoverTooltip(todayTokens: Int, limitUtilization: Double?,
+                             mode: UsageStore.LimitDisplayMode, l: L) -> String {
         let usage = TokenFormatter.grouped(todayTokens)
         if let pct = limitUtilization {
-            return l.floatingPetHoverWithLimit(usage, TokenFormatter.percent(pct))
+            let text = TokenFormatter.percent(UsageStore.displayPercent(pct, mode: mode))
+            return l.floatingPetHoverWithLimit(usage, mode == .remaining ? l.percentRemaining(text) : text)
         }
         return l.floatingPetHoverTokensOnly(usage)
     }

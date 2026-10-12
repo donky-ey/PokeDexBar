@@ -642,6 +642,13 @@ struct PopoverView: View {
     }
 
 
+    /// 한도 % 표시 문자열 — remaining 모드면 남은 %에 자기설명 접미사("남음/left/残り").
+    /// 게이지 채움·경고색은 사용률 원값 기준 유지 — 숫자 텍스트만 모드를 따른다.
+    private func limitPercentText(_ utilization: Double) -> String {
+        let text = TokenFormatter.percent(store.limitDisplayPercent(utilization))
+        return store.limitDisplayMode == .remaining ? l.percentRemaining(text) : text
+    }
+
     @ViewBuilder
     private func limitRow(name: String, window: LimitWindow?) -> some View {
         if let window, let utilization = window.utilization {
@@ -650,7 +657,7 @@ struct PopoverView: View {
                     Text(name)
                         .font(.callout)
                     Spacer()
-                    Text(TokenFormatter.percent(utilization))
+                    Text(limitPercentText(utilization))
                         .font(.callout)
                         .monospacedDigit()
                         .foregroundStyle(limitColor(utilization))
@@ -768,7 +775,7 @@ struct PopoverView: View {
                     Text(name)
                         .font(.callout)
                     Spacer()
-                    Text(TokenFormatter.percent(utilization))
+                    Text(limitPercentText(utilization))
                         .font(.callout)
                         .monospacedDigit()
                         .foregroundStyle(limitColor(utilization))
@@ -798,7 +805,7 @@ struct PopoverView: View {
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
-                    Text(TokenFormatter.percent(utilization))
+                    Text(limitPercentText(utilization))
                         .font(.callout)
                         .monospacedDigit()
                         .foregroundStyle(limitColor(utilization))
