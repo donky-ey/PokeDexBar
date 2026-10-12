@@ -18,12 +18,15 @@ enum PopoverMetrics {
 @MainActor
 @Observable
 final class PopoverNavigation {
+    /// 리캡은 설정처럼 팝오버를 통째로 차지한다 — 팝오버가 닫히면 함께 내려간다.
+    var showingRecap = false
     var showSettings = false
     var tab: PopoverTab = .home
     /// 프로바이더 탭 선택 — reset() 대상이 아님(팝오버를 다시 열어도 보던 서비스 유지).
     var providerID: String?
 
     func reset() {
+        showingRecap = false
         showSettings = false
         tab = .home
     }
@@ -95,6 +98,9 @@ struct PopoverView: View {
                     .environment(store)
                     .environment(player)
                     .environment(updater)
+            } else if nav.showingRecap {
+                // 리캡도 설정처럼 팝오버 내부 전환 — .sheet 는 transient 팝오버에서 고아가 된다(위 NOTE).
+                RecapScreen(store: store, player: player) { nav.showingRecap = false }
             } else {
                 mainContent
             }
@@ -434,6 +440,12 @@ struct PopoverView: View {
                     periodLabel(l.thisWeek, tokens: store.weekTotalTokens, cost: store.showsCost ? store.weekUsageCost : nil)
                     periodLabel(l.thisMonth, tokens: store.monthTotalTokens, cost: store.showsCost ? store.monthUsageCost : nil)
                     Spacer()
+                    Button { nav.showingRecap = true } label: {
+                        Image(systemName: "chart.bar.xaxis")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(l.recapOpen)
+                    .accessibilityLabel(l.recapOpen)
                 }
                 .padding(.top, 2)
             }

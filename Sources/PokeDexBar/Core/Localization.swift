@@ -649,6 +649,42 @@ struct L {
           "Pace — an even burn across this window would sit at \(percent) now.",
           "ペース — この枠を均等に使っていれば今は \(percent) です。")
     }
+
+    // MARK: Usage recap
+    var recapOpen: String { t("사용량 돌아보기", "Usage recap", "使用量のふりかえり") }
+    var recapTokensUnit: String { t("토큰", "tokens", "トークン") }
+    func recapScopeName(_ scope: RecapScope) -> String {
+        switch scope {
+        case .week: t("주간", "Week", "週")
+        case .month: t("월간", "Month", "月")
+        case .year: t("연간", "Year", "年")
+        }
+    }
+    /// Shown under a running period, whose chip compares the same number of days.
+    func recapCompareSoFar(_ scope: RecapScope) -> String {
+        switch scope {
+        case .week: t("지난주 같은 기간과 비교", "Compared with the same days last week", "先週の同じ期間と比較")
+        case .month: t("지난달 같은 기간과 비교", "Compared with the same days last month", "先月の同じ期間と比較")
+        case .year: t("작년 같은 기간과 비교", "Compared with the same days last year", "昨年の同じ期間と比較")
+        }
+    }
+    var recapPrevious: String { t("이전", "Previous", "前へ") }
+    var recapNext: String { t("다음", "Next", "次へ") }
+    var recapBestDay: String { t("최고의 날", "Best day", "最高の日") }
+    var recapActiveDays: String { t("활동한 날", "Active days", "稼働日") }
+    var recapBestStreak: String { t("최장 연속", "Best streak", "最長連続") }
+    var recapHatched: String { t("부화", "Hatched", "ふか") }
+    var recapNoData: String { t("기록 없음", "no data", "記録なし") }
+    func recapDays(_ count: Int) -> String {
+        t("\(count)일", "\(count)d", "\(count)日")
+    }
+    func recapBestDayLine(_ day: String, _ tokens: String) -> String {
+        t("최고의 날은 \(day) — \(tokens) 토큰.", "Your best day was \(day) — \(tokens) tokens.", "最高の日は \(day)、\(tokens) トークン。")
+    }
+    var recapNoGraduates: String {
+        t("이 기간에 졸업한 포켓몬이 없어요.", "No graduation in this period.", "この期間の卒業はありません。")
+    }
+
     var costUnavailable: String { t("계산 불가", "Unavailable", "計算不可") }
     var costEstimateHint: String { t("모델 단가로 환산한 추정 비용입니다. 구독료나 실제 청구액이 아닙니다.", "Estimated from model token rates; not a subscription fee or invoice.", "モデル単価による推定です。購読料や実際の請求額ではありません。") }
     var costReportedHint: String { t("도구가 기록한 비용입니다. 실제 청구액과 다를 수 있습니다.", "Cost recorded by the tool; it may differ from the actual bill.", "ツールが記録したコストです。実際の請求額とは異なる場合があります。") }
