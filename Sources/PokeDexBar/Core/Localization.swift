@@ -718,6 +718,22 @@ struct L {
     var dailyTrend: String { t("이번 달 일별", "Daily this month", "今月の日別") }
     /// 추이의 최댓값 라벨 — 막대 높이가 상대값이라 절대 스케일을 한 군데는 적어줘야 한다.
     var peakDay: String { t("최다", "Peak", "最多") }
+    var menuLimitColor: String {
+        t("퍼센트 색상", "Percent color", "パーセントの色")
+    }
+    var menuLimitColorHint: String {
+        t("팝오버 한도 게이지와 같은 색", "Same colors as the popover limit gauges", "ポップオーバーの上限ゲージと同じ色")
+    }
+    func menuLimitColorMode(_ mode: UsageStore.MenuLimitColorMode) -> String {
+        switch mode {
+        case .gauge:
+            return t("게이지와 같게", "Match gauges", "ゲージと同じ")
+        case .attention:
+            return t("주의 단계만", "Only when fast", "速いときだけ")
+        case .off:
+            return t("끔", "Off", "オフ")
+        }
+    }
     var limitDisplayModeLabel: String { t("한도 표시 방식", "Limit display", "上限の表示") }
     var limitDisplayUsed: String { t("사용량", "Used", "使用量") }
     var limitDisplayRemaining: String { t("남은 양", "Remaining", "残量") }
