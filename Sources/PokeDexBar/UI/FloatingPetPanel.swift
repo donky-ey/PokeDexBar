@@ -15,10 +15,12 @@ final class FloatingPetController: NSObject, NSWindowDelegate {
     private var hoverPanel: NSPanel?
     private var displayAwake = true
     private var builtAnimated: Bool?
+    /// 마지막으로 처리한 「처음 자리로」 요청. 스토어의 값과 다르면 새 요청이 온 것이다.
+    private var seenHomeRequests = 0
     private var powerObserver: NSObjectProtocol?
 
-    private static let originXKey = "floatingPetOriginX"
-    private static let originYKey = "floatingPetOriginY"
+    static let originXKey = "floatingPetOriginX"
+    static let originYKey = "floatingPetOriginY"
 
     /// Squared movement (pt²) below which a mouse-up counts as a click, not a drag.
     static let clickThresholdSquared: CGFloat = 16  // ~4pt
@@ -64,6 +66,7 @@ final class FloatingPetController: NSObject, NSWindowDelegate {
         withObservationTracking {
             _ = store.floatingPetEnabled
             _ = store.floatingPetSize
+            _ = store.floatingPetHomeRequests
             _ = store.currentBubbleAlert
             _ = store.todayTotalTokens
             _ = store.highestLimitUtilization
@@ -126,8 +129,21 @@ final class FloatingPetController: NSObject, NSWindowDelegate {
     }
 
     private func sync() {
+        // **숨김 분기보다 먼저 처리한다.** 펫이 꺼져 있을 때 눌러도 위치가 지워져야, 다시 켤 때
+        // 제자리로 온다. 뒤에 두면 꺼진 상태의 요청이 그냥 버려진다.
+        if store.floatingPetHomeRequests != seenHomeRequests {
+            seenHomeRequests = store.floatingPetHomeRequests
+            Self.clearSavedOrigin(in: defaults)
+        }
         guard store.floatingPetEnabled, displayAwake else { hide(); return }
         show()
+    }
+
+    /// 저장된 위치를 지운다 — 다음 배치가 `defaultPetOrigin` 으로 떨어진다. **두 축을 함께**
+    /// 지운다: 하나만 남으면 그 축의 옛 값과 다른 축의 기본값이 섞인 엉뚱한 자리로 간다.
+    static func clearSavedOrigin(in defaults: UserDefaults) {
+        defaults.removeObject(forKey: originXKey)
+        defaults.removeObject(forKey: originYKey)
     }
 
     private func show() {
@@ -241,18 +257,40 @@ final class FloatingPetController: NSObject, NSWindowDelegate {
         } else {
             petOrigin = Self.defaultPetOrigin(petSize: petSize)
         }
-        var frame = NSRect(origin: Self.panelOrigin(petOrigin: petOrigin, petSize: petSize, panelSize: size),
-                           size: size)
-        if !NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) {
-            let fallbackPet = Self.defaultPetOrigin(petSize: petSize)
-            frame.origin = Self.panelOrigin(petOrigin: fallbackPet, petSize: petSize, panelSize: size)
-        }
-        return frame
+        // **패널이 아니라 펫을 본다.** 말풍선이 뜨면 패널이 펫보다 커서, 펫은 화면 밖인데
+        // 말풍선 자리만 걸쳐도 예전 가드는 통과시켰다.
+        let petRect = NSRect(origin: petOrigin, size: NSSize(width: petSize, height: petSize))
+        let reachable = Self.isReachable(petRect, visibleFrames: NSScreen.screens.map(\.visibleFrame))
+        let placed = reachable ? petOrigin : Self.defaultPetOrigin(petSize: petSize)
+        return NSRect(origin: Self.panelOrigin(petOrigin: placed, petSize: petSize, panelSize: size),
+                      size: size)
+    }
+
+    /// 이 자리의 펫을 **손으로 잡을 수 있나.** 중심이 어느 화면의 보이는 영역 안에 있으면 그렇다.
+    ///
+    /// 예전 가드는 "화면과 1pt 라도 겹치면 통과"였다. 그래서 가장자리에 한 줄만 걸친 자리가
+    /// 켤 때마다 그대로 복원됐고, 위치는 `UserDefaults` 라 재설치로도 안 지워져 **펫이 영원히
+    /// 사라졌다**(사용자 제보: 껐다 켜도·재설치해도 안 돌아온다). 완전히 화면 밖이면 오히려 가드가
+    /// 잡아 기본 자리로 돌렸으니, 조금 걸친 경우만 갇힌 것이다.
+    ///
+    /// 중심을 기준으로 한 이유: 구석에 반쯤 걸쳐 둔 자리는 사용자가 일부러 고른 것이라 살려야 하고,
+    /// 중심이 화면 안이면 펫의 최소 4분의 1은 보여 잡을 수 있다. 크기가 0 이면 어디에 있든
+    /// 안 보이므로 걸러진다 — 같은 증상을 내는 다른 구멍이다.
+    nonisolated static func isReachable(_ pet: NSRect, visibleFrames: [NSRect]) -> Bool {
+        guard pet.width > 0, pet.height > 0 else { return false }
+        let center = NSPoint(x: pet.midX, y: pet.midY)
+        return visibleFrames.contains { $0.contains(center) }
     }
 
     private static func defaultPetOrigin(petSize: CGFloat) -> NSPoint {
         guard let visible = NSScreen.main?.visibleFrame else { return NSPoint(x: 120, y: 120) }
-        return NSPoint(x: visible.maxX - petSize - 24, y: visible.minY + 24)
+        return defaultPetOrigin(petSize: petSize, visibleFrame: visible)
+    }
+
+    /// 처음 자리 — 화면 오른쪽 아래, 가장자리에서 24pt 안쪽. 「처음 자리로」 버튼과 손에 안 닿는
+    /// 자리의 대체값이 **같은 이 값**을 쓴다.
+    nonisolated static func defaultPetOrigin(petSize: CGFloat, visibleFrame visible: NSRect) -> NSPoint {
+        NSPoint(x: visible.maxX - petSize - 24, y: visible.minY + 24)
     }
 
     private func makePanel() -> NSPanel {
