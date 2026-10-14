@@ -79,9 +79,16 @@ FORM_SLUGS = {
     "alcremie-rainbowswirl": "alcremie-rainbow-swirl-strawberry-sweet",
 }
 
-# 공식 en 은 두 축을 합친 이름("Ruby Cream Strawberry Sweet")이라 그대로 쓰면 안 된다 —
-# 이 앱의 폼은 크림만 가리킨다. en 은 앱 값을 유지하고 ko·ja 만 대조한다.
+# 공식 en 은 마휘핑의 경우 두 축을 합친 이름("Ruby Cream Strawberry Sweet")이라 그대로 쓰면 안 된다 —
+# 이 앱의 폼은 크림만 가리킨다. 그래서 기본은 ko·ja 만 대조하고 en 은 앱 값을 유지한다.
 FORM_LANGS = ("ko", "ja")
+
+# 위 규칙은 **합쳐진 이름 때문에 있는 것**이라, 이름이 한 축뿐인 폼까지 en 을 건너뛸 이유는 없다 —
+# 우라오스 연격은 공식 en 이 "Rapid Strike Style" 로 깨끗하다. 예외를 슬러그로 명시한다
+# (마휘핑 여섯 개를 같은 예외에 묶지 않도록, 언어 집합을 규칙이 아니라 항목에 둔다).
+FORM_LANGS_OVERRIDE = {
+    "urshifu-rapidstrike": LANGS,
+}
 
 
 def fetch(url):
@@ -102,7 +109,8 @@ def form_names():
     for app_slug, api_slug in FORM_SLUGS.items():
         dto = fetch(f"https://pokeapi.co/api/v2/pokemon-form/{api_slug}")
         by_lang = {n["language"]["name"]: n["name"] for n in dto.get("form_names", [])}
-        out[app_slug] = {lang: by_lang[lang] for lang in FORM_LANGS if by_lang.get(lang)}
+        langs = FORM_LANGS_OVERRIDE.get(app_slug, FORM_LANGS)
+        out[app_slug] = {lang: by_lang[lang] for lang in langs if by_lang.get(lang)}
     return out
 
 

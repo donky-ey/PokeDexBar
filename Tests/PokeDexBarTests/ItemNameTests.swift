@@ -110,8 +110,9 @@ final class ItemNameTests: XCTestCase {
     }
 
     /// 폼 이름도 공식 이름표에서 온다 — 도구 이름 87개가 틀렸던 것과 같은 부류다.
-    /// en 은 대조하지 않는다: PokéAPI 는 두 축을 합친 이름("Ruby Cream Strawberry Sweet")을 주는데
-    /// 이 앱의 폼은 크림만 가리킨다(생성 스크립트의 `FORM_LANGS`). 공식에 없는 언어는 건너뛴다.
+    /// 마휘핑의 en 은 대조하지 않는다: PokéAPI 는 두 축을 합친 이름("Ruby Cream Strawberry Sweet")을 주는데
+    /// 이 앱의 폼은 크림만 가리킨다(생성 스크립트의 `FORM_LANGS`). 우라오스 연격은 이름이 한 축뿐이라
+    /// 세 언어 모두 대조한다(`FORM_LANGS_OVERRIDE`). 공식에 없는 언어는 건너뛴다.
     func testEveryEvolvedFormLabelMatchesTheOfficialName() throws {
         let official = try fixture().forms
         for decided in EvolvedFormCatalog.all {

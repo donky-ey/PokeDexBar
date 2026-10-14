@@ -676,6 +676,116 @@ final class FormSplitRequirementTests: XCTestCase {
     }
 }
 
+/// [회귀] 화면이 **개체의 태생 모습**을 조회에 넘기는지. `requirement(for:…fixedForm:)` 과
+/// `ForageCatalog.needs(…fixedForm:)` 는 기본값이 nil 이라, 호출부가 인자를 빠뜨려도 컴파일이 되고
+/// **흔한 모습의 답**으로 조용히 돌아간다 — 골동 데인차의 접힌 줄이 깨진포트를 말하는 식이다.
+/// 순수 함수 쪽 테스트(`FormSplitRequirementTests`·`FormScopedForageTests`)는 인자를 직접 넘기므로
+/// 이 세 호출부를 지켜 주지 못한다.
+@MainActor
+final class FormAwareDisplayTests: XCTestCase {
+    private let sinisteaChain = """
+    {"chain": {
+      "species": {"name": "sinistea", "url": "https://pokeapi.co/api/v2/pokemon-species/854/"},
+      "evolution_details": [],
+      "evolves_to": [{
+        "species": {"name": "polteageist", "url": "https://pokeapi.co/api/v2/pokemon-species/855/"},
+        "evolution_details": [
+          {"trigger": {"name": "use-item"}, "item": {"name": "cracked-pot"},
+           "required_pokemon_form": {"name": "sinistea-phony"}},
+          {"trigger": {"name": "use-item"}, "item": {"name": "chipped-pot"},
+           "required_pokemon_form": {"name": "sinistea-antique"}}],
+        "evolves_to": []}]}}
+    """
+
+    private func realLine() throws -> EvoLine {
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
+        return EvoLine(baseID: 854, tree: PokeAPIClient.node(from: dto.chain),
+                       rarity: .common, names: [:])
+    }
+
+    /// 모습에 따라 요구의 **종류**가 갈리는 가상 라인 — 진작은 친밀도, 위작은 도구.
+    /// 실제 데인차는 두 모습 모두 도구라 `blockedHints` 의 출력이 같다(안내는 종류만 보므로).
+    /// 그러면 `fixedForm:` 을 빠뜨려도 어떤 출력도 안 바뀌어 그 호출부를 지킬 방법이 없다.
+    private func kindSplitLine() -> EvoLine {
+        EvoLine(baseID: 854,
+                tree: EvoNode(speciesID: 854, children: [
+                    EvoNode(speciesID: 855, children: [],
+                            requirementRaw: .item(["cracked-pot"]),
+                            formRequirementsRaw: ["antique": .friendship])]),
+                rarity: .common, names: [:])
+    }
+
+    /// 위작은 **키가 없다**(흔한 모습은 항목 없음 — `nil`). `"phony"` 라는 키는 카탈로그에 없다.
+    private func make(fixedForm: String?) -> (PlayerStore, Individual) {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("form-aware-\(UUID().uuidString).json")
+        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 1),
+                                now: { Date(timeIntervalSince1970: 1_000_000) })
+        store.setLanguage(.ko)
+        var sinistea = Individual(baseID: 854, speciesID: 854, pathIDs: [854], nature: .serious,
+                                  obtainedAt: Date(timeIntervalSince1970: 0), grade: .common)
+        sinistea.fixedForm = fixedForm
+        store.addForTesting(sinistea)
+        return (store, store.state.box[0])
+    }
+
+    /// 접힌 "막힘" 줄 — 골동은 이빠진포트, 위작은 깨진포트. 개체의 `fixedForm` 을 넘겨야 갈린다.
+    func testTheCollapsedLineNamesTheIndividualsOwnPot() throws {
+        for (variant, expected, other) in [("antique" as String?, EvolutionItem.chippedPot, EvolutionItem.crackedPot),
+                                           (nil, .crackedPot, .chippedPot)] {
+            let (store, sinistea) = make(fixedForm: variant)
+            let text = IndividualDetailView.blockedSummary([855], line: try realLine(), store: store,
+                                                           region: sinistea.region,
+                                                           fixedForm: sinistea.fixedForm)
+            XCTAssertTrue(text.contains(expected.label(.ko)), "variant=\(String(describing: variant)): \(text)")
+            XCTAssertFalse(text.contains(other.label(.ko)), "variant=\(String(describing: variant)): \(text)")
+        }
+    }
+
+    /// 펼친 안내 — 요구의 종류가 모습마다 갈리는 라인으로. 골동은 시간을, 위작은 도구 안내를 받는다.
+    func testTheExpandedHintsFollowTheIndividualsForm() {
+        let (store, antique) = make(fixedForm: "antique")
+        let antiqueHints = IndividualDetailView.blockedHints([855], line: kindSplitLine(),
+                                                             individual: antique, store: store)
+        XCTAssertFalse(antiqueHints.contains(L(.ko).evolutionLockedHint),
+                       "골동의 조건은 친밀도인데 도구 안내가 붙었다: \(antiqueHints)")
+        XCTAssertEqual(antiqueHints.count, 1, "\(antiqueHints)")
+
+        let (phonyStore, phony) = make(fixedForm: nil)
+        let phonyHints = IndividualDetailView.blockedHints([855], line: kindSplitLine(),
+                                                           individual: phony, store: phonyStore)
+        XCTAssertEqual(phonyHints, [L(.ko).evolutionLockedHint], "\(phonyHints)")
+    }
+
+    /// 뷰가 `blockedSummary` 를 부를 때 개체의 모습을 **실제로 넘기는지.** 그 인자도 기본값 nil 이라
+    /// 빠뜨려도 컴파일되고, 위 테스트는 인자를 직접 넘겨서 이 호출부를 못 본다. SwiftUI 뷰는 호스트 없이
+    /// 못 그리므로 주석을 걷어낸 소스에서 **호출 형태**를 찾는다(통짜 검색은 주석의 같은 낱말에 걸린다).
+    func testTheDetailViewPassesTheFormToTheCollapsedSummary() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/PokeDexBar/UI/IndividualDetailView.swift")
+        let code = try String(contentsOf: url, encoding: .utf8)
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+        let call = try XCTUnwrap(code.range(of: "Self.blockedSummary("), "호출이 없다")
+        let tail = code[call.upperBound...]
+        let args = tail.prefix(upTo: try XCTUnwrap(tail.range(of: "))")).lowerBound)
+        XCTAssertTrue(args.contains("fixedForm: individual.fixedForm"),
+                      "접힌 줄이 개체의 모습을 안 넘긴다: \(args)")
+    }
+
+    /// 리본 화면의 "찾는 중" 줄 — `forageTargets` 가 개체의 모습으로 `needs` 를 부른다.
+    func testTheForageLineNamesTheIndividualsOwnPot() {
+        for (variant, expected, other) in [("antique" as String?, EvolutionItem.chippedPot, EvolutionItem.crackedPot),
+                                           (nil, .crackedPot, .chippedPot)] {
+            let (store, sinistea) = make(fixedForm: variant)
+            let targets = store.forageTargets(sinistea)
+            XCTAssertEqual(targets, [expected.label(.ko)], "variant=\(String(describing: variant)): \(targets) (\(other.label(.ko)) 이면 모습을 안 넘긴 것)")
+        }
+    }
+}
+
 /// 물어 오는 도구도 태생 모습을 따라야 한다. 안 그러면 위작 데인차가 평생 못 쓸 이빠진포트를
 /// 며칠 걸려 모은다 — 채집은 느리고(리본 기준 수십 B 토큰) 그 시간이 통째로 버려진다.
 final class FormScopedForageTests: XCTestCase {
@@ -1021,6 +1131,18 @@ final class EvolvedFormTests: XCTestCase {
             XCTAssertTrue(birth.isDisjoint(with: Set(variants)),
                           "#\(speciesID) 의 변종 키가 겹친다")
         }
+    }
+
+    /// **종**도 겹치면 안 된다 — 위 테스트는 변종 *키*만 본다. `FixedForm.forms(speciesID:)` 는
+    /// 부화 행이 있으면 그것만 돌려주고 진화 행은 건너뛰므로(부화 쪽이 `replacesBase` 라서),
+    /// 한 종이 두 카탈로그에 다 있으면 그 종의 진화 행이 도감에서 **아무 실패 없이** 사라진다.
+    /// 키가 서로 다르면 위 테스트는 그 상태로 통과한다.
+    func testNoSpeciesIsInBothCatalogs() {
+        let born = Set(BirthFormCatalog.all.map(\.speciesID))
+        let evolved = Set(EvolvedFormCatalog.all.map(\.speciesID))
+        XCTAssertTrue(born.isDisjoint(with: evolved),
+                      "두 카탈로그에 다 있는 종: \(born.intersection(evolved).sorted()) — FixedForm.forms 가 진화 행을 버린다")
+        XCTAssertFalse(evolved.isEmpty, "진화 카탈로그가 비었다 — 위 검사가 아무것도 안 본다")
     }
 }
 
