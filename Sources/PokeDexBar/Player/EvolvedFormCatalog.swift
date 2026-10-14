@@ -37,6 +37,15 @@ enum EvolvedFormCatalog {
         return (slug, label)
     }
 
+    /// 이 종이 진화로 가질 수 있는 변종들(기본형 제외). 슬러그가 없는 항목은 기본형이라 뺀다.
+    static func forms(speciesID: Int) -> [(slug: String, label: FormLabel)] {
+        all.compactMap { d in
+            guard d.speciesID == speciesID, d.variant != nil,
+                  let slug = d.slug, let label = d.label else { return nil }
+            return (slug, label)
+        }
+    }
+
     /// 두 카탈로그의 키 충돌을 보는 색인(테스트)이자, `Individual.sanitized()` 가 "이 변종은
     /// 그 종이 가질 수 있는가"를 묻는 자리.
     static var variantsBySpecies: [Int: [String]] {

@@ -95,15 +95,17 @@ enum DexKey {
                     DexFormCandidate(key: "\(id)/toxtricity-lowkey", slug: "toxtricity-lowkey",
                                      label: BirthFormBalance.lowKeyLabel)]
         }
-        let births = BirthFormCatalog.forms(speciesID: id)
-        if !births.isEmpty {
-            return births.map { birth in
-                let key = key(speciesID: id, slug: birth.slug)
-                return DexFormCandidate(key: key, slug: key == String(id) ? nil : birth.slug,
-                                        label: birth.label)
-            }
+        // 고정 변종(부화·진화 카탈로그 모두)은 `FixedForm.forms` 한 곳에서 받는다 — 진화로 정해지는
+        // 변종(연격 우라오스)이 여기서 빠지면 `sanitized` 가 그 도감 키를 유령으로 지운다.
+        let fixed = FixedForm.forms(speciesID: id)
+        let fixedRows = fixed.rows.map { form in
+            let key = key(speciesID: id, slug: form.slug)
+            return DexFormCandidate(key: key, slug: key == String(id) ? nil : form.slug,
+                                    label: form.label)
         }
+        if fixed.replacesBase { return fixedRows }
         var rows = [DexFormCandidate(key: String(id), slug: nil, label: nil)]
+        rows += fixedRows
         rows += RegionalFormCatalog.forms(speciesID: id).map {
             DexFormCandidate(key: "\(id)/\($0.slug)", slug: $0.slug, label: label(for: $0))
         }

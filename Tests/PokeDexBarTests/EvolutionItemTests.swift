@@ -961,6 +961,32 @@ final class EvolvedFormTests: XCTestCase {
         XCTAssertFalse(store.state.dexForms.contains("892"), "일격 칸이 같이 켜졌다")
     }
 
+    /// **도감 키는 디코드 경계(`DexKey.sanitized`)를 통과해야 한다.** 메모리의 `dexForms` 만 보면
+    /// 후보 목록(`DexKey.candidates`)이 연격을 모를 때도 초록이다 — 다음 기동에서 유령 키로
+    /// 지워지고, 박스에 그 개체가 없으면(박사에게 보냈다면) 도감 항목이 영영 사라진다.
+    @MainActor func testTheDexKeySurvivesTheStateRoundTrip() throws {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        let id = store.state.box[0].id
+        store.evolve(individualID: id, to: 892, line: line, using: .scrollOfWaters)
+        // 개체를 박스에서 치운다 — 박스 재스캔(`PlayerState` 디코드)이 키를 되살려 주는 경로를 끊는다.
+        store.mutate { $0.box.removeAll { $0.id == id } }
+        let reloaded = try JSONDecoder().decode(PlayerState.self,
+                                                from: JSONEncoder().encode(store.state))
+        XCTAssertTrue(reloaded.dexForms.contains("892/urshifu-rapidstrike"),
+                      "연격 도감 항목이 디코드에서 지워졌다")
+        XCTAssertTrue(DexKey.sanitized(["892/urshifu-rapidstrike"]).contains("892/urshifu-rapidstrike"))
+    }
+
+    /// 도감 화면은 후보에서 행을 만든다 — 기본형 + 연격 두 행이어야 칸·진행도·폼 상세가 맞다.
+    func testTheDexOffersBothStyles() {
+        let rows = DexKey.candidates(speciesID: 892)
+        XCTAssertEqual(rows.map(\.key), ["892", "892/urshifu-rapidstrike"])
+        XCTAssertNil(rows[0].slug)
+        XCTAssertEqual(rows[1].slug, "urshifu-rapidstrike")
+        XCTAssertTrue(DexKey.bareKeyIsAPlainBase(speciesID: 892), "옛 세이브의 892 가 원종으로 안 읽힌다")
+    }
+
     /// 대조군 — 기본형은 일격 칸을 켜고 연격 칸은 건드리지 않는다.
     @MainActor func testTheBaseFormFillsTheBaseSlot() {
         let (store, line) = kubfuStore()
