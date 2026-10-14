@@ -1091,3 +1091,58 @@ final class MilceryEvolutionTests: XCTestCase {
         }
     }
 }
+
+/// 진화로 정해지는 모습의 카탈로그 무결성 — 부화 카탈로그에는 있던 검사(`BirthFormExpansionTests`)가
+/// 이쪽에는 없었다. 손으로 적은 슬러그의 오타는 앱이 안 죽어서 빈 그림으로만 드러난다.
+final class EvolvedFormCatalogIntegrityTests: XCTestCase {
+    /// **모든 슬러그가 종 슬러그 + 폼 접미사 꼴이어야 한다.** 우라오스·마휘핑 모두.
+    func testEverySlugBelongsToItsSpecies() {
+        var checked = 0
+        for row in EvolvedFormCatalog.all {
+            guard let slug = row.slug else { continue }
+            checked += 1
+            guard let base = SpeciesSlug.slug(row.speciesID) else {
+                XCTFail("#\(row.speciesID) 의 종 슬러그가 없다"); continue
+            }
+            XCTAssertTrue(slug == base || slug.hasPrefix(base + "-"),
+                          "#\(row.speciesID) 의 \(slug) 이 \(base) 의 폼이 아니다")
+            // **접두사 검사만으론 접미사 오타(`alcremie-rubycreem`)를 못 거른다** — 접두사는 맞기 때문이다.
+            // 이 카탈로그의 슬러그는 전부 `종-변종` 꼴이므로(Showdown 에서 200 확인한 값이다) 변종 키에서
+            // 유도한 값과 정확히 같아야 한다. 슬러그만 틀리면 여기서 걸린다.
+            if let variant = row.variant {
+                XCTAssertEqual(slug, "\(base)-\(variant)", "#\(row.speciesID) 슬러그가 변종 키와 어긋난다")
+            }
+        }
+        XCTAssertEqual(checked, 7, "슬러그를 가진 행이 일곱이 아니다 — 검사가 비었는지 확인")
+    }
+
+    /// 세 언어 이름이 다 있어야 한다 — 하나라도 비면 그 언어에서 배지가 빈칸이 된다.
+    func testEveryLabelHasAllThreeLanguages() {
+        for row in EvolvedFormCatalog.all {
+            guard let label = row.label else { continue }
+            for lang in AppLanguage.allCases {
+                XCTAssertFalse(label.text(lang).isEmpty,
+                               "\(row.variant ?? "?") 의 \(lang) 이름이 비었다")
+            }
+        }
+    }
+
+    /// 마휘핑은 도감에 닿는다 — 기본형 한 행 + 크림 여섯. `FixedForm.forms` 가 진화 카탈로그를
+    /// 도감 후보에 "자동으로" 싣는다는 주장의 실제 행사다. 빠지면 `sanitized` 가 크림 키를
+    /// 디코드 때 유령으로 지워 도감이 영구히 줄어든다.
+    func testAlcremieReachesTheDex() {
+        let rows = DexKey.candidates(speciesID: 869)
+        XCTAssertEqual(rows.count, 7, "\(rows.map(\.key))")
+        XCTAssertEqual(rows.first?.key, "869")
+        XCTAssertNil(rows.first?.label, "원종 행에 이름이 붙었다")
+        let creams = ["rubycream", "matchacream", "mintcream", "lemoncream", "saltedcream", "rainbowswirl"]
+        for cream in creams {
+            XCTAssertTrue(rows.contains { $0.key == "869/alcremie-\(cream)" && $0.label != nil },
+                          "도감 후보에 \(cream) 가 없다: \(rows.map(\.key))")
+        }
+        let keys = Set(["869"] + creams.map { "869/alcremie-\($0)" })
+        XCTAssertEqual(DexKey.sanitized(keys), keys, "크림 키가 경계에서 지워졌다")
+        // 대조군 — 오타 난 키는 여전히 유령이다(필터가 열려 있지 않다).
+        XCTAssertEqual(DexKey.sanitized(["869/alcremie-rubycreem"]), [])
+    }
+}
