@@ -822,6 +822,133 @@ final class EvolutionBranchFoldingTests: XCTestCase {
         return (store, store.state.box[0])
     }
 
+    /// `evolution-chain/470` 에서 잘라 왔다(다른 파일이라 다시 적는다). 도구 없는 옛 트리거 줄
+    /// 둘도 실응답대로 앞에 둔다.
+    private let kubfuChain = """
+    {"chain": {
+      "species": {"name": "kubfu", "url": "https://pokeapi.co/api/v2/pokemon-species/891/"},
+      "evolution_details": [],
+      "evolves_to": [{
+        "species": {"name": "urshifu", "url": "https://pokeapi.co/api/v2/pokemon-species/892/"},
+        "evolution_details": [
+          {"trigger": {"name": "tower-of-darkness"}},
+          {"trigger": {"name": "tower-of-waters"}},
+          {"trigger": {"name": "use-item"}, "item": {"name": "scroll-of-darkness"}},
+          {"trigger": {"name": "use-item"}, "item": {"name": "scroll-of-waters"}}],
+        "evolves_to": []}]}}
+    """
+
+    private func kubfuStoreForUI() -> (PlayerStore, EvoLine) {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kubfu-ui-\(UUID().uuidString).json")
+        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 1),
+                                now: { Date(timeIntervalSince1970: 1_000_000) })
+        var kubfu = Individual(baseID: 891, speciesID: 891, pathIDs: [891], nature: .serious,
+                               obtainedAt: Date(timeIntervalSince1970: 0), grade: .common)
+        kubfu.growthRate = .mediumFast
+        store.addForTesting(kubfu)
+        let dto = try! JSONDecoder().decode(ChainDTO.self, from: Data(kubfuChain.utf8))
+        let line = EvoLine(baseID: 891, tree: PokeAPIClient.node(from: dto.chain),
+                           rarity: .common, names: [:])
+        return (store, line)
+    }
+
+    /// 도구가 결과를 가르는 갈래는 **가진 도구마다** 버튼이 갈려야 한다 — 하나로 내면 어느
+    /// 우라오스가 될지 플레이어가 못 고른다.
+    func testEachOwnedItemGetsItsOwnButton() {
+        let (store, line) = kubfuStoreForUI()
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        XCTAssertEqual(IndividualDetailView.evolveChoices(892, line: line,
+                                                          individual: store.state.box[0],
+                                                          store: store), [.scrollOfWaters])
+        // ↑ 하나만 가져도 도구를 넘겨야 한다 — 요구 도구가 둘인 갈래는 `using` 없이는 거부된다.
+        store.grantForTesting(EvolutionItem.scrollOfDarkness)
+        XCTAssertEqual(Set(IndividualDetailView.evolveChoices(892, line: line,
+                                                              individual: store.state.box[0],
+                                                              store: store)),
+                       [.scrollOfDarkness, .scrollOfWaters])
+    }
+
+    /// 결과가 안 갈리는 갈래는 버튼이 하나다 — 물의돌 이브이에 "물의돌로 진화"가 두 번 뜨면 안 된다.
+    func testBranchesThatDoNotSplitKeepOneButton() {
+        let (store, _) = makeEevee()
+        XCTAssertTrue(IndividualDetailView.evolveChoices(134, line: eeveeLine(),
+                                                         individual: store.state.box[0],
+                                                         store: store).count <= 1)
+    }
+
+    /// **버튼이 실제로 그 도구로 진화시키나.** `evolveChoices` 만 보면 버튼이 엉뚱한 호출에
+    /// 묶여도 통과한다 — 뷰 본문은 xctest 로 못 누르니, 선택지가 낸 도구를 그대로 `using:` 에
+    /// 넘기면 서로 다른 우라오스가 되는지(스토어 쪽)와, 뷰가 정말 `using: item` 으로 부르는지
+    /// (소스 쪽)를 짝으로 잠근다.
+    func testEachChoiceEvolvesIntoItsOwnForm() {
+        var forms: [String?] = []
+        for chosen in [EvolutionItem.scrollOfDarkness, .scrollOfWaters] {
+            let (store, line) = kubfuStoreForUI()
+            store.grantForTesting(EvolutionItem.scrollOfDarkness)
+            store.grantForTesting(EvolutionItem.scrollOfWaters)
+            let id = store.state.box[0].id
+            let picks = IndividualDetailView.evolveChoices(892, line: line,
+                                                           individual: store.state.box[0], store: store)
+            XCTAssertTrue(picks.contains(chosen))
+            XCTAssertTrue(store.evolve(individualID: id, to: 892, line: line, using: chosen))
+            XCTAssertEqual(store.state.box[0].speciesID, 892)
+            forms.append(store.state.box[0].fixedForm)
+        }
+        XCTAssertNotEqual(forms[0], forms[1], "두 족자가 같은 우라오스를 낸다")
+    }
+
+    /// 도구가 하나뿐인 갈래·결과가 안 갈리는 갈래도 버튼이 죽지 않아야 한다 — 요구 도구가 둘인데
+    /// 가진 건 하나인 경우(`using` 없이는 스토어가 거부)와, 둘 다 가졌지만 같은 모습을 내는 경우
+    /// (버튼은 하나, 그래도 도구를 넘긴다).
+    func testASingleOwnedScrollStillGetsAWorkingButton() {
+        let (store, line) = kubfuStoreForUI()
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        let id = store.state.box[0].id
+        XCTAssertFalse(store.evolve(individualID: id, to: 892, line: line),
+                       "도구가 여럿인 갈래는 `using` 없이는 거부된다 — 그래서 UI 가 도구를 넘겨야 한다")
+        let picks = IndividualDetailView.evolveChoices(892, line: line,
+                                                       individual: store.state.box[0], store: store)
+        XCTAssertEqual(picks.count, 1)
+        XCTAssertTrue(store.evolve(individualID: id, to: 892, line: line, using: picks[0]))
+    }
+
+    func testMultiItemBranchWithTheSameLookKeepsOneButtonThatPassesTheItem() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("samelook-\(UUID().uuidString).json")
+        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 1),
+                                now: { Date(timeIntervalSince1970: 1_000_000) })
+        // 도구 둘이 같은 종·같은 모습을 내는 합성 갈래(실응답에 아직 없는 모양 — 동작만 잠근다).
+        let line = EvoLine(baseID: 4, tree: EvoNode(speciesID: 4, children: [
+            EvoNode(speciesID: 5, children: [], requirementRaw: .item(["fire-stone", "water-stone"]))]),
+                           rarity: .common, names: [:])
+        var mon = Individual(baseID: 4, speciesID: 4, pathIDs: [4], nature: .serious,
+                             obtainedAt: Date(timeIntervalSince1970: 0), grade: .common)
+        mon.growthRate = .mediumFast
+        store.addForTesting(mon)
+        store.grantForTesting(EvolutionItem.fireStone)
+        store.grantForTesting(EvolutionItem.waterStone)
+        let picks = IndividualDetailView.evolveChoices(5, line: line,
+                                                       individual: store.state.box[0], store: store)
+        XCTAssertEqual(picks, [.fireStone])
+        XCTAssertTrue(store.evolve(individualID: store.state.box[0].id, to: 5, line: line,
+                                   using: picks[0]))
+    }
+
+    /// 뷰의 버튼이 고른 도구를 **실제로 넘긴다.** 주석을 걷어낸 소스에서 호출 형태를 찾는다
+    /// (통짜 검색은 주석의 같은 낱말에 걸려 호출을 지워도 통과한다 — `GenderTests` 가 겪었다).
+    func testTheDetailViewPassesTheChosenItemToEvolve() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/PokeDexBar/UI/IndividualDetailView.swift")
+        let code = try String(contentsOf: url, encoding: .utf8)
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+        XCTAssertTrue(code.contains("line: line, using: item)"),
+                      "갈라지는 갈래의 버튼이 고른 도구를 evolve 에 안 넘긴다")
+    }
+
     /// 막힌 갈래들이 **한 줄**로 접힌다 — 필요한 것만 중복 없이.
     func testBlockedBranchesFoldIntoOneLine() {
         let (store, _) = makeEevee()

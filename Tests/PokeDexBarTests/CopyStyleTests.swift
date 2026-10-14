@@ -24,6 +24,13 @@ final class JosaTests: XCTestCase {
         XCTAssertEqual(Josa.iGa("#9"), "가")          // 구
     }
 
+    /// ㄹ받침은 "로" 다 — 받침 유무만 보면 "천둥의돌으로"가 된다.
+    func testTheRoParticleTreatsRieulAsNoFinalConsonant() {
+        XCTAssertEqual(Josa.roEuro("천둥의돌"), "로")       // ㄹ
+        XCTAssertEqual(Josa.roEuro("연결의끈"), "으로")     // ㄴ
+        XCTAssertEqual(Josa.roEuro("딸기사탕공예"), "로")   // 받침 없음
+    }
+
     func testEmptyAndForeignNamesDoNotCrash() {
         XCTAssertEqual(Josa.iGa(""), "가")
         XCTAssertEqual(Josa.iGa("Pikachu"), "가")
@@ -34,6 +41,20 @@ final class JosaTests: XCTestCase {
         XCTAssertTrue(L(.ko).discoveryFoundBy("피카츄", 2).hasPrefix("피카츄가"))
         XCTAssertTrue(L(.ko).discoveryFoundBy("리자몽", 1).hasPrefix("리자몽이"))
         XCTAssertTrue(L(.ko).formNeedsFusionPartner("제크로무").hasPrefix("제크로무가"))
+    }
+
+    /// 진화 버튼 문구가 **실제 도구 이름**에서 올바른 조사를 고르나 — 이 문장은 위 대표 문구
+    /// 목록에 자동으로 안 들어와서, 조사가 틀려도 문체 테스트가 못 잡는다.
+    func testTheEvolveWithButtonUsesTheRightParticle() {
+        XCTAssertEqual(L(.ko).evolveWith(EvolutionItem.scrollOfWaters.label(.ko)), "물의 족자로 진화")
+        XCTAssertEqual(L(.ko).evolveWith("천둥의돌"), "천둥의돌로 진화")     // ㄹ받침 → 로
+        XCTAssertEqual(L(.ko).evolveWith("연결의끈"), "연결의끈으로 진화")
+        XCTAssertEqual(L(.en).evolveWith("Scroll of Waters"), "Evolve with Scroll of Waters")
+        for item in EvolutionItem.allCases {
+            let text = L(.ko).evolveWith(item.label(.ko))
+            XCTAssertFalse(text.contains("(") , text)
+            XCTAssertTrue(text.hasSuffix("로 진화") || text.hasSuffix("으로 진화"), text)
+        }
     }
 }
 

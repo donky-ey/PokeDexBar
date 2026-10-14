@@ -220,6 +220,11 @@ struct L {
     var makePartner: String { t("파트너로", "Make partner", "パートナーにする") }
     var evolve: String { t("진화", "Evolve", "しんか") }
     func evolveTo(_ name: String) -> String { t("\(name) 로 진화", "Evolve to \(name)", "\(name)にしんか") }
+    /// 도구가 결과 모습을 가르는 갈래의 버튼 — 무엇을 쓰는지가 곧 어떤 모습이 되는지다.
+    /// 조사는 `Josa` 로 고른다(`testNoHardcodedJosaAnywhere`) — 도구 이름은 데이터에서 온다.
+    func evolveWith(_ item: String) -> String {
+        t("\(item)\(Josa.roEuro(item)) 진화", "Evolve with \(item)", "\(item)でしんか")
+    }
     /// 사탕 사용 버튼 — 남은 개수를 라벨에 달아 상점에 다시 안 가도 재고를 알 수 있게.
     /// 이름은 상점 품목(`ShopItem.label`)과 같은 말을 쓴다.
     func useExpCandy(_ remaining: Int) -> String {

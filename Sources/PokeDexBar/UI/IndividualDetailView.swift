@@ -492,13 +492,45 @@ struct IndividualDetailView: View {
                                                            for: individual) }
         let blocked = choices.filter { !open.contains($0) }
         ForEach(open, id: \.self) { target in
-            DetailActionButton(title: choices.count > 1
-                               ? l.evolveTo(line.localizedName(target, store.language)) : l.evolve,
-                               prominent: true) {
-                store.evolve(individualID: individual.id, to: target, line: line)
+            let picks = Self.evolveChoices(target, line: line, individual: individual, store: store)
+            if picks.isEmpty {
+                DetailActionButton(title: choices.count > 1
+                                   ? l.evolveTo(line.localizedName(target, store.language)) : l.evolve,
+                                   prominent: true) {
+                    store.evolve(individualID: individual.id, to: target, line: line)
+                }
+            } else {
+                ForEach(picks, id: \.self) { item in
+                    DetailActionButton(title: l.evolveWith(item.label(store.language)),
+                                       prominent: true) {
+                        store.evolve(individualID: individual.id, to: target, line: line, using: item)
+                    }
+                }
             }
         }
         if !blocked.isEmpty { blockedEvolutions(blocked, line) }
+    }
+
+    /// 이 갈래를 **어떤 도구로** 지날 수 있나 — 빈 배열이면 "도구를 안 넘기는 버튼 하나"다.
+    ///
+    /// 요구 도구가 둘 이상인 갈래(치고마·마빌크)는 스토어가 `using` 없는 호출을 거부하므로
+    /// (`evolve` — 선택이 조용히 사라지는 걸 막으려는 것) **도구 하나만 가졌어도** 버튼이
+    /// 그 도구를 넘겨야 한다. 처음엔 "결과가 갈릴 때만 여럿"으로 적어 족자 하나만 가진
+    /// 플레이어의 버튼이 빈 배열 → `using` 없는 호출이 되어 아무 일도 안 일어났다.
+    /// 한편 가진 도구들이 **같은 모습**을 내면 그중 하나만 낸다(물의돌 이브이처럼 버튼이 겹치지
+    /// 않게). 도구가 하나뿐인 갈래는 늘 `[]` — 이브이처럼 도구마다 *종*이 갈리는 곳은 갈래(target)
+    /// 가 이미 따로다. 가진 도구만 센다 — 못 가진 도구까지 펼치면 이브이가 605pt 가 된 병이 도진다.
+    @MainActor static func evolveChoices(_ target: Int, line: EvoLine, individual: Individual,
+                                         store: PlayerStore) -> [EvolutionItem] {
+        guard case .item(let items) = store.requirement(for: target, line: line,
+                                                        region: individual.region,
+                                                        fixedForm: individual.fixedForm),
+              items.count > 1
+        else { return [] }
+        var seen = Set<String?>()
+        return items.filter { store.count(of: $0) > 0 }.filter {
+            seen.insert(EvolvedFormCatalog.variant(speciesID: target, item: $0)).inserted
+        }
     }
 
     /// 아직 못 가는 갈래 — 접으면 필요한 것들만, 펼치면 어디로 가는지까지.

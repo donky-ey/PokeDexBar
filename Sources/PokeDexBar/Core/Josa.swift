@@ -13,6 +13,16 @@ enum Josa {
     /// 은/는.
     static func eunNeun(_ word: String) -> String { hasFinalConsonant(word) ? "은" : "는" }
 
+    /// 로/으로. **ㄹ받침은 "로" 다** — 받침 유무만 보면 "천둥의돌으로"가 된다.
+    static func roEuro(_ word: String) -> String {
+        guard let last = word.unicodeScalars.last else { return "로" }
+        if (0xAC00...0xD7A3).contains(last.value) {
+            let final = (last.value - 0xAC00) % 28
+            return (final == 0 || final == 8) ? "로" : "으로"   // 8 = ㄹ
+        }
+        return hasFinalConsonant(word) ? "으로" : "로"
+    }
+
     /// 마지막 글자에 받침이 있나.
     ///
     /// 한글은 유니코드에서 (초성, 중성, 종성)으로 조합돼 있어 종성 인덱스가 0 이 아니면 받침이 있다.
