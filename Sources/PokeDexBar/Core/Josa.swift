@@ -20,6 +20,8 @@ enum Josa {
             let final = (last.value - 0xAC00) % 28
             return (final == 0 || final == 8) ? "로" : "으로"   // 8 = ㄹ
         }
+        // 숫자도 같다 — 일(1)·칠(7)·팔(8)은 ㄹ받침이라 "#1로"다. `hasFinalConsonant` 만 보면 "#1으로".
+        if let digit = last.properties.numericValue, [1, 7, 8].contains(Int(digit)) { return "로" }
         return hasFinalConsonant(word) ? "으로" : "로"
     }
 

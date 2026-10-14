@@ -29,6 +29,12 @@ final class JosaTests: XCTestCase {
         XCTAssertEqual(Josa.roEuro("천둥의돌"), "로")       // ㄹ
         XCTAssertEqual(Josa.roEuro("연결의끈"), "으로")     // ㄴ
         XCTAssertEqual(Josa.roEuro("딸기사탕공예"), "로")   // 받침 없음
+        XCTAssertEqual(Josa.roEuro("#1"), "로")             // 일(ㄹ)
+        XCTAssertEqual(Josa.roEuro("#7"), "로")             // 칠(ㄹ)
+        XCTAssertEqual(Josa.roEuro("#8"), "로")             // 팔(ㄹ)
+        XCTAssertEqual(Josa.roEuro("#3"), "으로")           // 삼(ㅁ)
+        XCTAssertEqual(Josa.roEuro("#6"), "으로")           // 육(ㄱ)
+        XCTAssertEqual(Josa.roEuro("#5"), "로")             // 오
     }
 
     func testEmptyAndForeignNamesDoNotCrash() {
@@ -50,10 +56,11 @@ final class JosaTests: XCTestCase {
         XCTAssertEqual(L(.ko).evolveWith("천둥의돌"), "천둥의돌로 진화")     // ㄹ받침 → 로
         XCTAssertEqual(L(.ko).evolveWith("연결의끈"), "연결의끈으로 진화")
         XCTAssertEqual(L(.en).evolveWith("Scroll of Waters"), "Evolve with Scroll of Waters")
+        // 모든 실제 도구 이름을 `roEuro` 와 직접 대조한다 — "로 진화" 접미사 검사는 "으로 진화" 도
+        // 통과해 ㄹ 구분을 못 본다.
         for item in EvolutionItem.allCases {
-            let text = L(.ko).evolveWith(item.label(.ko))
-            XCTAssertFalse(text.contains("(") , text)
-            XCTAssertTrue(text.hasSuffix("로 진화") || text.hasSuffix("으로 진화"), text)
+            let name = item.label(.ko)
+            XCTAssertEqual(L(.ko).evolveWith(name), "\(name)\(Josa.roEuro(name)) 진화")
         }
     }
 }

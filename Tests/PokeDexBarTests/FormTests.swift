@@ -874,7 +874,8 @@ final class EvolutionBranchFoldingTests: XCTestCase {
         let (store, _) = makeEevee()
         XCTAssertTrue(IndividualDetailView.evolveChoices(134, line: eeveeLine(),
                                                          individual: store.state.box[0],
-                                                         store: store).count <= 1)
+                                                         store: store).isEmpty,
+                      "단일 도구 갈래가 도구 버튼으로 바뀌었다 — 이브이는 옛 단일 버튼이어야 한다")
     }
 
     /// **버튼이 실제로 그 도구로 진화시키나.** `evolveChoices` 만 보면 버튼이 엉뚱한 호출에
