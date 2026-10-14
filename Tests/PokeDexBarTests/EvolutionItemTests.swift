@@ -643,4 +643,35 @@ final class FormSplitRequirementTests: XCTestCase {
         let node = try XCTUnwrap(tree.node(withID: 855))
         XCTAssertEqual(node.formRequirementsRaw["antique"], .item("chipped-pot"))
     }
+
+    private func sinisteaLine() -> EvoLine {
+        let dto = try! JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
+        return EvoLine(baseID: 854, tree: PokeAPIClient.node(from: dto.chain),
+                       rarity: .common, names: [:])
+    }
+
+    @MainActor private func store() -> PlayerStore {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sinistea-\(UUID().uuidString).json")
+        return PlayerStore(fileURL: url, rng: SeededRNG(seed: 1),
+                           now: { Date(timeIntervalSince1970: 1_000_000) })
+    }
+
+    @MainActor func testTheAntiqueOneAsksForTheChippedPot() {
+        let s = store()
+        XCTAssertEqual(s.requirement(for: 855, line: sinisteaLine(), region: nil,
+                                     fixedForm: "antique"),
+                       .item(.chippedPot))
+    }
+
+    /// 대조군 — 위작(기본형)과 **옛 세이브의 nil** 은 깨진포트다. nil 을 진작으로 읽으면
+    /// 변종이 없던 시절의 개체가 엉뚱한 도구를 기다린다.
+    @MainActor func testThePhonyOneAndOldSavesAskForTheCrackedPot() {
+        let s = store()
+        for variant in [nil, "phony"] as [String?] {
+            XCTAssertEqual(s.requirement(for: 855, line: sinisteaLine(), region: nil,
+                                         fixedForm: variant),
+                           .item(.crackedPot), "variant=\(String(describing: variant))")
+        }
+    }
 }

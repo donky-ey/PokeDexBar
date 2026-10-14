@@ -129,10 +129,20 @@ extension PlayerStore {
     }
 
     /// 이 갈래를 지나려면 무엇이 필요한가. 트리에 없는 종이면 조건 없음으로 본다.
-    /// **지방을 함께 받는다.** 원종과 지방 모습의 조건이 다른 갈래가 있어서다(4종) — 안 받으면
-    /// 한쪽 조건이 다른 쪽에도 걸려, 관동 모래두지가 얼음의돌로 레벨 1에 진화한다.
-    func requirement(for speciesID: Int, line: EvoLine, region: Region?) -> EvoRequirement {
+    ///
+    /// **축이 둘이다.** 지방(모래사원 계열 4종 — 안 받으면 한쪽 조건이 다른 쪽에도 걸려 관동
+    /// 모래두지가 얼음의돌로 레벨 1에 진화한다)과 태생 모습(데인차·차데스 — 안 받으면 진작도
+    /// 위작의 깨진포트를 기다린다). 우선순위는 태생 모습 → 지방 → 기본이다. 둘 다 걸리는 종은
+    /// 없지만, 순서를 정해 두지 않으면 나중에 생길 때 조용히 한쪽이 먹힌다.
+    ///
+    /// **모습별 조건이 *있는* 변종일 때만 그 조건을 쓴다.** nil(변종이 없던 시절의 세이브)이나
+    /// 전용 조건이 없는 변종은 지방·기본 경로로 그대로 내려간다.
+    func requirement(for speciesID: Int, line: EvoLine, region: Region?,
+                     fixedForm: String? = nil) -> EvoRequirement {
         guard let node = line.tree.node(withID: speciesID) else { return .none }
+        if let fixedForm, node.formRequirementsRaw[fixedForm] != nil {
+            return node.requirement(forFixedForm: fixedForm)
+        }
         return region == nil ? node.requirement : node.regionalRequirement
     }
 
@@ -155,7 +165,8 @@ extension PlayerStore {
     /// 조건 자체가 게이트다(레벨 진화면 레벨이, 도구 진화면 도구가).
     func canEvolve(_ individual: Individual, to speciesID: Int, line: EvoLine) -> Bool {
         evolutionChoices(individual, line: line).contains(speciesID)
-            && meetsRequirement(requirement(for: speciesID, line: line, region: individual.region),
+            && meetsRequirement(requirement(for: speciesID, line: line, region: individual.region,
+                                            fixedForm: individual.birthForm),
                                 for: individual)
     }
 
