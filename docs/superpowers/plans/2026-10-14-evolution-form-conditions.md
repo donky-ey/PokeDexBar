@@ -1363,24 +1363,40 @@ def main():
     with ThreadPoolExecutor(max_workers=12) as pool:
         chains = list(pool.map(lambda r: fetch(r["url"]), index))
 
-    item_decides, form_decides = {}, set()
+    item_decides, form_decides = {}, {}
+
+    def app_condition(detail):
+        """이 앱이 **실제로 읽는** 필드만. `time_of_day` 는 밤낮이 없어 버리는 값이라 뺀다 —
+        넣으면 루가루암(암멍이 세 줄이 전부 레벨 25이고 시간대만 다르다)이 거짓 양성으로 잡힌다."""
+        return ((detail.get("item") or {}).get("name"),
+                (detail.get("held_item") or {}).get("name"),
+                (detail.get("trigger") or {}).get("name") == "trade",
+                detail.get("min_level"), detail.get("min_happiness"), detail.get("gender"))
 
     def walk(link):
         parent = species_id(link["species"]["url"])
         for child in link["evolves_to"]:
             target = species_id(child["species"]["url"])
-            by_item = {}
+            by_item, by_form = {}, {}
             for detail in child.get("evolution_details") or []:
-                if (detail.get("required_pokemon_form") or {}).get("name"):
-                    form_decides.add((parent, target))
+                form = (detail.get("required_pokemon_form") or {}).get("name")
+                if form and not any(form.endswith("-" + r) for r in REGIONS):
+                    by_form.setdefault(form, set()).add(app_condition(detail))
                     continue
-                form = (detail.get("evolved_pokemon_form") or {}).get("name")
+                if form:
+                    continue   # 지방 줄은 isRegional 이 이미 가른다
+                evolved = (detail.get("evolved_pokemon_form") or {}).get("name")
                 item = ((detail.get("item") or {}).get("name")
                         or (detail.get("held_item") or {}).get("name"))
-                if form and item:
-                    by_item.setdefault(item, set()).add(form)
+                if evolved and item:
+                    by_item.setdefault(item, set()).add(evolved)
             if len(by_item) > 1 and len({f for s in by_item.values() for f in s}) > 1:
                 item_decides[(parent, target)] = sorted(by_item)
+            # **값이 있다고 세지 않는다 — 값이 갈리는지를 센다.** 폼마다 줄이 있어도 조건이
+            # 같으면(버미···플라베베처럼 한 조건을 폼 수만큼 되풀이하는 20줄짜리도 있다)
+            # 하나로 접어도 아무것도 안 잃는다. 존재로 세면 47건이 나오고 그중 45건은 할 일이 없다.
+            if len(by_form) > 1 and len({frozenset(v) for v in by_form.values()}) > 1:
+                form_decides[(parent, target)] = sorted(by_form)
             walk(child)
 
     for chain in chains:
@@ -1389,7 +1405,8 @@ def main():
     payload = {
         "itemDecides": [{"from": f, "to": t, "items": items}
                         for (f, t), items in sorted(item_decides.items())],
-        "formDecides": [{"from": f, "to": t} for f, t in sorted(form_decides)],
+        "formDecides": [{"from": f, "to": t, "forms": forms}
+                        for (f, t), forms in sorted(form_decides.items())],
     }
     if not payload["itemDecides"] or not payload["formDecides"]:
         raise SystemExit("한 부류가 0건이다 — 가드가 장식이 된다. 쿼리를 의심하라")
@@ -1402,8 +1419,17 @@ def main():
 - [ ] **Step 2: 돌려서 픽스처를 만든다**
 
 Run: `python3 scripts/generate-evolution-form-edges.py`
-Expected: `itemDecides` 2건(868→869, 891→892), `formDecides` 2건(854→855, 1012→1013).
-**둘 다 0이 아닌 것을 눈으로 확인한다.**
+Expected: `itemDecides` 2건(868→869, 891→862 아님 — **891→892**), `formDecides` 2건
+(854→855, 1012→1013). **둘 다 0이 아닌 것을 눈으로 확인한다.**
+
+**다른 수가 나오면 기대값을 맞추지 말고 멈춰라** — 세 번째 간선은 카탈로그의 진짜 공백이고,
+이 가드가 존재하는 이유가 그것이다. 다만 이 쿼리는 이미 한 번 틀렸으니 그 함정을 적어 둔다:
+**`required_pokemon_form` 이 있는 간선을 세면 47건이 나온다.** 그중 29건은 지방이고(이미
+`isRegional` 이 가른다), 9건은 그 종 자신의 폼을 가리키며, 나머지도 대개 **한 조건을 폼 수만큼
+되풀이**할 뿐이다(스카치벌레는 20줄이 전부 같은 조건이다). 접어도 아무것도 안 잃는다.
+루가루암은 특히 함정이다 — 세 줄이 전부 레벨 25이고 `time_of_day` 만 다른데, 이 앱에는
+밤낮이 없어 그 필드를 버리므로 갈 것이 없다. 그래서 세는 기준은 **앱이 읽는 필드에서
+조건이 실제로 갈리는가**다(`app_condition`). 그 기준으로는 정확히 2건이다(실측 2026-10-14).
 
 - [ ] **Step 3: 커버리지 테스트를 쓴다**
 
