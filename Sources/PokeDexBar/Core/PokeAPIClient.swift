@@ -312,9 +312,10 @@ actor PokeAPIClient: PokeProviding {
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    static func node(from link: ChainLink, parentLevel: Int = 1) -> EvoNode {
+    static func node(from link: ChainLink, parentLevel: Int = 1, parentSpeciesID: Int = 0) -> EvoNode {
         let speciesID = Self.id(from: link.species.url ?? "")
-        let raw = Self.requirement(from: link.evolution_details, speciesID: speciesID, parentLevel: parentLevel)
+        let raw = Self.requirement(from: link.evolution_details, parentSpeciesID: parentSpeciesID,
+                                   speciesID: speciesID, parentLevel: parentLevel)
         let myLevel = if case .level(let n) = raw { n } else { parentLevel }
         // **조건이 아예 없는 자식 간선은 진화가 아니라서 잇지 않는다.** 진짜 진화 간선은 전부
         // 조건이 실려 온다(전수 확인 2026-09-30: details 빈 진짜 간선 0건). 빈 details 는 REST
@@ -324,9 +325,13 @@ actor PokeAPIClient: PokeProviding {
         // `requirement` 의 `.none` 폴백이 아니라 자식을 잇는 여기에 있다.
         let real = link.evolves_to.filter { !($0.evolution_details?.isEmpty ?? true) }
         return EvoNode(speciesID: speciesID,
-                       children: real.map { node(from: $0, parentLevel: myLevel) },
+                       children: real.map { node(from: $0, parentLevel: myLevel,
+                                                 parentSpeciesID: speciesID) },
                        requirementRaw: raw,
                        regionalRequirementRaw: Self.regionalRequirement(from: link.evolution_details),
+                       formRequirementsRaw: Self.formRequirements(
+                           from: link.evolution_details, parentSpeciesID: parentSpeciesID,
+                           speciesID: speciesID, parentLevel: parentLevel),
                        requiredGender: Self.gender(from: link.evolution_details))
     }
 
@@ -354,12 +359,52 @@ actor PokeAPIClient: PokeProviding {
         return Region.allCases.contains { slug.hasSuffix("-\($0.rawValue)") }
     }
 
-    static func requirement(from details: [EvolutionDetail]?, speciesID: Int, parentLevel: Int) -> EvoRequirementRaw {
+    /// 이 조건줄이 **부모의 어느 태생 모습** 것인가. 모습과 무관하면 nil.
+    ///
+    /// **첫 하이픈으로 자르지 않는다** — 종 이름 자체에 하이픈이 있다(`mr-mime`·`jangmo-o`).
+    /// 부모 종이 실제로 가진 변종 키와 **접미사로 대조**한다. 그래서 이브이의 `eevee-starter`
+    /// 처럼 태생 모습이 아닌 값은 저절로 걸러진다 — 값의 유무로 가르면 이브이가 조건을 잃는다.
+    static func formVariantKey(_ detail: EvolutionDetail, parentSpeciesID: Int) -> String? {
+        guard let name = detail.required_pokemon_form?.name else { return nil }
+        return BirthFormCatalog.forms(speciesID: parentSpeciesID)
+            .map(\.variant)
+            .first { name.hasSuffix("-\($0)") }
+    }
+
+    static func isFormSpecific(_ detail: EvolutionDetail, parentSpeciesID: Int) -> Bool {
+        Self.formVariantKey(detail, parentSpeciesID: parentSpeciesID) != nil
+    }
+
+    #if DEBUG
+    /// 변종 키 추출만 따로 보기 위한 테스트 헬퍼.
+    static func detailForTesting(requiredForm: String) -> EvolutionDetail {
+        let json = #"{"required_pokemon_form":{"name":"\#(requiredForm)"}}"#
+        return try! JSONDecoder().decode(EvolutionDetail.self, from: Data(json.utf8))
+    }
+    #endif
+
+    /// 태생 모습 전용 조건들. 기본형 줄은 여기 안 들어간다(`requirement` 가 가져간다).
+    static func formRequirements(from details: [EvolutionDetail]?,
+                                 parentSpeciesID: Int,
+                                 speciesID: Int, parentLevel: Int) -> [String: EvoRequirementRaw] {
+        guard let details else { return [:] }
+        var out: [String: EvoRequirementRaw] = [:]
+        for detail in details {
+            guard let key = Self.formVariantKey(detail, parentSpeciesID: parentSpeciesID) else { continue }
+            out[key] = Self.requirement(from: [detail], speciesID: speciesID, parentLevel: parentLevel)
+        }
+        return out
+    }
+
+    static func requirement(from details: [EvolutionDetail]?, parentSpeciesID: Int = 0,
+                            speciesID: Int, parentLevel: Int) -> EvoRequirementRaw {
         guard let all = details, !all.isEmpty else { return .none }
         // **지방 모습의 줄은 원종의 조건이 아니다.** 갈라내지 않으면 알로라의 친밀도가 관동의
         // 레벨을 가로채고(나옹), 알로라의 얼음의돌이 관동의 레벨을 가로챈다(모래두지).
         // 지방 줄밖에 없는 갈래(나이킹·창치·마임꽁꽁)는 그대로 넘겨 예전 폴백을 그대로 쓴다.
-        let own = all.filter { !Self.isRegional($0) }
+        // 태생 모습 전용 줄도 **기본형의 조건이 아니다.** 안 갈라내면 진작의 이빠진포트가 위작의
+        // 깨진포트를 가로챈다(실측: 두 줄 중 먼저 온 쪽이 이겼다).
+        let own = all.filter { !Self.isRegional($0) && !Self.isFormSpecific($0, parentSpeciesID: parentSpeciesID) }
         let details = own.isEmpty ? all : own
         for d in details {
             if let item = d.item?.name, EvolutionItem.named(item) != nil {

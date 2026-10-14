@@ -81,6 +81,12 @@ struct EvoNode: Codable, Sendable {
     /// 도구**. 하나로 접으면 한쪽이 통째로 사라진다(실측: 관동 모래두지가 레벨 1에 얼음의돌로
     /// 진화했고, 레벨 22 경로는 아예 없었다).
     var regionalRequirementRaw: EvoRequirementRaw?
+    /// **태생 모습일 때의** 조건 — 그 모습에만 걸리는 요구가 있을 때만 채워진다(2종: 데인차·차데스).
+    ///
+    /// 지방(`regionalRequirementRaw`)과 같은 모양이지만 축이 다르다. 데인차는 위작이면 깨진포트,
+    /// 진작이면 이빠진포트로 포트데스가 된다 — 하나로 접으면 진작이 깨진포트를 요구한다(실측).
+    /// 키는 `BirthFormCatalog` 의 변종 키(`"antique"`·`"artisan"`)다.
+    var formRequirementsRaw: [String: EvoRequirementRaw] = [:]
     /// 이 종이 되려면 필요한 성별. **요구 조건과 AND 로 함께 걸린다** — 엘레이드는 새벽의돌
     /// *그리고* 수컷이라, 하나의 enum 으로는 표현이 안 된다. 제한이 없으면 nil(대부분).
     var requiredGender: Gender?
@@ -91,6 +97,12 @@ struct EvoNode: Codable, Sendable {
     }
 
     var requirement: EvoRequirement { Self.resolve(requirementRaw) }
+
+    /// 이 태생 모습의 조건. 그 모습 전용 조건이 없으면 기본 조건을 쓴다.
+    func requirement(forFixedForm variant: String?) -> EvoRequirement {
+        guard let variant, let raw = formRequirementsRaw[variant] else { return requirement }
+        return Self.resolve(raw)
+    }
 
     private static func resolve(_ raw: EvoRequirementRaw) -> EvoRequirement {
         switch raw {
@@ -124,6 +136,8 @@ struct EvoNode: Codable, Sendable {
                        children: children.compactMap { $0.keepingSupportedSpecies() },
                        requirementRaw: requirementRaw,
                        regionalRequirementRaw: regionalRequirementRaw,
+                       // 태생 모습별 조건도 함께 옮긴다 — 빠뜨리면 진작 데인차가 다시 위작의 조건을 쓴다.
+                       formRequirementsRaw: formRequirementsRaw,
                        requiredGender: requiredGender)
     }
 }

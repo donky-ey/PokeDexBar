@@ -551,3 +551,96 @@ final class TradeHeldItemTests: XCTestCase {
         }
     }
 }
+
+/// [회귀] 조건이 **태생 모습마다 다른** 갈래. 데인차는 위작이면 깨진포트, 진작이면 이빠진포트로
+/// 포트데스가 된다. 파서가 두 줄을 하나로 접으면 진작 데인차가 깨진포트를 요구한다(실측).
+final class FormSplitRequirementTests: XCTestCase {
+    /// `evolution-chain/449` 에서 잘라 왔다 — 두 줄 모두 `required_pokemon_form` 을 들고 있다.
+    private let sinisteaChain = """
+    {"chain": {
+      "species": {"name": "sinistea", "url": "https://pokeapi.co/api/v2/pokemon-species/854/"},
+      "evolution_details": [],
+      "evolves_to": [{
+        "species": {"name": "polteageist", "url": "https://pokeapi.co/api/v2/pokemon-species/855/"},
+        "evolution_details": [
+          {"trigger": {"name": "use-item"}, "item": {"name": "cracked-pot"},
+           "required_pokemon_form": {"name": "sinistea-phony"}},
+          {"trigger": {"name": "use-item"}, "item": {"name": "chipped-pot"},
+           "required_pokemon_form": {"name": "sinistea-antique"}}],
+        "evolves_to": []}]}}
+    """
+
+    func testTheDefaultFormKeepsTheBaseRequirement() throws {
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
+        let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 855))
+        XCTAssertEqual(node.requirementRaw, .item("cracked-pot"),
+                       "위작(기본)이 깨진포트를 요구하지 않는다")
+    }
+
+    func testTheRareVariantGetsItsOwnRequirement() throws {
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
+        let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 855))
+        XCTAssertEqual(node.formRequirementsRaw["antique"], .item("chipped-pot"),
+                       "진작이 이빠진포트를 요구하지 않는다: \(node.formRequirementsRaw)")
+    }
+
+    /// 대조군 — 태생 모습과 무관한 `required_pokemon_form`(이브이 19줄 부류)은 **기본 조건으로
+    /// 흡수**돼야 한다. 값의 유무로 가르면 이브이가 조건을 통째로 잃는다.
+    func testAnUnknownFormNameFallsIntoTheBaseRequirement() throws {
+        let eeveeChain = """
+        {"chain": {
+          "species": {"name": "eevee", "url": "https://pokeapi.co/api/v2/pokemon-species/133/"},
+          "evolution_details": [],
+          "evolves_to": [{
+            "species": {"name": "vaporeon", "url": "https://pokeapi.co/api/v2/pokemon-species/134/"},
+            "evolution_details": [
+              {"trigger": {"name": "use-item"}, "item": {"name": "water-stone"},
+               "required_pokemon_form": {"name": "eevee-starter"}}],
+            "evolves_to": []}]}}
+        """
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(eeveeChain.utf8))
+        let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 134))
+        XCTAssertEqual(node.requirementRaw, .item("water-stone"))
+        XCTAssertTrue(node.formRequirementsRaw.isEmpty, "\(node.formRequirementsRaw)")
+    }
+
+    /// 종 이름에 하이픈이 있어도 변종 키를 바르게 뽑는다 — 첫 하이픈으로 자르면 깨진다.
+    func testVariantKeysSurviveHyphenatedSpeciesNames() {
+        let detail = PokeAPIClient.detailForTesting(requiredForm: "sinistea-antique")
+        XCTAssertEqual(PokeAPIClient.formVariantKey(detail, parentSpeciesID: 854), "antique")
+        let unrelated = PokeAPIClient.detailForTesting(requiredForm: "eevee-starter")
+        XCTAssertNil(PokeAPIClient.formVariantKey(unrelated, parentSpeciesID: 133))
+    }
+
+    /// 줄 순서에 기대면 안 된다 — 진작 줄이 **먼저** 와도 기본 조건은 위작의 것이어야 한다.
+    /// (`own` 필터가 모습 전용 줄을 안 빼면 먼저 온 이빠진포트가 이긴다. 위 두 테스트는 위작 줄이
+    /// 먼저 오는 응답이라 필터를 지워도 통과한다 — 순서를 뒤집은 이 테스트만 그 필터를 지킨다.)
+    func testTheBaseRequirementDoesNotDependOnLineOrder() throws {
+        let reversed = """
+        {"chain": {
+          "species": {"name": "sinistea", "url": "https://pokeapi.co/api/v2/pokemon-species/854/"},
+          "evolution_details": [],
+          "evolves_to": [{
+            "species": {"name": "polteageist", "url": "https://pokeapi.co/api/v2/pokemon-species/855/"},
+            "evolution_details": [
+              {"trigger": {"name": "use-item"}, "item": {"name": "chipped-pot"},
+               "required_pokemon_form": {"name": "sinistea-antique"}},
+              {"trigger": {"name": "use-item"}, "item": {"name": "cracked-pot"},
+               "required_pokemon_form": {"name": "sinistea-phony"}}],
+            "evolves_to": []}]}}
+        """
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(reversed.utf8))
+        let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 855))
+        XCTAssertEqual(node.requirementRaw, .item("cracked-pot"), "먼저 온 줄이 기본 조건을 가로챘다")
+        XCTAssertEqual(node.formRequirementsRaw["antique"], .item("chipped-pot"))
+    }
+
+    /// `EvoLine.init` 은 항상 `keepingSupportedSpecies()` 를 지난다 — 트리를 다시 만들면서 모습별
+    /// 조건을 빠뜨리면 파서가 맞아도 진작이 다시 위작의 조건을 쓴다.
+    func testPruningTheTreeKeepsTheFormRequirements() throws {
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
+        let tree = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).keepingSupportedSpecies())
+        let node = try XCTUnwrap(tree.node(withID: 855))
+        XCTAssertEqual(node.formRequirementsRaw["antique"], .item("chipped-pot"))
+    }
+}
