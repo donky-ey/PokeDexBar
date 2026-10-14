@@ -166,7 +166,7 @@ extension PlayerStore {
     func canEvolve(_ individual: Individual, to speciesID: Int, line: EvoLine) -> Bool {
         evolutionChoices(individual, line: line).contains(speciesID)
             && meetsRequirement(requirement(for: speciesID, line: line, region: individual.region,
-                                            fixedForm: individual.birthForm),
+                                            fixedForm: individual.fixedForm),
                                 for: individual)
     }
 
@@ -183,11 +183,29 @@ extension PlayerStore {
 
     /// 진화 실행. 갈 수 없는 종이거나 조건을 못 채웠으면 아무것도 하지 않고 false —
     /// 도구도 소모하지 않는다.
+    ///
+    /// **`using` 은 요구 도구가 여럿일 때 필수다.** 생략하면 호출부가 조용히 첫 번째를 쓰게 되어
+    /// 플레이어의 선택이 사라진다(어떤 족자를 썼는지가 우라오스의 태세를 정한다).
     @discardableResult
-    func evolve(individualID: UUID, to speciesID: Int, line: EvoLine) -> Bool {
+    func evolve(individualID: UUID, to speciesID: Int, line: EvoLine,
+                using chosen: EvolutionItem? = nil) -> Bool {
         guard let index = state.box.firstIndex(where: { $0.id == individualID }) else { return false }
         let individual = state.box[index]
         guard canEvolve(individual, to: speciesID, line: line) else { return false }
+        let need = requirement(for: speciesID, line: line, region: individual.region,
+                               fixedForm: individual.fixedForm)
+        var used: EvolutionItem?
+        if case .item(let items) = need {
+            if let chosen {
+                guard items.contains(chosen), count(of: chosen) > 0 else { return false }
+                used = chosen
+            } else {
+                guard items.count == 1 else { return false }
+                used = items[0]
+            }
+        } else if chosen != nil {
+            return false   // 도구 조건이 아닌데 도구를 넘겼다 — 호출부가 뭔가 잘못 알고 있다.
+        }
         let hadSpeedup = HatchSpeedup.present(in: state.box)
         mutate { state in
             state.box[index].speciesID = speciesID
@@ -198,6 +216,11 @@ extension PlayerStore {
             state.box[index].form = nil
             // 성장 타입은 종에 달린 것이라 진화하면 새 종의 것으로 갱신한다.
             if let rate = line.growthRate(of: speciesID) { state.box[index].growthRate = rate }
+            // **도감 키를 등록하기 전에 박아야 한다** — 뒤에 두면 연격 우라오스가 일격 칸에 들어가고,
+            // 도감 항목은 되돌릴 수 없어서 그대로 영구히 남는다. 기본형(일격)은 키가 nil 이라 안 박는다.
+            if let used, let variant = EvolvedFormCatalog.variant(speciesID: speciesID, item: used) {
+                state.box[index].fixedForm = variant
+            }
             // 진화가 끝난 개체로 키를 계산한다 — 지방 혈통이면 새 종의 지방 폼으로 등록된다
             // (알로라 식스테일 → 알로라 나인테일즈).
             state.dexForms.insert(DexKey.key(for: state.box[index]))

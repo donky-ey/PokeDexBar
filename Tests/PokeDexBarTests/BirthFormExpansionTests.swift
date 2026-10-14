@@ -9,7 +9,7 @@ final class BirthFormExpansionTests: XCTestCase {
     private func made(_ speciesID: Int, base: Int, variant: String?) -> Individual {
         var i = Individual(baseID: base, speciesID: speciesID, pathIDs: [base, speciesID],
                            nature: .hardy, obtainedAt: now, grade: .common)
-        i.birthForm = variant
+        i.fixedForm = variant
         return i
     }
 

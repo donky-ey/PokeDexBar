@@ -125,7 +125,7 @@ extension PlayerStore {
                                               pick: roll(ProfessorRoll.Salt.regionPick))
         individual.region = region?.0
         individual.regionVariant = region?.1
-        individual.birthForm = BirthFormBalance.rollBirthForm(
+        individual.fixedForm = BirthFormBalance.rollBirthForm(
             baseID: species, roll: roll(ProfessorRoll.Salt.birthForm),
             pick: roll(ProfessorRoll.Salt.birthFormPick), homeRegion: VivillonRegions.current)
         // 위장은 붙이지 않는다 — 제안은 무엇인지 보여 주고 고르는 자리라, 정체를 숨기면

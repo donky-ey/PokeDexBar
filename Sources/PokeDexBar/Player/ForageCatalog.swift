@@ -184,7 +184,7 @@ enum ForageCatalog {
     /// 이미 가졌는지는 여기서 안 본다 — 그건 인벤토리를 아는 `PlayerStore.forage` 의 `owned`
     /// 가 걸러 낸다. 이 표는 "무엇이 필요한가"만 답한다.
     ///
-    /// `fixedForm` 은 `Individual.birthForm` 이다. 위작 데인차와 골동 데인차가 서로 다른 포트를
+    /// `fixedForm` 은 `Individual.fixedForm` 이다. 위작 데인차와 골동 데인차가 서로 다른 포트를
     /// 쓰듯 같은 종이 태생 모습에 따라 다른 도구를 요구하는데, 이걸 안 가르면 위작이 쓸 수 없는
     /// 이빠진포트를 며칠씩 모은다.
     static func needs(speciesID: Int, region: Region?, fixedForm: String? = nil) -> [EvolutionItem] {

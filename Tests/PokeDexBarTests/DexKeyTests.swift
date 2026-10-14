@@ -10,7 +10,7 @@ final class DexKeyTests: XCTestCase {
         var made = Individual(baseID: baseID, speciesID: speciesID, pathIDs: [speciesID],
                               nature: nature, obtainedAt: now, grade: .common,
                               region: region, regionVariant: regionVariant)
-        made.birthForm = birthForm
+        made.fixedForm = birthForm
         return made
     }
 

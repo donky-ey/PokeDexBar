@@ -29,8 +29,8 @@ enum DexKey {
         if id == toxtricityID {
             return key(speciesID: id, slug: BirthFormBalance.toxtricitySlug(nature: individual.nature))
         }
-        if let variant = individual.birthForm,
-           let known = BirthFormCatalog.form(speciesID: id, variant: variant) {
+        if let variant = individual.fixedForm,
+           let known = FixedForm.resolve(speciesID: id, variant: variant) {
             return key(speciesID: id, slug: known.slug)
         }
         if let region = individual.region,

@@ -719,7 +719,7 @@ final class FormScopedForageProductionTests: XCTestCase {
                                 defaults: UserDefaults(suiteName: "formforage-\(UUID().uuidString)")!)
         var individual = Individual(baseID: 854, speciesID: 854, pathIDs: [854], nature: .serious,
                                     obtainedAt: clock, grade: .common)
-        individual.birthForm = birthForm
+        individual.fixedForm = birthForm
         store.addForTesting(individual)
         store.setPartner(individual.id)
         store.update(todayTokens: 0, todayDate: "2026-01-01", hasUsageData: true)   // 기준선
@@ -862,5 +862,138 @@ final class ItemSetRequirementTests: XCTestCase {
         }
         XCTAssertEqual(L(.ko).evolveNeedsOneOf("불꽃의돌", 7), "불꽃의돌 등 7종")
         XCTAssertEqual(L(.en).evolveNeedsOneOf("Fire Stone", 7), "Fire Stone or 6 more")
+    }
+}
+
+/// 진화할 때 쓴 도구가 결과의 모습을 정하고, 그 모습은 **평생 간다**(원작에서 되돌릴 방법이 없다).
+final class EvolvedFormTests: XCTestCase {
+    /// `evolution-chain/470` 에서 잘라 왔다(`ItemSetRequirementTests` 와 같은 모양 — 파일이 달라
+    /// 다시 적는다). 실응답대로 도구 없는 `tower-*` 줄 둘이 앞에 있다.
+    private let kubfuChain = """
+    {"chain": {
+      "species": {"name": "kubfu", "url": "https://pokeapi.co/api/v2/pokemon-species/891/"},
+      "evolution_details": [],
+      "evolves_to": [{
+        "species": {"name": "urshifu", "url": "https://pokeapi.co/api/v2/pokemon-species/892/"},
+        "evolution_details": [
+          {"trigger": {"name": "tower-of-darkness"}},
+          {"trigger": {"name": "tower-of-waters"}},
+          {"trigger": {"name": "use-item"}, "item": {"name": "scroll-of-darkness"}},
+          {"trigger": {"name": "use-item"}, "item": {"name": "scroll-of-waters"}}],
+        "evolves_to": []}]}}
+    """
+
+    @MainActor private func kubfuStore() -> (PlayerStore, EvoLine) {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kubfu-\(UUID().uuidString).json")
+        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 1),
+                                now: { Date(timeIntervalSince1970: 1_000_000) })
+        var kubfu = Individual(baseID: 891, speciesID: 891, pathIDs: [891], nature: .serious,
+                               obtainedAt: Date(timeIntervalSince1970: 0), grade: .common)
+        kubfu.growthRate = .mediumFast
+        store.addForTesting(kubfu)
+        let dto = try! JSONDecoder().decode(ChainDTO.self, from: Data(kubfuChain.utf8))
+        let line = EvoLine(baseID: 891, tree: PokeAPIClient.node(from: dto.chain),
+                           rarity: .common, names: [:])
+        return (store, line)
+    }
+
+    @MainActor func testTheScrollDecidesTheStyle() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        let id = store.state.box[0].id
+        XCTAssertTrue(store.evolve(individualID: id, to: 892, line: line, using: .scrollOfWaters))
+        XCTAssertEqual(store.state.box[0].fixedForm, "rapidstrike")
+        XCTAssertEqual(store.state.box[0].spriteForm, "urshifu-rapidstrike")
+    }
+
+    @MainActor func testTheDarknessScrollLeavesTheBaseForm() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfDarkness)
+        let id = store.state.box[0].id
+        XCTAssertTrue(store.evolve(individualID: id, to: 892, line: line, using: .scrollOfDarkness))
+        XCTAssertNil(store.state.box[0].fixedForm, "기본형에는 키를 안 박는다")
+    }
+
+    /// 요구 집합에 없는 도구로는 진화하지 않는다 — 아무 도구로나 아무 모습이나 만들 수 있게 된다.
+    @MainActor func testAnItemOutsideTheRequirementIsRefused() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.fireStone)
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        XCTAssertFalse(store.evolve(individualID: store.state.box[0].id, to: 892,
+                                    line: line, using: .fireStone))
+    }
+
+    /// 요구가 여럿인데 안 고르면 실패한다 — 조용히 첫 번째를 쓰면 선택이 사라진다.
+    @MainActor func testAChoiceMustBeMadeWhenSeveralItemsQualify() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        XCTAssertFalse(store.evolve(individualID: store.state.box[0].id, to: 892, line: line))
+    }
+
+    /// 요구한 도구를 **갖고 있지 않으면** 집합 안의 도구를 골라도 안 된다 — 가진 것으로만 고른다.
+    @MainActor func testAChosenItemMustBeOwned() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfDarkness)
+        XCTAssertFalse(store.evolve(individualID: store.state.box[0].id, to: 892,
+                                    line: line, using: .scrollOfWaters))
+        XCTAssertEqual(store.state.box[0].speciesID, 891)
+    }
+
+    /// 도구 조건이 아닌 진화에 도구를 넘기면 거부한다 — 호출부가 뭔가 잘못 알고 있는 것이다.
+    @MainActor func testAnItemIsRefusedWhereNoItemIsRequired() {
+        let (store, _) = kubfuStore()
+        store.grantForTesting(EvolutionItem.fireStone)
+        let plain = EvoLine(baseID: 891,
+                            tree: EvoNode(speciesID: 891, children: [EvoNode(speciesID: 892, children: [])]),
+                            rarity: .common, names: [:])
+        XCTAssertFalse(store.evolve(individualID: store.state.box[0].id, to: 892,
+                                    line: plain, using: .fireStone))
+    }
+
+    /// **도감 키는 변종을 박은 뒤에 등록돼야 한다.** 먼저 등록하면 연격이 일격 칸에 들어간다.
+    @MainActor func testTheDexRecordsTheResultingForm() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        store.evolve(individualID: store.state.box[0].id, to: 892, line: line, using: .scrollOfWaters)
+        XCTAssertTrue(store.state.dexForms.contains(DexKey.key(for: store.state.box[0])))
+        XCTAssertTrue(store.state.dexForms.contains("892/urshifu-rapidstrike"))
+        XCTAssertFalse(store.state.dexForms.contains("892"), "일격 칸이 같이 켜졌다")
+    }
+
+    /// 대조군 — 기본형은 일격 칸을 켜고 연격 칸은 건드리지 않는다.
+    @MainActor func testTheBaseFormFillsTheBaseSlot() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfDarkness)
+        store.evolve(individualID: store.state.box[0].id, to: 892, line: line, using: .scrollOfDarkness)
+        XCTAssertTrue(store.state.dexForms.contains("892"))
+        XCTAssertFalse(store.state.dexForms.contains("892/urshifu-rapidstrike"))
+    }
+
+    /// 박힌 모습은 폼이 아니라 고정 변종이라 되돌아가지 않는다.
+    @MainActor func testTheFixedFormSurvivesRevertForm() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        let id = store.state.box[0].id
+        store.evolve(individualID: id, to: 892, line: line, using: .scrollOfWaters)
+        XCTAssertFalse(store.revertForm(individualID: id))
+        XCTAssertEqual(store.state.box[0].fixedForm, "rapidstrike")
+    }
+
+    /// 배지도 같은 해석기를 지난다 — 부화 카탈로그만 묻으면 연격이 이름 없이 그려진다.
+    @MainActor func testTheBadgeNamesTheStyle() {
+        let (store, line) = kubfuStore()
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        store.evolve(individualID: store.state.box[0].id, to: 892, line: line, using: .scrollOfWaters)
+        XCTAssertEqual(store.state.box[0].birthFormLabel(.en), "Rapid Strike Style")
+    }
+
+    /// 두 카탈로그가 같은 종에서 변종 키를 두고 다투면 안 된다.
+    func testTheTwoCatalogsDoNotOverlap() {
+        for (speciesID, variants) in EvolvedFormCatalog.variantsBySpecies {
+            let birth = Set(BirthFormCatalog.forms(speciesID: speciesID).map(\.variant))
+            XCTAssertTrue(birth.isDisjoint(with: Set(variants)),
+                          "#\(speciesID) 의 변종 키가 겹친다")
+        }
     }
 }

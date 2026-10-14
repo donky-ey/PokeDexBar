@@ -92,13 +92,19 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
     /// 파트너에서 내려오면 돌아온다(`PlayerStore.closePartnerStint`) — 그 아이의 배틀이
     /// 끝나는 것에 해당한다. 앱을 껐다 켜도 유지되므로 저장한다.
     var formBroken = false
-    /// 태어날 때 정해진 겉모습의 변종 키(`"c"` · `"polar"` · `"blue"` · `"east"`).
+    /// **정해지면 평생 안 바뀌는 변종 키**(`"c"` · `"polar"` · `"blue"` · `"rapidstrike"`). 대개 부화
+    /// 때 정해지고(`BirthFormCatalog` — 안농의 글자, 비비용의 무늬, 데인차의 진작), 둘은
+    /// **진화할 때** 정해진다(`EvolvedFormCatalog` — 쓴 족자가 우라오스의 태세를 정한다).
     ///
-    /// 지방(`region`)과 성격이 같다 — 부화할 때 정해지고 평생 안 바뀌며 진화해도 이어진다.
-    /// 다만 지방은 "어디서 왔나"이고 이건 **그냥 그렇게 태어난 것**이다.
+    /// 지방(`region`)과 성격이 같다 — 도구로 안 바뀌고 진화해도 이어진다. 폼(`form`)과는
+    /// 반대다: 폼은 되돌릴 수 있고 진화하면 풀린다.
     /// 슬러그가 아니라 키를 담는 이유는 단계마다 슬러그가 다르기 때문이다
     /// (`flabebe-blue` → `floette-blue` → `florges-blue`).
-    var birthForm: String?
+    ///
+    /// **저장 키는 `birthForm` 그대로다**(`CodingKeys`) — 옛 세이브를 읽어야 한다. 이 타입은
+    /// `CodingKeys` 를 합성에 맡기고 있어서, 프로퍼티 이름을 바꾸는 순간 키도 따라 바뀌어 모든
+    /// 세이브의 안농 글자·비비용 무늬·골동 데인차가 조용히 nil 로 디코드된다.
+    var fixedForm: String?
     /// 위장 중이면 그 모습의 종 번호(메타몽이 뮤로 위장 중이면 151). 풀리면 nil 이 되고 다시 안 붙는다.
     ///
     /// **정체는 `speciesID` 에 그대로 둔다.** 위장 중에도 이 개체는 메타몽이고, 진화·리본·경험치가
@@ -121,10 +127,24 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
         // 위장 중이면 아무것도 안 내민다 — 정체를 알려 주는 단서가 된다.
         guard disguisedAs == nil else { return nil }
         if speciesID == 849 { return BirthFormBalance.toxtricityLabel(nature: nature).text(lang) }
-        guard let birthForm,
-              let known = BirthFormCatalog.form(speciesID: speciesID, variant: birthForm)
+        guard let fixedForm,
+              let known = FixedForm.resolve(speciesID: speciesID, variant: fixedForm)
         else { return nil }
         return known.label.text(lang)
+    }
+
+    /// **저장 키를 박아 두는 곳.** `birthForm` → `fixedForm` 개명이 저장 형식을 건드리지 않도록
+    /// 합성에 맡기지 않고 직접 적는다 — 합성된 키는 프로퍼티 이름을 그대로 따라간다.
+    /// 필드를 더하면 여기에도 더해야 한다 — 빠뜨리면 `init(from:)` 의 `value(.x)` 는 컴파일이
+    /// 잡지만, 합성되는 `encode` 는 **조용히 그 필드를 안 쓴다**(`testEveryFieldSurvivesARoundTrip`).
+    /// 회귀 가드: `IndividualDecodeTests.testTheStoredKeyIsStillBirthForm`.
+    private enum CodingKeys: String, CodingKey {
+        case id, baseID, speciesID, pathIDs, shiny, starred, gender, nature, exp
+        case partnerTokens, partnerSeconds, pettedSeconds, candyProgress, partnerSince
+        case obtainedAt, grade, form, region, regionVariant, partnerStintsEnded
+        case season, weather, recentlyActive, growthRate, eggProgress, expRemainder
+        case formBroken, disguisedAs
+        case fixedForm = "birthForm"
     }
 
     /// 이름을 찾을 때 볼 진화 라인의 키. 위장 중이면 **위장한 종의 라인**을 봐야 한다 —
@@ -174,8 +194,8 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
         if speciesID == 849 { return BirthFormBalance.toxtricitySlug(nature: nature) }
         // 태어날 때 정해진 겉모습. **그 단계에 해당 그림이 없으면 그냥 넘어간다** —
         // 분이벌레는 무늬를 갖고 있어도 겉모습이 같아서 카탈로그에 항목이 없다.
-        if let birthForm,
-           let known = BirthFormCatalog.form(speciesID: speciesID, variant: birthForm) {
+        if let fixedForm,
+           let known = FixedForm.resolve(speciesID: speciesID, variant: fixedForm) {
             return known.slug
         }
         // 암컷 전용 그림. **지방 모습이 있으면 그쪽이 이긴다** — 알로라 라이츄에는 암컷 그림이
@@ -305,7 +325,7 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
         region = value(.region, nil)
         regionVariant = value(.regionVariant, nil)
         disguisedAs = value(.disguisedAs, nil)
-        birthForm = value(.birthForm, nil)
+        fixedForm = value(.fixedForm, nil)
         formBroken = value(.formBroken, false)
         partnerStintsEnded = value(.partnerStintsEnded, 0)
         season = value(.season, nil)
@@ -362,10 +382,15 @@ struct Individual: Identifiable, Codable, Sendable, Equatable {
         // 카탈로그에 없는 변종은 버린다. 그대로 두면 그 개체만 영영 기본 모습으로 보이는데,
         // 값은 남아 있어 원인이 안 보인다 — 관대 디코딩의 짝인 값 범위 검증이다.
         // **라인 기준으로 본다** — 분이벌레는 자기 단계엔 항목이 없지만 무늬는 가져야 한다.
-        if let variant = fixed.birthForm,
-           !BirthFormCatalog.variants(forLineStartingAt: baseID).contains(variant) {
-            fixed.birthForm = nil
-            AppLog.write("Individual: dropped unknown birth form \(variant) for line \(baseID)")
+        // **진화로 정해지는 변종도 통과시킨다**(`EvolvedFormCatalog` — 연격 우라오스). 이 줄이 부화
+        // 카탈로그만 보면 모든 연격 우라오스가 다음 기동에 변종을 잃고 일격으로 돌아간다 — 도감
+        // 칸은 연격으로 켜진 채라 어긋남이 영구히 남는다. 경로(`pathIDs`)로 좁히는 이유: 변종은 그
+        // 종에 도달한 개체만 가질 수 있어서, 아직 쿠푸인 개체에 적힌 연격은 여전히 말이 안 된다.
+        if let variant = fixed.fixedForm,
+           !BirthFormCatalog.variants(forLineStartingAt: baseID).contains(variant),
+           !pathIDs.contains(where: { EvolvedFormCatalog.variantsBySpecies[$0]?.contains(variant) == true }) {
+            fixed.fixedForm = nil
+            AppLog.write("Individual: dropped unknown fixed form \(variant) for line \(baseID)")
         }
         // 위장은 메타몽이 뮤로 하는 것 하나뿐이다. 다른 값이 들어 있으면(외부 세이브를 들여올 때)
         // 존재하지 않는 그림을 계속 요청하게 되므로 버린다 — 관대 디코딩의 짝인 값 범위 검증이다.

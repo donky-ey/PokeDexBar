@@ -417,7 +417,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
                                         obtainedAt: base.addingTimeInterval(-Double(index) * 3600),
                                         grade: entry.grade)
             individual.region = entry.region
-            individual.birthForm = entry.birthForm
+            individual.fixedForm = entry.birthForm
             // 성별 — 상세 화면에 서는 개체(index 1 = 피카츄)를 암컷으로 둔다. 피카츄는 암컷
             // 그림이 있는 98종 중 하나라, 한 장으로 기호와 그림 차이가 같이 보인다.
             // 무성별 종(뮤츠·레쿠쟈)은 무성별로 — 기호가 뜨면 사실이 아니게 된다.

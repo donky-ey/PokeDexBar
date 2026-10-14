@@ -347,3 +347,80 @@ final class PartnerTimeTests: XCTestCase {
         XCTAssertEqual(Individual.togetherText(seconds: -50, l), "0분")
     }
 }
+
+
+/// 고정 변종 키(`Individual.fixedForm`)의 저장 형식 — **개명이 세이브를 건드리지 않는다.**
+final class FixedFormStorageTests: XCTestCase {
+    private func decode(_ fields: String, species: Int = 854, base: Int = 854,
+                        path: String = "[854]") throws -> Individual {
+        let json = #"{"id":"\#(UUID().uuidString)","baseID":\#(base),"speciesID":\#(species),"pathIDs":\#(path),"#
+            + #""nature":"serious","obtainedAt":0,"grade":"common"\#(fields)}"#
+        return try JSONDecoder().decode(Individual.self, from: Data(json.utf8))
+    }
+
+    /// [회귀] `birthForm` → `fixedForm` 개명은 **속성명만**이다. 이 타입은 `CodingKeys` 를 합성에
+    /// 맡기고 있었기 때문에 프로퍼티만 바꿔도 저장 키가 따라 바뀌어, 옛 세이브의 변종이 전부
+    /// nil 이 되어 안농이 A 로, 진작 데인차가 위작으로 돌아간다.
+    func testTheStoredKeyIsStillBirthForm() throws {
+        let decoded = try decode(#","birthForm":"antique""#)
+        XCTAssertEqual(decoded.fixedForm, "antique", "옛 세이브의 변종을 잃었다")
+    }
+
+    /// 쓰는 쪽도 같은 키여야 한다 — 읽기만 지키면 새로 저장한 세이브를 옛 빌드가 못 읽는다.
+    func testItIsWrittenUnderTheOldKey() throws {
+        var individual = try decode("")
+        individual.fixedForm = "antique"
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(individual)) as? [String: Any])
+        XCTAssertEqual(object["birthForm"] as? String, "antique")
+        XCTAssertNil(object["fixedForm"], "새 이름이 디스크에 새어 나갔다")
+    }
+
+    /// 직접 적은 `CodingKeys` 가 필드를 빠뜨리면 합성 `encode` 가 조용히 안 쓴다 — 키 목록을
+    /// 손으로 쥔 대가라, 모든 필드를 기본값이 아닌 값으로 채워 왕복시켜 본다.
+    func testEveryFieldSurvivesARoundTrip() throws {
+        var i = Individual(baseID: 16, speciesID: 17, pathIDs: [16, 17], nature: .brave,
+                           obtainedAt: Date(timeIntervalSince1970: 1_234), grade: .rare)
+        i.shiny = true; i.starred = true; i.gender = .female; i.exp = 11
+        i.partnerTokens = 12; i.partnerSeconds = 13; i.pettedSeconds = 14; i.candyProgress = 15
+        i.partnerSince = Date(timeIntervalSince1970: 99); i.form = "x"; i.region = .alola
+        i.regionVariant = "v"; i.partnerStintsEnded = 3; i.season = .winter
+        i.weather = .rainy; i.recentlyActive = true; i.growthRate = .slow
+        i.eggProgress = 16; i.expRemainder = 17; i.formBroken = true
+        i.fixedForm = "antique"; i.disguisedAs = 151
+        let back = try JSONDecoder().decode(Individual.self,
+                                            from: JSONEncoder().encode(i))
+        XCTAssertEqual(back, i, "왕복에서 필드가 빠졌다")
+    }
+
+    /// 진화로 정해지는 변종은 `sanitized()` 의 값 범위 검증을 통과해야 한다 — 부화 카탈로그만 보면
+    /// 연격 우라오스가 다음 기동마다 일격으로 돌아간다.
+    func testAnEvolvedVariantSurvivesSanitizing() throws {
+        let urshifu = try decode(#","birthForm":"rapidstrike""#,
+                                 species: 892, base: 891, path: "[891,892]")
+        XCTAssertEqual(urshifu.sanitized().fixedForm, "rapidstrike")
+    }
+
+    /// 대조군 — 그 종에 도달하지 못한 개체나 모르는 키는 여전히 버린다(필터가 열려 있지 않다).
+    func testSanitizingStillDropsWhatDoesNotBelong() throws {
+        let kubfu = try decode(#","birthForm":"rapidstrike""#,
+                               species: 891, base: 891, path: "[891]")
+        XCTAssertNil(kubfu.sanitized().fixedForm)
+        let bogus = try decode(#","birthForm":"zzz""#, species: 892, base: 891, path: "[891,892]")
+        XCTAssertNil(bogus.sanitized().fixedForm)
+    }
+
+    /// 상태 전체를 지나는 경로로도 확인한다 — `sanitized()` 가 실제 디코드에서 불리는지는
+    /// 개체 하나만 봐서는 모른다.
+    func testAnEvolvedVariantSurvivesTheStateDecode() throws {
+        let json = """
+        {"box":[{"id":"11111111-1111-1111-1111-111111111111","baseID":891,"speciesID":892,
+        "pathIDs":[891,892],"nature":"serious","obtainedAt":0,"grade":"common",
+        "birthForm":"rapidstrike"}],"dex":[],"earnedTokens":0,"spentTokens":0,
+        "claimedTodayTokens":0,"lastDate":"2026-01-01","installBaselineSet":true,"slots":3,
+        "eggs":[],"inventory":{},"ownsShinyCharm":false,"starterChosen":true,"language":"ko"}
+        """
+        let state = try JSONDecoder().decode(PlayerState.self, from: Data(json.utf8))
+        XCTAssertEqual(state.box.first?.fixedForm, "rapidstrike", "연격 우라오스가 변종을 잃었다")
+    }
+}

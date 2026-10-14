@@ -238,7 +238,7 @@ final class PlayerStore {
         // 서로 다른 포트를 쓰는 게 이 표의 요점이다). 진화 목록(`forageTargets`)과 같은 입력이어야 한다.
         let needs = ForageCatalog.needs(speciesID: state.box[index].speciesID,
                                         region: state.box[index].region,
-                                        fixedForm: state.box[index].birthForm)
+                                        fixedForm: state.box[index].fixedForm)
         for _ in 0..<produced.count {
             let owned = Set(needs.filter { state.inventory[$0.rawValue] != nil })
             guard let item = Self.forage(ribbon: ribbon, needs: needs, owned: owned,

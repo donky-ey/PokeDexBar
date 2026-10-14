@@ -88,7 +88,7 @@ extension PlayerStore {
     func forageTargets(_ individual: Individual) -> [String] {
         let evolution = ForageCatalog.needs(speciesID: individual.speciesID,
                                             region: individual.region,
-                                            fixedForm: individual.birthForm)
+                                            fixedForm: individual.fixedForm)
             .filter { count(of: $0) == 0 }
             .map { $0.label(language) }
         let forms = FormForageCatalog.items(speciesID: individual.speciesID,

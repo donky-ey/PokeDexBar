@@ -37,7 +37,7 @@ struct IndividualDetailView: View {
             + " shiny=\(individual.shiny) shown=\(individual.showsShiny)"
             + " region=\(individual.region?.rawValue ?? "-")"
             + " variant=\(individual.regionVariant ?? "-") form=\(individual.form ?? "-")"
-            + " birth=\(individual.birthForm ?? "-") broken=\(individual.formBroken)"
+            + " birth=\(individual.fixedForm ?? "-") broken=\(individual.formBroken)"
             + " nature=\(individual.nature.rawValue) growth=\(individual.growthRate.rawValue)"
             + " level=\(individual.level) exp=\(individual.exp) rem=\(individual.expRemainder)"
             + " egg=\(individual.eggProgress) ptok=\(individual.partnerTokens)"
@@ -488,7 +488,7 @@ struct IndividualDetailView: View {
     @ViewBuilder
     private func evolutionSection(_ line: EvoLine) -> some View {
         let open = choices.filter { store.meetsRequirement(store.requirement(for: $0, line: line, region: individual.region,
-                                                                                 fixedForm: individual.birthForm),
+                                                                                 fixedForm: individual.fixedForm),
                                                            for: individual) }
         let blocked = choices.filter { !open.contains($0) }
         ForEach(open, id: \.self) { target in
@@ -513,7 +513,7 @@ struct IndividualDetailView: View {
                 Text(l.evolutionLocked(blocked.count)).font(.system(size: 10, weight: .medium))
                 if !blockedEvolutionsExpanded {
                     Text(Self.blockedSummary(blocked, line: line, store: store, region: individual.region,
-                                                    fixedForm: individual.birthForm))
+                                                    fixedForm: individual.fixedForm))
                         .font(.system(size: 9)).foregroundStyle(.tertiary).lineLimit(1)
                 }
                 Spacer()
@@ -527,7 +527,7 @@ struct IndividualDetailView: View {
                         .font(.system(size: 10))
                     Spacer()
                     Text(Self.shortNeed(store.requirement(for: target, line: line, region: individual.region,
-                                                           fixedForm: individual.birthForm), line: line, l: l))
+                                                           fixedForm: individual.fixedForm), line: line, l: l))
                         .font(.system(size: 9)).foregroundStyle(.tertiary)
                 }
                 .padding(.leading, 17)
@@ -568,7 +568,7 @@ struct IndividualDetailView: View {
     @MainActor static func blockedHints(_ blocked: [Int], line: EvoLine,
                                         individual: Individual, store: PlayerStore) -> [String] {
         let needs = blocked.map { store.requirement(for: $0, line: line, region: individual.region,
-                                                    fixedForm: individual.birthForm) }
+                                                    fixedForm: individual.fixedForm) }
         var hints: [String] = []
         if needs.contains(where: { if case .item = $0 { return true } else { return false } }) {
             hints.append(store.l.evolutionLockedHint)

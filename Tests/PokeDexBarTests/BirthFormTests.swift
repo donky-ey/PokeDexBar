@@ -169,7 +169,7 @@ final class BirthFormIndividualTests: XCTestCase {
         var individual = Individual(baseID: baseID, speciesID: speciesID, pathIDs: [baseID, speciesID],
                                     nature: nature, obtainedAt: Date(timeIntervalSince1970: 0),
                                     grade: .common)
-        individual.birthForm = variant
+        individual.fixedForm = variant
         return individual
     }
 
@@ -192,7 +192,7 @@ final class BirthFormIndividualTests: XCTestCase {
     func testToxtricityComesFromNatureAlone() {
         let amped = make(speciesID: 849, baseID: 848, variant: nil, nature: .adamant)
         let lowKey = make(speciesID: 849, baseID: 848, variant: nil, nature: .modest)
-        XCTAssertNil(amped.birthForm, "저장할 값이 없어야 한다")
+        XCTAssertNil(amped.fixedForm, "저장할 값이 없어야 한다")
         XCTAssertEqual(amped.spriteForm, "toxtricity")
         XCTAssertEqual(lowKey.spriteForm, "toxtricity-lowkey")
         // 일레즌은 아직 갈리지 않는다.
@@ -219,10 +219,10 @@ final class BirthFormIndividualTests: XCTestCase {
 
     /// 말이 안 되는 변종은 경계에서 버린다 — 관대 디코딩의 짝.
     func testABogusVariantIsDropped() {
-        XCTAssertNil(make(speciesID: 201, baseID: 201, variant: "9").sanitized().birthForm)
-        XCTAssertEqual(make(speciesID: 201, baseID: 201, variant: "c").sanitized().birthForm, "c")
+        XCTAssertNil(make(speciesID: 201, baseID: 201, variant: "9").sanitized().fixedForm)
+        XCTAssertEqual(make(speciesID: 201, baseID: 201, variant: "c").sanitized().fixedForm, "c")
         // 라인 기준이라 분이벌레의 무늬도 살아남아야 한다(자기 단계엔 항목이 없다).
-        XCTAssertEqual(make(speciesID: 664, baseID: 664, variant: "polar").sanitized().birthForm,
+        XCTAssertEqual(make(speciesID: 664, baseID: 664, variant: "polar").sanitized().fixedForm,
                        "polar")
     }
 
@@ -236,12 +236,12 @@ final class BirthFormIndividualTests: XCTestCase {
         let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 4), now: { now },
                                 defaults: defaults())
         var unown = make(speciesID: 201, baseID: 201, variant: "q")
-        unown.birthForm = "q"
+        unown.fixedForm = "q"
         store.addForTesting(unown)
 
         let reloaded = PlayerStore(fileURL: url, rng: SeededRNG(seed: 4), now: { now },
                                    defaults: defaults())
-        XCTAssertEqual(reloaded.state.box.first { $0.id == unown.id }?.birthForm, "q",
+        XCTAssertEqual(reloaded.state.box.first { $0.id == unown.id }?.fixedForm, "q",
                        "다시 켜니 글자가 사라졌다")
     }
 
