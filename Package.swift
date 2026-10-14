@@ -19,6 +19,7 @@ let package = Package(
                 .copy("Fixtures/CodexFork"),
                 .copy("Fixtures/CodexSubagent"),
                 .copy("Fixtures/ItemNames"),
+                .copy("Fixtures/EvolutionForms"),
             ]
         ),
     ]

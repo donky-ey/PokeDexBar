@@ -66,6 +66,23 @@ INVENTED = {
     "form-soul-heart",                             # 마기아나 — 아이템이 아니라 특성
 }
 
+# EvolvedFormCatalog 의 슬러그 → PokéAPI pokemon-form 슬러그. 앱 슬러그는 Showdown 식이라
+# (`alcremie-rubycream`) PokéAPI 의 하이픈 표기(`alcremie-ruby-cream`)와 다르다.
+FORM_SLUGS = {
+    "urshifu-rapidstrike": "urshifu-rapid-strike",
+    # 크림 이름이 실린 폼은 딸기 조합뿐이다 — 다른 사탕공예 조합은 form_names 가 비어 있다.
+    "alcremie-rubycream": "alcremie-ruby-cream-strawberry-sweet",
+    "alcremie-matchacream": "alcremie-matcha-cream-strawberry-sweet",
+    "alcremie-mintcream": "alcremie-mint-cream-strawberry-sweet",
+    "alcremie-lemoncream": "alcremie-lemon-cream-strawberry-sweet",
+    "alcremie-saltedcream": "alcremie-salted-cream-strawberry-sweet",
+    "alcremie-rainbowswirl": "alcremie-rainbow-swirl-strawberry-sweet",
+}
+
+# 공식 en 은 두 축을 합친 이름("Ruby Cream Strawberry Sweet")이라 그대로 쓰면 안 된다 —
+# 이 앱의 폼은 크림만 가리킨다. en 은 앱 값을 유지하고 ko·ja 만 대조한다.
+FORM_LANGS = ("ko", "ja")
+
 
 def fetch(url):
     req = urllib.request.Request(url, headers={"User-Agent": "PokeDexBar-item-names/1.0"})
@@ -77,6 +94,16 @@ def fetch(url):
             if attempt == 3:
                 raise
     raise AssertionError("unreachable")
+
+
+def form_names():
+    """폼 라벨도 기억으로 적으면 도구 이름처럼 틀린다 — 공식 이름표에서 받는다."""
+    out = {}
+    for app_slug, api_slug in FORM_SLUGS.items():
+        dto = fetch(f"https://pokeapi.co/api/v2/pokemon-form/{api_slug}")
+        by_lang = {n["language"]["name"]: n["name"] for n in dto.get("form_names", [])}
+        out[app_slug] = {lang: by_lang[lang] for lang in FORM_LANGS if by_lang.get(lang)}
+    return out
 
 
 def app_keys(filename):
@@ -111,7 +138,8 @@ def main():
             raise SystemExit(f"{key}({wanted[key]}): {missing} 이름이 없다")
         official[key] = {lang: by_lang[lang] for lang in LANGS}
 
-    payload = {"official": dict(sorted(official.items())), "invented": sorted(INVENTED)}
+    payload = {"official": dict(sorted(official.items())), "invented": sorted(INVENTED),
+               "forms": form_names()}
     with open(OUT, "w") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2, sort_keys=False)
         f.write("\n")

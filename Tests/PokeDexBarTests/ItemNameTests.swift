@@ -14,6 +14,7 @@ final class ItemNameTests: XCTestCase {
     private struct Fixture: Decodable {
         let official: [String: [String: String]]
         let invented: [String]
+        let forms: [String: [String: String]]
     }
 
     private func fixture() throws -> Fixture {
@@ -105,6 +106,22 @@ final class ItemNameTests: XCTestCase {
         for key in Set(f.official.keys).union(f.invented).sorted() {
             XCTAssertTrue(app.contains(key),
                           "\(key) 가 앱에 없다 — scripts/generate-item-names.py 를 돌려라")
+        }
+    }
+
+    /// 폼 이름도 공식 이름표에서 온다 — 도구 이름 87개가 틀렸던 것과 같은 부류다.
+    /// en 은 대조하지 않는다: PokéAPI 는 두 축을 합친 이름("Ruby Cream Strawberry Sweet")을 주는데
+    /// 이 앱의 폼은 크림만 가리킨다(생성 스크립트의 `FORM_LANGS`). 공식에 없는 언어는 건너뛴다.
+    func testEveryEvolvedFormLabelMatchesTheOfficialName() throws {
+        let official = try fixture().forms
+        for decided in EvolvedFormCatalog.all {
+            guard let slug = decided.slug, let label = decided.label else { continue }
+            guard let names = official[slug] else {
+                return XCTFail("\(slug) 가 픽스처에 없다 — scripts/generate-item-names.py 를 돌려라")
+            }
+            if let ko = names["ko"] { XCTAssertEqual(label.ko, ko, slug) }
+            if let en = names["en"] { XCTAssertEqual(label.en, en, slug) }
+            if let ja = names["ja"] { XCTAssertEqual(label.ja, ja, slug) }
         }
     }
 }

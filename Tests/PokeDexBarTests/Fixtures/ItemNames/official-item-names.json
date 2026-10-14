@@ -550,5 +550,35 @@
     "form-costume-trunk",
     "form-gs-ball",
     "form-soul-heart"
-  ]
+  ],
+  "forms": {
+    "urshifu-rapidstrike": {
+      "ko": "연격의 태세",
+      "ja": "れんげきのかた"
+    },
+    "alcremie-rubycream": {
+      "ko": "밀키루비",
+      "ja": "ミルキィルビー"
+    },
+    "alcremie-matchacream": {
+      "ko": "밀키말차",
+      "ja": "ミルキィまっちゃ"
+    },
+    "alcremie-mintcream": {
+      "ko": "밀키민트",
+      "ja": "ミルキィミント"
+    },
+    "alcremie-lemoncream": {
+      "ko": "밀키레몬",
+      "ja": "ミルキィレモン"
+    },
+    "alcremie-saltedcream": {
+      "ko": "밀키솔트",
+      "ja": "ミルキィソルト"
+    },
+    "alcremie-rainbowswirl": {
+      "ko": "트리플믹스",
+      "ja": "トリプルミックス"
+    }
+  }
 }

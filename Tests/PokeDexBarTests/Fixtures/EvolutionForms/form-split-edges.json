@@ -1,0 +1,43 @@
+{
+  "itemDecides": [
+    {
+      "from": 868,
+      "to": 869,
+      "items": [
+        "berry-sweet",
+        "clover-sweet",
+        "flower-sweet",
+        "love-sweet",
+        "ribbon-sweet",
+        "star-sweet",
+        "strawberry-sweet"
+      ]
+    },
+    {
+      "from": 891,
+      "to": 892,
+      "items": [
+        "scroll-of-darkness",
+        "scroll-of-waters"
+      ]
+    }
+  ],
+  "formDecides": [
+    {
+      "from": 854,
+      "to": 855,
+      "forms": [
+        "sinistea-antique",
+        "sinistea-phony"
+      ]
+    },
+    {
+      "from": 1012,
+      "to": 1013,
+      "forms": [
+        "poltchageist-artisan",
+        "poltchageist-counterfeit"
+      ]
+    }
+  ]
+}
