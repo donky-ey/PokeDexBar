@@ -1023,3 +1023,71 @@ final class EvolvedFormTests: XCTestCase {
         }
     }
 }
+
+/// 마빌크는 사탕공예를 들고 진화한다 — 지금은 도구 없이 레벨 20이다(실측).
+final class MilceryEvolutionTests: XCTestCase {
+    /// `evolution-chain/452` 에서 **사탕공예마다 한 줄씩** 잘라 왔다. 원래 63줄인데 크림 축이
+    /// 줄 수만 늘리고 파서가 보는 것은 `held_item` 집합이라, 7줄이면 같은 결과가 나온다.
+    private let milceryChain = """
+    {"chain": {
+      "species": {"name": "milcery", "url": "https://pokeapi.co/api/v2/pokemon-species/868/"},
+      "evolution_details": [],
+      "evolves_to": [{
+        "species": {"name": "alcremie", "url": "https://pokeapi.co/api/v2/pokemon-species/869/"},
+        "evolution_details": [
+          {"trigger": {"name": "spin"}, "held_item": {"name": "strawberry-sweet"}},
+          {"trigger": {"name": "spin"}, "held_item": {"name": "berry-sweet"}},
+          {"trigger": {"name": "spin"}, "held_item": {"name": "love-sweet"}},
+          {"trigger": {"name": "spin"}, "held_item": {"name": "star-sweet"}},
+          {"trigger": {"name": "spin"}, "held_item": {"name": "clover-sweet"}},
+          {"trigger": {"name": "spin"}, "held_item": {"name": "flower-sweet"}},
+          {"trigger": {"name": "spin"}, "held_item": {"name": "ribbon-sweet"}}],
+        "evolves_to": []}]}}
+    """
+
+    func testMilceryAsksForASweet() throws {
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(milceryChain.utf8))
+        let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 869))
+        guard case .item(let items) = node.requirement else {
+            return XCTFail("도구 조건이 아니다: \(node.requirement)")
+        }
+        XCTAssertEqual(items.count, 7, "\(items)")
+        XCTAssertTrue(items.contains(.strawberrySweet))
+    }
+
+    func testEverySweetOpensItsOwnLook() {
+        let sweets: [EvolutionItem] = [.strawberrySweet, .berrySweet, .loveSweet, .starSweet,
+                                       .cloverSweet, .flowerSweet, .ribbonSweet]
+        let variants = sweets.map { EvolvedFormCatalog.variant(speciesID: 869, item: $0) }
+        XCTAssertEqual(variants.count, Set(variants.map { $0 ?? "(기본)" }).count,
+                       "사탕공예 둘이 같은 모습을 연다: \(variants)")
+    }
+
+    func testMilceryForagesEverySweet() {
+        XCTAssertEqual(Set(ForageCatalog.needs(speciesID: 868, region: nil, fixedForm: nil)).count, 7)
+    }
+
+    /// 869 의 레벨 폴백이 남아 있으면 도달 불가 경로다.
+    func testTheLevelFallbackIsGone() {
+        XCTAssertNil(UnstatedEvolutionCatalog.override(speciesID: 869))
+    }
+
+    /// 크림이 디코드 경계(`sanitized()`)에서 벗겨지면 마휘핑이 기동마다 바닐라로 돌아간다 —
+    /// 도감 칸은 크림으로 켜진 채라 어긋남이 영구히 남는다(연격 우라오스와 같은 경로).
+    /// 여섯 크림 전부를 직접 돌려 본다. 마빌크 단계에 적힌 크림은 여전히 버려야 한다.
+    func testEveryCreamSurvivesSanitizing() {
+        let creams = ["rubycream", "matchacream", "mintcream", "lemoncream", "saltedcream", "rainbowswirl"]
+        XCTAssertEqual(Set(creams), Set(EvolvedFormCatalog.variantsBySpecies[869] ?? []))
+        for cream in creams {
+            var alcremie = Individual(baseID: 868, speciesID: 869, pathIDs: [868, 869], nature: .brave,
+                                      obtainedAt: Date(timeIntervalSince1970: 1), grade: .common)
+            alcremie.fixedForm = cream
+            XCTAssertEqual(alcremie.sanitized().fixedForm, cream, cream)
+
+            var milcery = Individual(baseID: 868, speciesID: 868, pathIDs: [868], nature: .brave,
+                                     obtainedAt: Date(timeIntervalSince1970: 1), grade: .common)
+            milcery.fixedForm = cream
+            XCTAssertNil(milcery.sanitized().fixedForm, "마빌크에 크림이 남았다: \(cream)")
+        }
+    }
+}

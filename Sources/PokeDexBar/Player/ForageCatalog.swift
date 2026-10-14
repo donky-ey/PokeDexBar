@@ -162,6 +162,15 @@ enum ForageCatalog {
             .init(to: 855, item: .crackedPot, scope: .any, formScope: .only(nil)),
             .init(to: 855, item: .chippedPot, scope: .any, formScope: .only("antique")),
         ],
+        868: [
+            .init(to: 869, item: .strawberrySweet, scope: .any),
+            .init(to: 869, item: .berrySweet, scope: .any),
+            .init(to: 869, item: .loveSweet, scope: .any),
+            .init(to: 869, item: .starSweet, scope: .any),
+            .init(to: 869, item: .cloverSweet, scope: .any),
+            .init(to: 869, item: .flowerSweet, scope: .any),
+            .init(to: 869, item: .ribbonSweet, scope: .any),
+        ],
         884: [.init(to: 1018, item: .metalAlloy, scope: .any)],
         891: [
             .init(to: 892, item: .scrollOfDarkness, scope: .any),

@@ -47,6 +47,16 @@ enum EvolutionItem: String, CaseIterable, Codable, Sendable {
     case scrollOfDarkness = "scroll-of-darkness"
     case scrollOfWaters = "scroll-of-waters"
 
+    /// 마빌크의 사탕공예 일곱. 원작에서는 **위에 올라가는 장식**을 정하지만, 이 앱에서는 몸 색을
+    /// 정한다 — 근거는 `EvolvedFormCatalog` 주석에 있다.
+    case strawberrySweet = "strawberry-sweet"
+    case berrySweet = "berry-sweet"
+    case loveSweet = "love-sweet"
+    case starSweet = "star-sweet"
+    case cloverSweet = "clover-sweet"
+    case flowerSweet = "flower-sweet"
+    case ribbonSweet = "ribbon-sweet"
+
     // 통신교환/레벨업 때 들고 있어야 하는 물건. 통신교환 25종 중 15종, 레벨업 4종
     // (럭키·글라이온·포푸니라·포푸니크)이 이걸 요구한다. 연결의 끈으로 뭉뚱그리면
     // 에레키부스터·금속코트 같은 것이 게임에서 아예 사라진다.
@@ -100,6 +110,13 @@ enum EvolutionItem: String, CaseIterable, Codable, Sendable {
         case .galaricaWreath: ("가라두구머리장식", "Galarica Wreath", "ガラナツリース")
         case .scrollOfDarkness: ("악의 족자", "Scroll of Darkness", "あくのかけじく")
         case .scrollOfWaters: ("물의 족자", "Scroll of Waters", "みずのかけじく")
+        case .strawberrySweet: ("딸기사탕공예", "Strawberry Sweet", "いちごアメざいく")
+        case .berrySweet: ("베리사탕공예", "Berry Sweet", "ベリーアメざいく")
+        case .loveSweet: ("하트사탕공예", "Love Sweet", "ハートアメざいく")
+        case .starSweet: ("스타사탕공예", "Star Sweet", "スターアメざいく")
+        case .cloverSweet: ("네잎사탕공예", "Clover Sweet", "よつばアメざいく")
+        case .flowerSweet: ("꽃사탕공예", "Flower Sweet", "おはなアメざいく")
+        case .ribbonSweet: ("리본사탕공예", "Ribbon Sweet", "リボンアメざいく")
         case .metalCoat: ("금속코트", "Metal Coat", "メタルコート")
         case .electirizer: ("에레키부스터", "Electirizer", "エレキブースター")
         case .magmarizer: ("마그마부스터", "Magmarizer", "マグマブースター")

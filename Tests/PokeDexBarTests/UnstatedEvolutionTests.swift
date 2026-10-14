@@ -28,9 +28,9 @@ final class UnstatedEvolutionTests: XCTestCase {
         }
     }
 
-    /// 옮길 자리가 없어 레벨로 떨어뜨린 8종.
+    /// 옮길 자리가 없어 레벨로 떨어뜨린 종. 마휘핑(#869)은 사탕공예를 도구로 옮겨 이 표에서 빠졌다.
     func testUnportableConditionsBecomeLevels() {
-        for species in [869, 1000, 865, 902, 899, 904, 867] {
+        for species in [1000, 865, 902, 899, 904, 867] {
             XCTAssertEqual(UnstatedEvolutionCatalog.override(speciesID: species), .level(20),
                            "#\(species)")
         }
@@ -63,7 +63,6 @@ final class UnstatedEvolutionTests: XCTestCase {
     func testTheParserConsultsTheCatalog() throws {
         let d = try JSONDecoder().decode(EvolutionDetail.self,
                                          from: Data(#"{"trigger":{"name":"spin","url":null}}"#.utf8))
-        // 마휘핑(#869) — 규칙대로면 앞 단계 1 → 20 이고 카탈로그도 20이라 구분이 안 된다.
         // 대도각참(#983)은 규칙(앞 단계를 1로 주면 20)과 카탈로그(60)가 갈린다.
         XCTAssertEqual(PokeAPIClient.requirement(from: [d], speciesID: 983, parentLevel: 1),
                        .level(60), "카탈로그를 안 본다")

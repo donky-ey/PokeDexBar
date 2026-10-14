@@ -5,7 +5,12 @@ import Foundation
 /// (`Individual.fixedForm`)를 쓴다.
 ///
 /// 전 540체인 전수 확인(2026-10-12): 도구가 결과 모습을 가르는 간선은 **둘뿐이다**(쿠푸 → 우라오스,
-/// 마빌크 → 마휘핑). 이 파일에는 지금 우라오스만 있다.
+/// 마빌크 → 마휘핑).
+///
+/// **마휘핑의 사탕공예 → 크림 대응은 지어낸 것이다.** 원작에서 사탕공예는 위에 올라가는 *장식*을
+/// 정하고 크림(몸 색)은 돌리는 방식·시각이 정한다. 그런데 Showdown 은 크림만 그리므로(장식 일곱 개는
+/// 그림이 없다) 고를 수 있는 축이 크림뿐이었고, 그 축에 사탕공예를 얹었다. 딸기가 기본형(바닐라)인 것은
+/// 첫 번째 사탕공예라서일 뿐 원작 근거가 아니다.
 ///
 /// **기본형 쪽은 키를 안 박는다** — "후보 없음이 곧 기본형"이라, 그래야 도감 키가
 /// `892` / `892/urshifu-rapidstrike` 로 자연스럽게 갈린다.
@@ -25,6 +30,20 @@ enum EvolvedFormCatalog {
         .init(speciesID: 892, item: .scrollOfWaters, variant: "rapidstrike",
               slug: "urshifu-rapidstrike",
               label: .init("연격의 태세", "Rapid Strike Style", "れんげきのかた")),
+        .init(speciesID: 869, item: .strawberrySweet, variant: nil, slug: nil, label: nil),
+        .init(speciesID: 869, item: .berrySweet, variant: "rubycream",
+              slug: "alcremie-rubycream", label: .init("밀키루비", "Ruby Cream", "ミルキィルビー")),
+        .init(speciesID: 869, item: .loveSweet, variant: "matchacream",
+              slug: "alcremie-matchacream", label: .init("밀키말차", "Matcha Cream", "ミルキィまっちゃ")),
+        .init(speciesID: 869, item: .starSweet, variant: "mintcream",
+              slug: "alcremie-mintcream", label: .init("밀키민트", "Mint Cream", "ミルキィミント")),
+        .init(speciesID: 869, item: .cloverSweet, variant: "lemoncream",
+              slug: "alcremie-lemoncream", label: .init("밀키레몬", "Lemon Cream", "ミルキィレモン")),
+        .init(speciesID: 869, item: .flowerSweet, variant: "saltedcream",
+              slug: "alcremie-saltedcream", label: .init("밀키솔트", "Salted Cream", "ミルキィソルト")),
+        .init(speciesID: 869, item: .ribbonSweet, variant: "rainbowswirl",
+              slug: "alcremie-rainbowswirl",
+              label: .init("트리플믹스", "Rainbow Swirl", "トリプルミックス")),
     ]
 
     static func variant(speciesID: Int, item: EvolutionItem) -> String? {
