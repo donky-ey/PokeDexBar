@@ -18,6 +18,7 @@ let package = Package(
             resources: [
                 .copy("Fixtures/CodexFork"),
                 .copy("Fixtures/CodexSubagent"),
+                .copy("Fixtures/ItemNames"),
             ]
         ),
     ]

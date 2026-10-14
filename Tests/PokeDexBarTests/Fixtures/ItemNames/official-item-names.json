@@ -1,0 +1,519 @@
+{
+  "official": {
+    "auspicious-armor": {
+      "ko": "축복받은갑옷",
+      "en": "Auspicious Armor",
+      "ja": "イワイノヨロイ"
+    },
+    "black-augurite": {
+      "ko": "검은휘석",
+      "en": "Black Augurite",
+      "ja": "くろのきせき"
+    },
+    "chipped-pot": {
+      "ko": "이빠진포트",
+      "en": "Chipped Pot",
+      "ja": "かけたポット"
+    },
+    "cracked-pot": {
+      "ko": "깨진포트",
+      "en": "Cracked Pot",
+      "ja": "われたポット"
+    },
+    "dawn-stone": {
+      "ko": "각성의돌",
+      "en": "Dawn Stone",
+      "ja": "めざめいし"
+    },
+    "deep-sea-scale": {
+      "ko": "심해의비늘",
+      "en": "Deep Sea Scale",
+      "ja": "しんかいのウロコ"
+    },
+    "deep-sea-tooth": {
+      "ko": "심해의이빨",
+      "en": "Deep Sea Tooth",
+      "ja": "しんかいのキバ"
+    },
+    "dragon-scale": {
+      "ko": "용의비늘",
+      "en": "Dragon Scale",
+      "ja": "りゅうのウロコ"
+    },
+    "dubious-disc": {
+      "ko": "괴상한패치",
+      "en": "Dubious Disc",
+      "ja": "あやしいパッチ"
+    },
+    "dusk-stone": {
+      "ko": "어둠의돌",
+      "en": "Dusk Stone",
+      "ja": "やみのいし"
+    },
+    "electirizer": {
+      "ko": "에레키부스터",
+      "en": "Electirizer",
+      "ja": "エレキブースター"
+    },
+    "fire-stone": {
+      "ko": "불꽃의돌",
+      "en": "Fire Stone",
+      "ja": "ほのおのいし"
+    },
+    "form-adamant-crystal": {
+      "ko": "큰금강옥",
+      "en": "Adamant Crystal",
+      "ja": "だいこんごうだま"
+    },
+    "form-blue-orb": {
+      "ko": "쪽빛구슬",
+      "en": "Blue Orb",
+      "ja": "あいいろのたま"
+    },
+    "form-dna-splicers": {
+      "ko": "유전자쐐기",
+      "en": "DNA Splicers",
+      "ja": "いでんしのくさび"
+    },
+    "form-drive-burn": {
+      "ko": "블레이즈카세트",
+      "en": "Burn Drive",
+      "ja": "ブレイズカセット"
+    },
+    "form-drive-chill": {
+      "ko": "프리즈카세트",
+      "en": "Chill Drive",
+      "ja": "フリーズカセット"
+    },
+    "form-drive-douse": {
+      "ko": "아쿠아카세트",
+      "en": "Douse Drive",
+      "ja": "アクアカセット"
+    },
+    "form-drive-shock": {
+      "ko": "번개카세트",
+      "en": "Shock Drive",
+      "ja": "イナズマカセット"
+    },
+    "form-gracidea": {
+      "ko": "그라시데아꽃",
+      "en": "Gracidea",
+      "ja": "グラシデアのはな"
+    },
+    "form-griseous-core": {
+      "ko": "큰백금옥",
+      "en": "Griseous Core",
+      "ja": "だいはっきんだま"
+    },
+    "form-lustrous-globe": {
+      "ko": "큰백옥",
+      "en": "Lustrous Globe",
+      "ja": "だいしらたま"
+    },
+    "form-mask-cornerstone": {
+      "ko": "주춧돌의가면",
+      "en": "Cornerstone Mask",
+      "ja": "いしずえのめん"
+    },
+    "form-mask-hearthflame": {
+      "ko": "화덕의가면",
+      "en": "Hearthflame Mask",
+      "ja": "かまどのめん"
+    },
+    "form-mask-wellspring": {
+      "ko": "우물의가면",
+      "en": "Wellspring Mask",
+      "ja": "いどのめん"
+    },
+    "form-memory-bug": {
+      "ko": "버그메모리",
+      "en": "Bug Memory",
+      "ja": "バグメモリ"
+    },
+    "form-memory-dark": {
+      "ko": "다크메모리",
+      "en": "Dark Memory",
+      "ja": "ダークメモリ"
+    },
+    "form-memory-dragon": {
+      "ko": "드래곤메모리",
+      "en": "Dragon Memory",
+      "ja": "ドラゴンメモリ"
+    },
+    "form-memory-electric": {
+      "ko": "일렉트릭메모리",
+      "en": "Electric Memory",
+      "ja": "エレクトロメモリ"
+    },
+    "form-memory-fairy": {
+      "ko": "페어리메모리",
+      "en": "Fairy Memory",
+      "ja": "フェアリーメモリ"
+    },
+    "form-memory-fighting": {
+      "ko": "파이팅메모리",
+      "en": "Fighting Memory",
+      "ja": "ファイトメモリ"
+    },
+    "form-memory-fire": {
+      "ko": "파이어메모리",
+      "en": "Fire Memory",
+      "ja": "ファイヤーメモリ"
+    },
+    "form-memory-flying": {
+      "ko": "플라잉메모리",
+      "en": "Flying Memory",
+      "ja": "フライングメモリ"
+    },
+    "form-memory-ghost": {
+      "ko": "고스트메모리",
+      "en": "Ghost Memory",
+      "ja": "ゴーストメモリ"
+    },
+    "form-memory-grass": {
+      "ko": "그래스메모리",
+      "en": "Grass Memory",
+      "ja": "グラスメモリ"
+    },
+    "form-memory-ground": {
+      "ko": "그라운드메모리",
+      "en": "Ground Memory",
+      "ja": "グラウンドメモリ"
+    },
+    "form-memory-ice": {
+      "ko": "아이스메모리",
+      "en": "Ice Memory",
+      "ja": "アイスメモリ"
+    },
+    "form-memory-poison": {
+      "ko": "포이즌메모리",
+      "en": "Poison Memory",
+      "ja": "ポイズンメモリ"
+    },
+    "form-memory-psychic": {
+      "ko": "사이킥메모리",
+      "en": "Psychic Memory",
+      "ja": "サイキックメモリ"
+    },
+    "form-memory-rock": {
+      "ko": "록메모리",
+      "en": "Rock Memory",
+      "ja": "ロックメモリ"
+    },
+    "form-memory-steel": {
+      "ko": "스틸메모리",
+      "en": "Steel Memory",
+      "ja": "スチールメモリ"
+    },
+    "form-memory-water": {
+      "ko": "워터메모리",
+      "en": "Water Memory",
+      "ja": "ウオーターメモリ"
+    },
+    "form-meteorite": {
+      "ko": "운석",
+      "en": "Meteorite",
+      "ja": "いんせき"
+    },
+    "form-plate-bug": {
+      "ko": "비단벌레플레이트",
+      "en": "Insect Plate",
+      "ja": "たまむしプレート"
+    },
+    "form-plate-dark": {
+      "ko": "공포플레이트",
+      "en": "Dread Plate",
+      "ja": "こわもてプレート"
+    },
+    "form-plate-dragon": {
+      "ko": "용의플레이트",
+      "en": "Draco Plate",
+      "ja": "りゅうのプレート"
+    },
+    "form-plate-electric": {
+      "ko": "우레플레이트",
+      "en": "Zap Plate",
+      "ja": "いかずちプレート"
+    },
+    "form-plate-fairy": {
+      "ko": "정령플레이트",
+      "en": "Pixie Plate",
+      "ja": "せいれいプレート"
+    },
+    "form-plate-fighting": {
+      "ko": "주먹플레이트",
+      "en": "Fist Plate",
+      "ja": "こぶしのプレート"
+    },
+    "form-plate-fire": {
+      "ko": "불구슬플레이트",
+      "en": "Flame Plate",
+      "ja": "ひのたまプレート"
+    },
+    "form-plate-flying": {
+      "ko": "푸른하늘플레이트",
+      "en": "Sky Plate",
+      "ja": "あおぞらプレート"
+    },
+    "form-plate-ghost": {
+      "ko": "원령플레이트",
+      "en": "Spooky Plate",
+      "ja": "もののけプレート"
+    },
+    "form-plate-grass": {
+      "ko": "초록플레이트",
+      "en": "Meadow Plate",
+      "ja": "みどりのプレート"
+    },
+    "form-plate-ground": {
+      "ko": "대지플레이트",
+      "en": "Earth Plate",
+      "ja": "だいちのプレート"
+    },
+    "form-plate-ice": {
+      "ko": "고드름플레이트",
+      "en": "Icicle Plate",
+      "ja": "つららのプレート"
+    },
+    "form-plate-poison": {
+      "ko": "맹독플레이트",
+      "en": "Toxic Plate",
+      "ja": "もうどくプレート"
+    },
+    "form-plate-psychic": {
+      "ko": "이상한플레이트",
+      "en": "Mind Plate",
+      "ja": "ふしぎのプレート"
+    },
+    "form-plate-rock": {
+      "ko": "암석플레이트",
+      "en": "Stone Plate",
+      "ja": "がんせきプレート"
+    },
+    "form-plate-steel": {
+      "ko": "강철플레이트",
+      "en": "Iron Plate",
+      "ja": "こうてつプレート"
+    },
+    "form-plate-water": {
+      "ko": "물방울플레이트",
+      "en": "Splash Plate",
+      "ja": "しずくプレート"
+    },
+    "form-prison-bottle": {
+      "ko": "굴레의항아리",
+      "en": "Prison Bottle",
+      "ja": "いましめのツボ"
+    },
+    "form-red-orb": {
+      "ko": "주홍구슬",
+      "en": "Red Orb",
+      "ja": "べにいろのたま"
+    },
+    "form-reins-of-unity": {
+      "ko": "유대의고삐",
+      "en": "Reins of Unity",
+      "ja": "キズナのタヅナ"
+    },
+    "form-reveal-glass": {
+      "ko": "비추는거울",
+      "en": "Reveal Glass",
+      "ja": "うつしかがみ"
+    },
+    "form-rusted-shield": {
+      "ko": "녹슨방패",
+      "en": "Rusted Shield",
+      "ja": "くちたたて"
+    },
+    "form-rusted-sword": {
+      "ko": "녹슨검",
+      "en": "Rusted Sword",
+      "ja": "くちたけん"
+    },
+    "form-tera-orb": {
+      "ko": "테라스탈오브",
+      "en": "Tera Orb",
+      "ja": "テラスタルオーブ"
+    },
+    "form-ultranecrozium-z": {
+      "ko": "울트라네크로Z",
+      "en": "Ultranecrozium Z",
+      "ja": "ウルトラネクロＺ"
+    },
+    "form-zygarde-cube": {
+      "ko": "지가르데큐브",
+      "en": "Zygarde Cube",
+      "ja": "ジガルデキューブ"
+    },
+    "galarica-cuff": {
+      "ko": "가라두구팔찌",
+      "en": "Galarica Cuff",
+      "ja": "ガラナツブレス"
+    },
+    "galarica-wreath": {
+      "ko": "가라두구머리장식",
+      "en": "Galarica Wreath",
+      "ja": "ガラナツリース"
+    },
+    "ice-stone": {
+      "ko": "얼음의돌",
+      "en": "Ice Stone",
+      "ja": "こおりのいし"
+    },
+    "kings-rock": {
+      "ko": "왕의징표석",
+      "en": "King’s Rock",
+      "ja": "おうじゃのしるし"
+    },
+    "leaf-stone": {
+      "ko": "리프의돌",
+      "en": "Leaf Stone",
+      "ja": "リーフのいし"
+    },
+    "linking-cord": {
+      "ko": "연결의끈",
+      "en": "Linking Cord",
+      "ja": " つながりのヒモ"
+    },
+    "magmarizer": {
+      "ko": "마그마부스터",
+      "en": "Magmarizer",
+      "ja": "マグマブースター"
+    },
+    "malicious-armor": {
+      "ko": "저주받은갑옷",
+      "en": "Malicious Armor",
+      "ja": "ノロイノヨロイ"
+    },
+    "masterpiece-teacup": {
+      "ko": "걸작찻잔",
+      "en": "Masterpiece Teacup",
+      "ja": "ボンサクのちゃわん"
+    },
+    "metal-alloy": {
+      "ko": "복합금속",
+      "en": "Metal Alloy",
+      "ja": "ふくごうきんぞく"
+    },
+    "metal-coat": {
+      "ko": "금속코트",
+      "en": "Metal Coat",
+      "ja": "メタルコート"
+    },
+    "moon-stone": {
+      "ko": "달의돌",
+      "en": "Moon Stone",
+      "ja": "つきのいし"
+    },
+    "oval-stone": {
+      "ko": "동글동글돌",
+      "en": "Oval Stone",
+      "ja": "まんまるいし"
+    },
+    "peat-block": {
+      "ko": "피트블록",
+      "en": "Peat Block",
+      "ja": "ピートブロック"
+    },
+    "prism-scale": {
+      "ko": "고운비늘",
+      "en": "Prism Scale",
+      "ja": "きれいなウロコ"
+    },
+    "protector": {
+      "ko": "프로텍터",
+      "en": "Protector",
+      "ja": "プロテクター"
+    },
+    "razor-claw": {
+      "ko": "예리한손톱",
+      "en": "Razor Claw",
+      "ja": "するどいツメ"
+    },
+    "razor-fang": {
+      "ko": "예리한이빨",
+      "en": "Razor Fang",
+      "ja": "するどいキバ"
+    },
+    "reaper-cloth": {
+      "ko": "영계의천",
+      "en": "Reaper Cloth",
+      "ja": "れいかいのぬの"
+    },
+    "sachet": {
+      "ko": "향기주머니",
+      "en": "Sachet",
+      "ja": "においぶくろ"
+    },
+    "scroll-of-darkness": {
+      "ko": "악의 족자",
+      "en": "Scroll of Darkness",
+      "ja": "あくのかけじく"
+    },
+    "scroll-of-waters": {
+      "ko": "물의 족자",
+      "en": "Scroll of Waters",
+      "ja": "みずのかけじく"
+    },
+    "shiny-stone": {
+      "ko": "빛의돌",
+      "en": "Shiny Stone",
+      "ja": "ひかりのいし"
+    },
+    "sun-stone": {
+      "ko": "태양의돌",
+      "en": "Sun Stone",
+      "ja": "たいようのいし"
+    },
+    "sweet-apple": {
+      "ko": "달콤한사과",
+      "en": "Sweet Apple",
+      "ja": "あまーいりんご"
+    },
+    "syrupy-apple": {
+      "ko": "꿀맛사과",
+      "en": "Syrupy Apple",
+      "ja": "みついりりんご"
+    },
+    "tart-apple": {
+      "ko": "새콤한사과",
+      "en": "Tart Apple",
+      "ja": "すっぱいりんご"
+    },
+    "thunder-stone": {
+      "ko": "천둥의돌",
+      "en": "Thunder Stone",
+      "ja": "かみなりのいし"
+    },
+    "unremarkable-teacup": {
+      "ko": "범작찻잔",
+      "en": "Unremarkable Teacup",
+      "ja": "ボンサクのちゃわん"
+    },
+    "up-grade": {
+      "ko": "업그레이드",
+      "en": "Upgrade",
+      "ja": "アップグレード"
+    },
+    "water-stone": {
+      "ko": "물의돌",
+      "en": "Water Stone",
+      "ja": "みずのいし"
+    },
+    "whipped-dream": {
+      "ko": "휘핑팝",
+      "en": "Whipped Dream",
+      "ja": "ホイップポップ"
+    }
+  },
+  "invented": [
+    "form-appliance-fan",
+    "form-appliance-frost",
+    "form-appliance-heat",
+    "form-appliance-mow",
+    "form-appliance-wash",
+    "form-costume-trunk",
+    "form-gs-ball",
+    "form-soul-heart"
+  ]
+}
