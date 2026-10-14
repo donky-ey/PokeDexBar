@@ -67,14 +67,14 @@ final class FormSplitRequirementTests: XCTestCase {
     func testTheDefaultFormKeepsTheBaseRequirement() throws {
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
         let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 855))
-        XCTAssertEqual(node.requirementRaw, .item(["cracked-pot"]),
+        XCTAssertEqual(node.requirementRaw, .item("cracked-pot"),
                        "위작(기본)이 깨진포트를 요구하지 않는다")
     }
 
     func testTheRareVariantGetsItsOwnRequirement() throws {
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
         let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 855))
-        XCTAssertEqual(node.formRequirementsRaw["antique"], .item(["chipped-pot"]),
+        XCTAssertEqual(node.formRequirementsRaw["antique"], .item("chipped-pot"),
                        "진작이 이빠진포트를 요구하지 않는다: \(node.formRequirementsRaw)")
     }
 
@@ -94,7 +94,7 @@ final class FormSplitRequirementTests: XCTestCase {
         """
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(eeveeChain.utf8))
         let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 134))
-        XCTAssertEqual(node.requirementRaw, .item(["water-stone"]))
+        XCTAssertEqual(node.requirementRaw, .item("water-stone"))
         XCTAssertTrue(node.formRequirementsRaw.isEmpty, "\(node.formRequirementsRaw)")
     }
 
@@ -319,7 +319,7 @@ Expected: 컴파일 실패 — `requirement(for:line:region:fixedForm:)` 가 없
 
 ```swift
             && meetsRequirement(requirement(for: speciesID, line: line, region: individual.region,
-                                            fixedForm: individual.fixedForm),
+                                            fixedForm: individual.birthForm),
                                 for: individual)
 ```
 
@@ -1252,16 +1252,41 @@ Expected: 컴파일 실패 — `evolveChoices` 가 없다.
         }
 ```
 
+**`Josa` 에 로/으로가 없다**(이/가·을/를·은/는 뿐이다) — 먼저 더한다. `Sources/PokeDexBar/Core/Josa.swift`:
+
+```swift
+    /// 로/으로. **ㄹ받침은 "로" 다** — 받침 유무만 보면 "번개의돌으로"가 된다.
+    static func roEuro(_ word: String) -> String {
+        guard let last = word.unicodeScalars.last else { return "로" }
+        if (0xAC00...0xD7A3).contains(last.value) {
+            let final = (last.value - 0xAC00) % 28
+            return (final == 0 || final == 8) ? "로" : "으로"   // 8 = ㄹ
+        }
+        return hasFinalConsonant(word) ? "으로" : "로"
+    }
+```
+
+테스트(`Tests/PokeDexBarTests/CopyStyleTests.swift` 의 조사 테스트 옆):
+
+```swift
+    /// ㄹ받침은 "로" 다 — 받침 유무만 보면 "번개의돌으로"가 된다.
+    func testTheRoParticleTreatsRieulAsNoFinalConsonant() {
+        XCTAssertEqual(Josa.roEuro("천둥의돌"), "로")       // ㄹ
+        XCTAssertEqual(Josa.roEuro("연결의끈"), "으로")     // ㄴ
+        XCTAssertEqual(Josa.roEuro("딸기사탕공예"), "로")   // 받침 없음
+    }
+```
+
 `Localization.swift`:
 
 ```swift
     /// 도구가 결과 모습을 가르는 갈래의 버튼 — 무엇을 쓰는지가 곧 어떤 모습이 되는지다.
     func evolveWith(_ item: String) -> String {
-        t("\(item)로 진화", "Evolve with \(item)", "\(item)でしんか")
+        t("\(item)\(Josa.roEuro(item)) 진화", "Evolve with \(item)", "\(item)でしんか")
     }
 ```
 
-> 조사는 하드코딩하지 않는다(`CopyStyleTests.testNoHardcodedJosaAnywhere`). 도구 이름이 받침으로 끝날 수 있으므로 **`로/으로` 를 가르는 기존 헬퍼가 있으면 그것을 쓰고, 없으면 `l.evolveWith` 안에서 받침을 보고 고른다** — `Localization.swift` 에 `discoveryFoundBy` 가 쓰는 조사 처리 방식을 따른다.
+> 조사를 문구에 박지 않는다(`CopyStyleTests.testNoHardcodedJosaAnywhere`) — `discoveryFoundBy` 가 `Josa.iGa` 를 쓰는 것과 같은 방식이다.
 
 - [ ] **Step 5: 테스트 통과 확인**
 
@@ -1466,6 +1491,12 @@ def form_names():
 **한국어가 없는 폼이 있다**(실측: `polteageist-antique` 의 ko 가 비어 있다). 위 테스트는 `if let`
 으로 없는 언어를 건너뛰므로, 그런 항목은 `BirthFormCatalog` 의 기존 관례대로 일본어 원문에서
 옮기고 그 사실을 카탈로그 주석에 남긴다(이미 `sinisteaLine` 주석이 그렇게 돼 있다).
+
+**스크립트를 고친 뒤 반드시 돌려서 픽스처를 다시 만든다:**
+
+Run: `python3 scripts/generate-item-names.py`
+Expected: `forms` 키가 생긴다. `Fixture.forms` 는 비옵셔널이라 **재생성을 빼먹으면 디코드가
+실패해 `ItemNameTests` 가 통째로 깨진다.**
 
 - [ ] **Step 5: 전체 테스트 후 커밋**
 
