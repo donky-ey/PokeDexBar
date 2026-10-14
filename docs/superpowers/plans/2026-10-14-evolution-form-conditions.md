@@ -1096,21 +1096,31 @@ Expected: 컴파일 실패 — `strawberrySweet` 등이 없다.
 ```swift
         .init(speciesID: 869, item: .strawberrySweet, variant: nil, slug: nil, label: nil),
         .init(speciesID: 869, item: .berrySweet, variant: "rubycream",
-              slug: "alcremie-rubycream", label: .init("루비크림", "Ruby Cream", "ルビーミルク")),
+              slug: "alcremie-rubycream", label: .init("밀키루비", "Ruby Cream", "ミルキィルビー")),
         .init(speciesID: 869, item: .loveSweet, variant: "matchacream",
-              slug: "alcremie-matchacream", label: .init("말차크림", "Matcha Cream", "マッチャミルク")),
+              slug: "alcremie-matchacream", label: .init("밀키말차", "Matcha Cream", "ミルキィまっちゃ")),
         .init(speciesID: 869, item: .starSweet, variant: "mintcream",
-              slug: "alcremie-mintcream", label: .init("민트크림", "Mint Cream", "ミントミルク")),
+              slug: "alcremie-mintcream", label: .init("밀키민트", "Mint Cream", "ミルキィミント")),
         .init(speciesID: 869, item: .cloverSweet, variant: "lemoncream",
-              slug: "alcremie-lemoncream", label: .init("레몬크림", "Lemon Cream", "レモンミルク")),
+              slug: "alcremie-lemoncream", label: .init("밀키레몬", "Lemon Cream", "ミルキィレモン")),
         .init(speciesID: 869, item: .flowerSweet, variant: "saltedcream",
-              slug: "alcremie-saltedcream", label: .init("솔트크림", "Salted Cream", "ソルトミルク")),
+              slug: "alcremie-saltedcream", label: .init("밀키솔트", "Salted Cream", "ミルキィソルト")),
         .init(speciesID: 869, item: .ribbonSweet, variant: "rainbowswirl",
               slug: "alcremie-rainbowswirl",
-              label: .init("레인보우스월", "Rainbow Swirl", "レインボーミックス")),
+              label: .init("트리플믹스", "Rainbow Swirl", "トリプルミックス")),
 ```
 
-> **라벨을 손으로 적지 마라.** Task 8 이 `pokemon-form` 의 공식 이름으로 이 표를 잠근다 — 위 값은 그때 대조되고, 어긋나면 테스트가 깨진다.
+> **위 ko·ja 는 공식 값이다**(2026-10-14 확인). 처음 계획에 적었던 "루비크림·말차크림…" 은 지어낸
+> 것이었고 전부 틀렸다 — 공식은 `밀키루비`·`ミルキィルビー` 식이다. 도구 이름 87개가 틀렸던 것과
+> 같은 부류라 여기서 미리 바로잡았다.
+>
+> **en 만 공식값을 그대로 쓰지 않는다.** PokéAPI 의 `form_names` 는 두 축을 합쳐 주므로
+> en 이 `"Ruby Cream Strawberry Sweet"` 다 — 이 앱은 크림만 쓰는데 그걸 그대로 넣으면 베리
+> 사탕공예로 연 모습이 "Strawberry Sweet" 라고 말한다. en 은 크림 쪽 절반만 쓴다.
+>
+> **그리고 ko·ja 가 실린 폼은 `-strawberry-sweet` 조합뿐이다** — 다른 사탕공예 조합
+> (`alcremie-ruby-cream-berry-sweet` 등)은 `form_names` 가 비어 있다. Task 8 의 슬러그 맵은
+> 딸기 조합을 가리켜야 한다.
 
 - [ ] **Step 5: 아이템 이름 픽스처를 다시 만든다**
 
@@ -1442,20 +1452,25 @@ final class EvolutionFormCoverageTests: XCTestCase {
 # EvolvedFormCatalog 의 슬러그 → PokéAPI pokemon-form 슬러그.
 FORM_SLUGS = {
     "urshifu-rapidstrike": "urshifu-rapid-strike",
-    "alcremie-rubycream": "alcremie-ruby-cream",
-    "alcremie-matchacream": "alcremie-matcha-cream",
-    "alcremie-mintcream": "alcremie-mint-cream",
-    "alcremie-lemoncream": "alcremie-lemon-cream",
-    "alcremie-saltedcream": "alcremie-salted-cream",
-    "alcremie-rainbowswirl": "alcremie-rainbow-swirl",
+    # 크림 이름이 실린 폼은 딸기 조합뿐이다 — 다른 사탕공예 조합은 form_names 가 비어 있다.
+    "alcremie-rubycream": "alcremie-ruby-cream-strawberry-sweet",
+    "alcremie-matchacream": "alcremie-matcha-cream-strawberry-sweet",
+    "alcremie-mintcream": "alcremie-mint-cream-strawberry-sweet",
+    "alcremie-lemoncream": "alcremie-lemon-cream-strawberry-sweet",
+    "alcremie-saltedcream": "alcremie-salted-cream-strawberry-sweet",
+    "alcremie-rainbowswirl": "alcremie-rainbow-swirl-strawberry-sweet",
 }
+
+# 공식 en 은 두 축을 합친 이름("Ruby Cream Strawberry Sweet")이라 그대로 쓰면 안 된다 —
+# 이 앱의 폼은 크림만 가리킨다. en 은 앱 값을 유지하고 ko·ja 만 대조한다.
+FORM_LANGS = ("ko", "ja")
 
 def form_names():
     out = {}
     for app_slug, api_slug in FORM_SLUGS.items():
         dto = fetch(f"https://pokeapi.co/api/v2/pokemon-form/{api_slug}")
         by_lang = {n["language"]["name"]: n["name"] for n in dto.get("form_names", [])}
-        out[app_slug] = {lang: by_lang[lang] for lang in LANGS if by_lang.get(lang)}
+        out[app_slug] = {lang: by_lang[lang] for lang in FORM_LANGS if by_lang.get(lang)}
     return out
 ```
 
