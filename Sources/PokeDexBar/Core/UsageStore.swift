@@ -82,6 +82,20 @@ final class UsageStore {
     var antialiasSprites: Bool {
         didSet { defaults.set(antialiasSprites, forKey: "antialiasSprites") }
     }
+    /// 플로팅 펫을 처음 자리로 돌려 달라는 요청. **값 자체는 의미가 없고 바뀌었다는 것이 신호다** —
+    /// 패널이 이 속성을 관찰하다가 바뀌면 자기가 저장한 위치를 지운다.
+    ///
+    /// 스토어가 위치를 직접 지우지 않는 이유: 위치 키는 패널이 소유한다(`FloatingPetController`).
+    /// 여기서도 그 문자열을 알면 같은 리터럴이 두 곳에 생겨 한쪽만 바뀌는 드리프트가 난다.
+    /// 저장하지 않는다 — 앱을 껐다 켜면 0 부터 다시 세도 되는 일회성 신호다.
+    private(set) var floatingPetHomeRequests = 0
+
+    /// 설정의 「처음 자리로」 버튼.
+    func sendFloatingPetHome() { floatingPetHomeRequests += 1 }
+
+    /// 플로팅 펫 크기의 허용 범위 — 설정 슬라이더와 저장값 읽기가 **같은 값**을 쓴다.
+    static let floatingPetSizeRange: ClosedRange<Double> = 48...192
+
     /// 플로팅 펫 스프라이트 한 변 크기(pt).
     var floatingPetSize: Double {
         didSet { defaults.set(floatingPetSize, forKey: "floatingPetSize") }
@@ -340,7 +354,13 @@ final class UsageStore {
         floatingPetEnabled = d.object(forKey: "floatingPetEnabled") as? Bool ?? false
         antialiasSprites = d.object(forKey: "antialiasSprites") as? Bool ?? true
         fillBoxSlots = d.object(forKey: "fillBoxSlots") as? Bool ?? true
-        floatingPetSize = d.object(forKey: "floatingPetSize") as? Double ?? 96
+        // **읽을 때 범위를 자른다.** 이 값이 0 이면 펫이 0×0 으로 그려져 어디에도 안 보이고,
+        // 설정은 `UserDefaults` 라 껐다 켜도·재설치해도 그대로 남는다 — "펫이 사라졌다"와 같은
+        // 증상을 내는 또 하나의 길이다. 슬라이더로는 범위 밖 값을 못 넣지만, 옛 판이 쓴 값이나
+        // 손으로 고친 값은 그대로 들어온다(관대 디코딩의 짝 — 경계에서 값 범위를 검증한다).
+        let range = Self.floatingPetSizeRange
+        floatingPetSize = min(range.upperBound,
+                              max(range.lowerBound, d.object(forKey: "floatingPetSize") as? Double ?? 96))
         floatingPetBubbleAlerts = d.object(forKey: "floatingPetBubbleAlerts") as? Bool ?? true
         floatingPetBurnSpeed = d.object(forKey: "floatingPetBurnSpeed") as? Bool ?? true
         disableKeychainAccess = d.object(forKey: "disableKeychainAccess") as? Bool ?? false

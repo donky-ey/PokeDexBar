@@ -659,6 +659,13 @@ struct L {
           "Your Pokémon floats over the screen — drag to reposition",
           "ポケモンが画面の上に浮かびます — ドラッグで移動できます")
     }
+    var floatingPetHomeLabel: String { t("처음 자리로", "Bring it back", "はじめの場所へ") }
+    var floatingPetHomeHint: String {
+        t("펫이 안 보이면 화면 오른쪽 아래로 돌려보내요",
+          "If you can't find the pet, send it to the bottom-right of the screen",
+          "ペットが見当たらないとき、画面の右下へ戻します")
+    }
+    var floatingPetHomeButton: String { t("돌려보내기", "Reset", "戻す") }
     var floatingPetSizeLabel: String { t("크기", "Size", "サイズ") }
     /// 지금은 한도 알림만 말풍선으로 뜨지만, 알림 종류가 늘어도 이 라벨은 그대로 쓴다.
     var floatingPetBubbleAlertsLabel: String {

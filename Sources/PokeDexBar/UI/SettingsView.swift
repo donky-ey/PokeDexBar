@@ -177,9 +177,23 @@ struct SettingsView: View {
                 Divider()
                 groupRow {
                     Text(l.floatingPetSizeLabel).font(.callout)
-                    Slider(value: $store.floatingPetSize, in: 48...192, step: 8)
+                    Slider(value: $store.floatingPetSize, in: UsageStore.floatingPetSizeRange, step: 8)
                     Text("\(Int(store.floatingPetSize))px")
                         .font(.caption).monospacedDigit().frame(width: 44, alignment: .trailing)
+                }
+                Divider()
+                // 펫을 잃어버렸을 때의 탈출구. 화면 가장자리에 한 줄만 걸쳐 안 보이게 된 펫이
+                // 껐다 켜도·재설치해도 안 돌아왔던 제보가 있었다 — 그 원인은 고쳤지만, 다음에 또
+                // 다른 이유로 숨어도 사용자가 스스로 꺼낼 수 있어야 한다. 크기 바로 아래에 두는 건
+                // 둘 다 "펫이 화면 어디에 어떻게 있나"를 정하는 줄이기 때문이다.
+                groupRow {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(l.floatingPetHomeLabel)
+                        Text(l.floatingPetHomeHint).font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    Spacer()
+                    Button(l.floatingPetHomeButton) { store.sendFloatingPetHome() }
+                        .controlSize(.small)
                 }
                 Divider()
                 toggleRow(l.floatingPetBubbleAlertsLabel, $store.floatingPetBubbleAlerts)
