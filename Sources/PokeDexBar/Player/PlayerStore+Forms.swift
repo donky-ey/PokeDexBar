@@ -87,7 +87,8 @@ extension PlayerStore {
     /// 진화 도구가 먼저 오고 폼 도구가 뒤에 온다 — 진화가 이 게임의 기본 동작이라 급하다.
     func forageTargets(_ individual: Individual) -> [String] {
         let evolution = ForageCatalog.needs(speciesID: individual.speciesID,
-                                            region: individual.region)
+                                            region: individual.region,
+                                            fixedForm: individual.birthForm)
             .filter { count(of: $0) == 0 }
             .map { $0.label(language) }
         let forms = FormForageCatalog.items(speciesID: individual.speciesID,

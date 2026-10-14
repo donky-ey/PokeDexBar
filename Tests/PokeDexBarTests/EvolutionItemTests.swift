@@ -675,3 +675,76 @@ final class FormSplitRequirementTests: XCTestCase {
         }
     }
 }
+
+/// 물어 오는 도구도 태생 모습을 따라야 한다. 안 그러면 위작 데인차가 평생 못 쓸 이빠진포트를
+/// 며칠 걸려 모은다 — 채집은 느리고(리본 기준 수십 B 토큰) 그 시간이 통째로 버려진다.
+final class FormScopedForageTests: XCTestCase {
+    func testThePhonyOneOnlyForagesTheCrackedPot() {
+        XCTAssertEqual(ForageCatalog.needs(speciesID: 854, region: nil, fixedForm: nil),
+                       [.crackedPot])
+    }
+
+    func testTheAntiqueOneOnlyForagesTheChippedPot() {
+        XCTAssertEqual(ForageCatalog.needs(speciesID: 854, region: nil, fixedForm: "antique"),
+                       [.chippedPot])
+    }
+
+    func testPoltchageistSplitsTheSameWay() {
+        XCTAssertEqual(ForageCatalog.needs(speciesID: 1012, region: nil, fixedForm: nil),
+                       [.unremarkableTeacup])
+        XCTAssertEqual(ForageCatalog.needs(speciesID: 1012, region: nil, fixedForm: "artisan"),
+                       [.masterpieceTeacup])
+    }
+
+    /// 대조군 — 모습으로 안 갈리는 종은 전부 그대로 물어 온다(치고마의 족자 둘은 **선택지**라
+    /// 둘 다 유효하다). 게이트가 늘 켜져 있으면 안 된다.
+    func testSpeciesWithoutAFormSplitAreUnchanged() {
+        XCTAssertEqual(ForageCatalog.needs(speciesID: 891, region: nil, fixedForm: nil).count, 2)
+        XCTAssertEqual(ForageCatalog.needs(speciesID: 25, region: nil, fixedForm: nil),
+                       [.thunderStone])
+    }
+}
+
+/// 태생 모습이 **실제 채집 굴림까지** 닿는가. 표만 맞아도 굴림 쪽이 모습을 빼먹으면 위작·골동이
+/// 서로의 포트를 모은다 — 표 테스트(`FormScopedForageTests`)는 그걸 못 잡는다.
+@MainActor
+final class FormScopedForageProductionTests: XCTestCase {
+    private var clock = Date(timeIntervalSince1970: 1_000_000)
+
+    /// 반려 리본(700‰)으로 사탕을 `candies` 개 만들어 굴림을 그만큼 돌린다.
+    private func forage(birthForm: String?, candies: Int = 40) -> PlayerStore {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("formforage-\(UUID().uuidString).json")
+        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 9), now: { self.clock },
+                                defaults: UserDefaults(suiteName: "formforage-\(UUID().uuidString)")!)
+        var individual = Individual(baseID: 854, speciesID: 854, pathIDs: [854], nature: .serious,
+                                    obtainedAt: clock, grade: .common)
+        individual.birthForm = birthForm
+        store.addForTesting(individual)
+        store.setPartner(individual.id)
+        store.update(todayTokens: 0, todayDate: "2026-01-01", hasUsageData: true)   // 기준선
+        clock = clock.addingTimeInterval(90 * 86_400)
+        let per = Ribbon.lifelong.tokensPerCandy
+        for k in 1...candies {
+            store.update(todayTokens: per * k, todayDate: "2026-01-01", hasUsageData: true)
+        }
+        return store
+    }
+
+    /// 골동 데인차는 이빠진포트만 — 깨진포트를 굴리면 안 된다. 이빠진포트가 한 번이라도
+    /// 나와야 굴림이 실제로 돌았다는 뜻이라 빈 검사가 아니다.
+    func testTheAntiqueOneNeverFetchesTheCrackedPot() {
+        let store = forage(birthForm: "antique")
+        XCTAssertEqual(store.state.inventory[EvolutionItem.crackedPot.rawValue] ?? 0, 0,
+                       "골동 데인차가 쓸 수 없는 깨진포트를 물어 왔다")
+        XCTAssertGreaterThan(store.state.inventory[EvolutionItem.chippedPot.rawValue] ?? 0, 0)
+    }
+
+    /// 대조군 — 위작(기본형)은 반대로 깨진포트만 받는다.
+    func testThePhonyOneNeverFetchesTheChippedPot() {
+        let store = forage(birthForm: nil)
+        XCTAssertEqual(store.state.inventory[EvolutionItem.chippedPot.rawValue] ?? 0, 0,
+                       "위작 데인차가 쓸 수 없는 이빠진포트를 물어 왔다")
+        XCTAssertGreaterThan(store.state.inventory[EvolutionItem.crackedPot.rawValue] ?? 0, 0)
+    }
+}

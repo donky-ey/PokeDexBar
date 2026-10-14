@@ -29,11 +29,28 @@ enum ForageCatalog {
         }
     }
 
+    /// 이 갈래가 어느 **태생 모습** 개체에게 해당하는가. `RegionScope` 와 같은 모양이고 축만
+    /// 다르다 — 지방은 "어디서 왔나", 이건 "그렇게 태어났나"다. 데인차·차데스 둘뿐이다.
+    enum FormScope: Sendable, Equatable, Hashable {
+        case any
+        /// 그 태생 모습만. `nil` 은 기본형(위작 데인차·범작 차데스).
+        case only(String?)
+
+        func covers(_ fixedForm: String?) -> Bool {
+            switch self {
+            case .any: true
+            case .only(let v): v == fixedForm
+            }
+        }
+    }
+
     struct Need: Sendable, Equatable, Hashable {
         /// 이 도구로 갈 수 있는 종.
         let to: Int
         let item: EvolutionItem
         let scope: RegionScope
+        /// 태생 모습이 갈리는 종만 좁힌다. 기본값 `.any` 라 나머지 항목은 그대로 둔다.
+        var formScope: FormScope = .any
     }
 
     /// 진화 전 종 → 그 종이 필요로 하는 도구들. 여기 없는 종은 아무것도 못 물어 온다.
@@ -142,8 +159,8 @@ enum ForageCatalog {
             .init(to: 1011, item: .syrupyApple, scope: .any),
         ],
         854: [
-            .init(to: 855, item: .crackedPot, scope: .any),
-            .init(to: 855, item: .chippedPot, scope: .any),
+            .init(to: 855, item: .crackedPot, scope: .any, formScope: .only(nil)),
+            .init(to: 855, item: .chippedPot, scope: .any, formScope: .only("antique")),
         ],
         884: [.init(to: 1018, item: .metalAlloy, scope: .any)],
         891: [
@@ -158,15 +175,21 @@ enum ForageCatalog {
         951: [.init(to: 952, item: .fireStone, scope: .any)],
         974: [.init(to: 975, item: .iceStone, scope: .any)],
         1012: [
-            .init(to: 1013, item: .unremarkableTeacup, scope: .any),
-            .init(to: 1013, item: .masterpieceTeacup, scope: .any),
+            .init(to: 1013, item: .unremarkableTeacup, scope: .any, formScope: .only(nil)),
+            .init(to: 1013, item: .masterpieceTeacup, scope: .any, formScope: .only("artisan")),
         ],
     ]
 
-    /// 이 개체가 물어 올 수 있는 도구들. 지방이 안 맞는 갈래는 뺀다.
+    /// 이 개체가 물어 올 수 있는 도구들. 지방·태생 모습이 안 맞는 갈래는 뺀다.
     /// 이미 가졌는지는 여기서 안 본다 — 그건 인벤토리를 아는 `PlayerStore.forage` 의 `owned`
     /// 가 걸러 낸다. 이 표는 "무엇이 필요한가"만 답한다.
-    static func needs(speciesID: Int, region: Region?) -> [EvolutionItem] {
-        (bySpecies[speciesID] ?? []).filter { $0.scope.covers(region) }.map(\.item)
+    ///
+    /// `fixedForm` 은 `Individual.birthForm` 이다. 위작 데인차와 골동 데인차가 서로 다른 포트를
+    /// 쓰듯 같은 종이 태생 모습에 따라 다른 도구를 요구하는데, 이걸 안 가르면 위작이 쓸 수 없는
+    /// 이빠진포트를 며칠씩 모은다.
+    static func needs(speciesID: Int, region: Region?, fixedForm: String? = nil) -> [EvolutionItem] {
+        (bySpecies[speciesID] ?? [])
+            .filter { $0.scope.covers(region) && $0.formScope.covers(fixedForm) }
+            .map(\.item)
     }
 }

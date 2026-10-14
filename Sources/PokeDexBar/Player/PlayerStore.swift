@@ -234,8 +234,11 @@ final class PlayerStore {
         // **이미 가진 것은 후보에서 뺀다** — 도구는 없어지지 않으므로 두 번째는 아무 쓸모가 없고,
         // 그대로 두면 다 모은 개체의 채집 굴림이 영원히 헛돈다. 그래서 `owned` 를 매번 다시 읽는다
         // (한 정산에서 둘이 나올 때 같은 걸 두 번 주지 않으려면 루프 안에서 갱신돼야 한다).
+        // 태생 모습도 넘긴다 — 빠뜨리면 골동 데인차가 쓸 수 없는 깨진포트를 굴린다(같은 종의 두 모습이
+        // 서로 다른 포트를 쓰는 게 이 표의 요점이다). 진화 목록(`forageTargets`)과 같은 입력이어야 한다.
         let needs = ForageCatalog.needs(speciesID: state.box[index].speciesID,
-                                        region: state.box[index].region)
+                                        region: state.box[index].region,
+                                        fixedForm: state.box[index].birthForm)
         for _ in 0..<produced.count {
             let owned = Set(needs.filter { state.inventory[$0.rawValue] != nil })
             guard let item = Self.forage(ribbon: ribbon, needs: needs, owned: owned,
