@@ -39,7 +39,7 @@ final class RegionalFormFieldTests: XCTestCase {
     /// 갈라르 쪽은 그 조건을 그대로 갖는다 — 갈라내는 것이지 버리는 것이 아니다.
     func testTheGalarianSlowbroKeepsTheCuff() {
         XCTAssertEqual(PokeAPIClient.regionalRequirement(from: slowpokeToSlowbro),
-                       .item("galarica-cuff"))
+                       .item(["galarica-cuff"]))
     }
 
     /// 줄의 주인은 `required_pokemon_form` 으로 가린다.
@@ -59,7 +59,7 @@ final class RegionalFormFieldTests: XCTestCase {
                                     required_pokemon_form: NamedRef(name: "eevee", url: nil))
         XCTAssertFalse(PokeAPIClient.isRegional(eevee), "이브이 줄을 지방으로 봤다")
         XCTAssertEqual(PokeAPIClient.requirement(from: [eevee], speciesID: 134, parentLevel: 1),
-                       .item("water-stone"))
+                       .item(["water-stone"]))
     }
 
     /// 네 지방 접미사가 모두 잡힌다 — 실제 응답에 있는 값들이다.

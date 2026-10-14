@@ -22,7 +22,7 @@ final class EvolutionRequirementTests: XCTestCase {
         let d = try detail(#"""
         {"trigger":{"name":"level-up","url":null},"min_level":30,"item":{"name":"fire-stone","url":null}}
         """#)
-        XCTAssertEqual(PokeAPIClient.requirement(from: [d], speciesID: uncatalogued, parentLevel: 1), .item("fire-stone"))
+        XCTAssertEqual(PokeAPIClient.requirement(from: [d], speciesID: uncatalogued, parentLevel: 1), .item(["fire-stone"]))
     }
 
     /// **관동 나옹은 레벨 28이지 친밀도가 아니다**(사용자 지적). 친밀도는 알로라 나옹의
@@ -58,9 +58,9 @@ final class EvolutionRequirementTests: XCTestCase {
          "base_form":{"name":"vulpix-alola","url":null}}
         """#)
         XCTAssertEqual(PokeAPIClient.requirement(from: [vulpixKanto, vulpixAlola],
-                                                 speciesID: 37, parentLevel: 1), .item("fire-stone"))
+                                                 speciesID: 37, parentLevel: 1), .item(["fire-stone"]))
         XCTAssertEqual(PokeAPIClient.regionalRequirement(from: [vulpixKanto, vulpixAlola]),
-                       .item("ice-stone"), "알로라 식스테일이 불의돌을 요구한다")
+                       .item(["ice-stone"]), "알로라 식스테일이 불의돌을 요구한다")
 
         // 야도란 — 원종은 왕의징표석 교환, 갈라르는 가라르화관. **든 도구라 예전 규칙이 못 봤다.**
         let slowKanto = try detail(#"""
@@ -71,7 +71,7 @@ final class EvolutionRequirementTests: XCTestCase {
          "base_form":{"name":"slowpoke-galar","url":null}}
         """#)
         XCTAssertEqual(PokeAPIClient.regionalRequirement(from: [slowKanto, slowGalar]),
-                       .item("galarica-wreath"), "갈라르 야도킹이 왕의징표석을 요구한다")
+                       .item(["galarica-wreath"]), "갈라르 야도킹이 왕의징표석을 요구한다")
     }
 
     /// 지방 모습의 조건이 **든 도구**일 수도 있다 — 히스이 포푸니라는 예리한손톱을 들고 오른다.
@@ -81,7 +81,7 @@ final class EvolutionRequirementTests: XCTestCase {
         {"trigger":{"name":"level-up","url":null},"held_item":{"name":"razor-claw","url":null},
          "base_form":{"name":"sneasel-hisui","url":null}}
         """#)
-        XCTAssertEqual(PokeAPIClient.regionalRequirement(from: [hisui]), .item("razor-claw"))
+        XCTAssertEqual(PokeAPIClient.regionalRequirement(from: [hisui]), .item(["razor-claw"]))
     }
 
     /// **지방 줄만 있는 갈래는 그 줄을 원종 조건으로도 쓴다.** 가라르 나옹만 나이킹이 되므로
@@ -123,17 +123,17 @@ final class EvolutionRequirementTests: XCTestCase {
         {"trigger":{"name":"level-up","url":null},"held_item":{"name":"razor-claw","url":null},
          "time_of_day":"night"}
         """#)
-        XCTAssertEqual(PokeAPIClient.requirement(from: [d], speciesID: uncatalogued, parentLevel: 1), .item("razor-claw"))
+        XCTAssertEqual(PokeAPIClient.requirement(from: [d], speciesID: uncatalogued, parentLevel: 1), .item(["razor-claw"]))
     }
 
     /// 통신교환은 지금 그대로 — 든 물건이 있으면 그 물건, 없으면 연결의 끈.
     func testTradeIsUnchanged() throws {
         let plain = try detail(#"{"trigger":{"name":"trade","url":null}}"#)
-        XCTAssertEqual(PokeAPIClient.requirement(from: [plain], speciesID: uncatalogued, parentLevel: 1), .item("linking-cord"))
+        XCTAssertEqual(PokeAPIClient.requirement(from: [plain], speciesID: uncatalogued, parentLevel: 1), .item(["linking-cord"]))
         let held = try detail(#"""
         {"trigger":{"name":"trade","url":null},"held_item":{"name":"metal-coat","url":null}}
         """#)
-        XCTAssertEqual(PokeAPIClient.requirement(from: [held], speciesID: uncatalogued, parentLevel: 1), .item("metal-coat"))
+        XCTAssertEqual(PokeAPIClient.requirement(from: [held], speciesID: uncatalogued, parentLevel: 1), .item(["metal-coat"]))
     }
 
     /// **레벨이 안 적힌 갈래는 `max(앞 단계 + 8, 20)`.**

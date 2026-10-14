@@ -600,7 +600,11 @@ struct IndividualDetailView: View {
     nonisolated static func shortNeed(_ need: EvoRequirement, line: EvoLine, l: L) -> String {
         switch need {
         case .none: ""
-        case .item(let item): item.label(l.lang)
+        case .item(let items):
+            // 셋 이상이면 한 줄을 넘는다(마빌크는 일곱) — 첫 이름과 개수만.
+            items.count <= 2
+                ? items.map { $0.label(l.lang) }.joined(separator: " / ")
+                : l.evolveNeedsOneOf(items[0].label(l.lang), items.count)
         case .friendship: l.evolveNeedsFriendshipShort
         case .level(let n): "Lv.\(n)"
         // 소유 조건은 필요한 종의 이름이 곧 조건이다(만타인 ← 총어). 총어는 만타인 자신의

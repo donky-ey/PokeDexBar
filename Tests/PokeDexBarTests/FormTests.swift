@@ -800,7 +800,7 @@ final class EvolutionBranchFoldingTests: XCTestCase {
     private func eeveeLine() -> EvoLine {
         let stones: [(Int, String)] = [(134, "water-stone"), (135, "thunder-stone"),
                                        (136, "fire-stone"), (470, "leaf-stone"), (471, "ice-stone")]
-        var children = stones.map { EvoNode(speciesID: $0.0, children: [], requirementRaw: .item($0.1)) }
+        var children = stones.map { EvoNode(speciesID: $0.0, children: [], requirementRaw: .item([$0.1])) }
         children += [196, 197, 700].map { EvoNode(speciesID: $0, children: [], requirementRaw: .friendship) }
         return EvoLine(baseID: 133, tree: EvoNode(speciesID: 133, children: children),
                        rarity: .common, names: [:])
@@ -843,7 +843,7 @@ final class EvolutionBranchFoldingTests: XCTestCase {
 
     /// 조건 이름은 문장이 아니라 **이름**이어야 한 줄에 여럿이 들어간다.
     func testShortNeedIsANameNotASentence() {
-        let short = IndividualDetailView.shortNeed(.item(.thunderStone), line: eeveeLine(), l: L(.ko))
+        let short = IndividualDetailView.shortNeed(.item([.thunderStone]), line: eeveeLine(), l: L(.ko))
         XCTAssertEqual(short, EvolutionItem.thunderStone.label(.ko))
         XCTAssertFalse(short.contains("파트너"), "짧은 이름에 안내 문장이 섞였다: \(short)")
     }

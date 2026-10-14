@@ -83,7 +83,7 @@ final class RegionalRequirementTests: XCTestCase {
         let line = sandshrewLine()
         let alolan = sandshrew(region: .alola)
         XCTAssertEqual(store.requirement(for: 28, line: line, region: .alola),
-                       .item(.iceStone))
+                       .item([.iceStone]))
 
         XCTAssertFalse(store.canEvolve(alolan, to: 28, line: line), "돌도 없는데 진화한다")
         store.mutate { $0.inventory[EvolutionItem.iceStone.rawValue] = 1 }
@@ -98,7 +98,7 @@ final class RegionalRequirementTests: XCTestCase {
                                        held_item: nil, min_happiness: nil, min_level: nil,
                                        gender: nil, base_form: nil, required_pokemon_form: nil)]
         XCTAssertEqual(PokeAPIClient.requirement(from: details, speciesID: 134, parentLevel: 1),
-                       .item("water-stone"))
+                       .item(["water-stone"]))
         XCTAssertNil(PokeAPIClient.regionalRequirement(from: details),
                      "도구뿐인 갈래에 지방 조건이 생기면 안 된다")
     }
@@ -121,7 +121,7 @@ final class RegionalRequirementTests: XCTestCase {
                                    item: NamedRef(name: "fire-stone", url: nil),
                                    held_item: nil, min_happiness: nil, min_level: 30, gender: nil, base_form: nil, required_pokemon_form: nil)]
         XCTAssertEqual(PokeAPIClient.requirement(from: one, speciesID: 4, parentLevel: 1),
-                       .item("fire-stone"), "같은 줄인데 레벨이 도구를 이겼다")
+                       .item(["fire-stone"]), "같은 줄인데 레벨이 도구를 이겼다")
         XCTAssertNil(PokeAPIClient.regionalRequirement(from: one),
                      "같은 줄짜리에 지방 조건이 생기면 안 된다")
         // 줄이 갈리면 반대 — 그때만 레벨이 원종의 것이 된다.
@@ -134,7 +134,7 @@ final class RegionalRequirementTests: XCTestCase {
     func testTheRegionalRequirementSurvivesTreePruning() throws {
         let line = sandshrewLine()   // EvoLine.init 이 keepingSupportedSpecies 를 지난다
         let node = try XCTUnwrap(line.tree.node(withID: 28))
-        XCTAssertEqual(node.regionalRequirementRaw, .item("ice-stone"),
+        XCTAssertEqual(node.regionalRequirementRaw, .item(["ice-stone"]),
                        "가지치기가 지방 조건을 떨어뜨렸다")
         XCTAssertEqual(node.requirementRaw, .level(22))
     }

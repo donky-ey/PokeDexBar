@@ -151,7 +151,7 @@ extension PlayerStore {
     func meetsRequirement(_ requirement: EvoRequirement, for individual: Individual) -> Bool {
         switch requirement {
         case .none: true
-        case .item(let item): count(of: item) > 0
+        case .item(let items): items.contains { count(of: $0) > 0 }
         case .friendship:
             individual.bondDuration(at: currentDate()) >= EvoRequirement.friendshipSeconds
         case .level(let n): individual.level >= n

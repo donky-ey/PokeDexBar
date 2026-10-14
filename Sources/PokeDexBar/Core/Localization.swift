@@ -346,6 +346,10 @@ struct L {
     var evolveNeedsFriendshipShort: String { t("함께 다니기", "Time together", "一緒にいること") }
     /// 걸음 조건의 짧은 이름 — 친밀도와 같은 자리(접힌 줄)에 쓴다.
     var evolveNeedsWalkedShort: String { t("함께 걷기", "Walking together", "一緒に歩くこと") }
+    /// 도구가 셋 이상인 갈래의 접힌 줄 — 이름을 다 늘어놓으면 한 줄을 넘는다(마빌크는 일곱이다).
+    func evolveNeedsOneOf(_ first: String, _ count: Int) -> String {
+        t("\(first) 등 \(count)종", "\(first) or \(count - 1) more", "\(first)など\(count)種")
+    }
     /// 소유 조건 안내 — 필요한 종의 이름은 갈래 줄에 이미 나오므로, 여기서는 그게 "박스에 갖고
     /// 있어야 한다"는 조건임을 짚는다(도구 안내가 얻는 방법을 짚는 것과 같은 역할).
     var evolutionOwnsHint: String {

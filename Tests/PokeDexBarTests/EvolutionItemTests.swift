@@ -55,14 +55,14 @@ final class EvoRequirementParsingTests: XCTestCase {
     func testItemBecomesAnItemRequirement() {
         XCTAssertEqual(PokeAPIClient.requirement(from: [detail(trigger: "use-item", item: "fire-stone")],
                                                  speciesID: uncatalogued, parentLevel: 1),
-                       .item("fire-stone"))
+                       .item(["fire-stone"]))
     }
 
     /// 통신교환은 도구가 없다 — 이 앱에는 교환 상대가 없으므로 연결의 끈으로 대신한다.
     func testTradeBecomesTheLinkingCord() {
         XCTAssertEqual(PokeAPIClient.requirement(from: [detail(trigger: "trade")],
                                                  speciesID: uncatalogued, parentLevel: 1),
-                       .item(EvolutionItem.linkingCord.rawValue))
+                       .item([EvolutionItem.linkingCord.rawValue]))
     }
 
     func testHappinessBecomesFriendship() {
@@ -94,7 +94,7 @@ final class EvoRequirementParsingTests: XCTestCase {
     func testPicksTheFirstReproducibleCondition() {
         let details = [detail(trigger: "level-up"), detail(trigger: "use-item", item: "moon-stone")]
         XCTAssertEqual(PokeAPIClient.requirement(from: details, speciesID: uncatalogued, parentLevel: 1),
-                       .item("moon-stone"))
+                       .item(["moon-stone"]))
     }
 }
 
@@ -139,7 +139,7 @@ final class FabricatedChainEdgeTests: XCTestCase {
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(vulpixChain.utf8))
         let tree = PokeAPIClient.node(from: dto.chain)
         XCTAssertEqual(tree.children.map(\.speciesID), [38])
-        XCTAssertEqual(tree.children.first?.requirementRaw, .item("fire-stone"))
+        XCTAssertEqual(tree.children.first?.requirementRaw, .item(["fire-stone"]))
     }
 }
 
@@ -174,7 +174,7 @@ final class EvolutionGateTests: XCTestCase {
     func testItemEvolutionIsBlockedWithoutTheItem() {
         let store = makeStore()
         let individual = ready(store)
-        XCTAssertFalse(store.evolve(individualID: individual.id, to: 2, line: line(.item("fire-stone"))))
+        XCTAssertFalse(store.evolve(individualID: individual.id, to: 2, line: line(.item(["fire-stone"]))))
         XCTAssertEqual(store.state.box.first?.speciesID, 1)
     }
 
@@ -183,7 +183,7 @@ final class EvolutionGateTests: XCTestCase {
         let store = makeStore()
         let individual = ready(store)
         store.grantForTesting(.fireStone)
-        XCTAssertTrue(store.evolve(individualID: individual.id, to: 2, line: line(.item("fire-stone"))))
+        XCTAssertTrue(store.evolve(individualID: individual.id, to: 2, line: line(.item(["fire-stone"]))))
         XCTAssertEqual(store.state.box.first?.speciesID, 2)
     }
 
@@ -194,7 +194,7 @@ final class EvolutionGateTests: XCTestCase {
         let individual = ready(store)
         store.grantForTesting(.fireStone)
         XCTAssertFalse(store.evolve(individualID: individual.id, to: 99,
-                                    line: line(.item("fire-stone"))), "라인에 없는 종인데 된다")
+                                    line: line(.item(["fire-stone"]))), "라인에 없는 종인데 된다")
         XCTAssertEqual(store.count(of: .fireStone), 1, "실패한 진화가 도구를 먹었다")
     }
 
@@ -215,7 +215,7 @@ final class EvolutionGateTests: XCTestCase {
             let store = makeStore()
             let first = ready(store), second = ready(store)
             store.grantForTesting(item)
-            let need = line(.item(item.rawValue))
+            let need = line(.item([item.rawValue]))
             XCTAssertTrue(store.evolve(individualID: first.id, to: 2, line: need))
             XCTAssertEqual(store.count(of: item), 1, "\(item) 이 없어졌다")
             XCTAssertTrue(store.evolve(individualID: second.id, to: 2, line: need),
@@ -364,7 +364,7 @@ final class ForageCatalogIntegrityTests: XCTestCase {
                                     held_item: nil, min_happiness: nil, min_level: nil,
                                     gender: nil, base_form: nil, required_pokemon_form: nil),
                 ], speciesID: from, parentLevel: 1)
-                XCTAssertEqual(byItem, .item(need.item.rawValue),
+                XCTAssertEqual(byItem, .item([need.item.rawValue]),
                                "#\(from) → #\(need.to): 게이트가 \(need.item) 을 못 알아본다")
             }
         }
@@ -410,7 +410,7 @@ final class ForagedItemHintTests: XCTestCase {
             let line = EvoLine(baseID: 1, tree: EvoNode(speciesID: 1, children: []),
                                rarity: .common, names: [:])
             for item in [EvolutionItem.magmarizer, .fireStone, .linkingCord] {
-                XCTAssertEqual(IndividualDetailView.shortNeed(.item(item), line: line, l: L(lang)),
+                XCTAssertEqual(IndividualDetailView.shortNeed(.item([item]), line: line, l: L(lang)),
                                item.label(lang), "\(lang) \(item): 갈래 줄에 이름이 없다")
             }
         }
@@ -431,10 +431,10 @@ final class ForagedItemHintTests: XCTestCase {
 final class EvoTreePruningKeepsRequirementsTests: XCTestCase {
     func testPruningCarriesTheRequirement() {
         let tree = EvoNode(speciesID: 1, children: [
-            EvoNode(speciesID: 2, children: [], requirementRaw: .item("fire-stone")),
+            EvoNode(speciesID: 2, children: [], requirementRaw: .item(["fire-stone"])),
         ])
         let pruned = tree.keepingSupportedSpecies()
-        XCTAssertEqual(pruned?.node(withID: 2)?.requirementRaw, .item("fire-stone"),
+        XCTAssertEqual(pruned?.node(withID: 2)?.requirementRaw, .item(["fire-stone"]),
                        "가지치기가 요구 조건을 버렸다 — 조건이 필요한 진화가 그냥 열린다")
     }
 
@@ -516,24 +516,24 @@ final class TradeHeldItemTests: XCTestCase {
     func testHeldItemWinsOverTheCord() {
         XCTAssertEqual(PokeAPIClient.requirement(from: [tradeDetail(held: "metal-coat")],
                                                  speciesID: 4, parentLevel: 1),
-                       .item("metal-coat"))
+                       .item(["metal-coat"]))
         XCTAssertEqual(PokeAPIClient.requirement(from: [tradeDetail(held: "electirizer")],
                                                  speciesID: 4, parentLevel: 1),
-                       .item("electirizer"))
+                       .item(["electirizer"]))
     }
 
     /// 물건 없이 교환하는 10종만 연결의 끈이 담당한다.
     func testPlainTradeStillUsesTheCord() {
         XCTAssertEqual(PokeAPIClient.requirement(from: [tradeDetail(held: nil)],
                                                  speciesID: 4, parentLevel: 1),
-                       .item(EvolutionItem.linkingCord.rawValue))
+                       .item([EvolutionItem.linkingCord.rawValue]))
     }
 
     /// 모르는 물건이면 연결의 끈으로 떨어진다 — 못 넘는 벽을 만들지 않는다.
     func testUnknownHeldItemFallsBackToTheCord() {
         XCTAssertEqual(PokeAPIClient.requirement(from: [tradeDetail(held: "odd-charm")],
                                                  speciesID: 4, parentLevel: 1),
-                       .item(EvolutionItem.linkingCord.rawValue))
+                       .item([EvolutionItem.linkingCord.rawValue]))
     }
 
     /// 실제로 쓰이는 13종류가 전부 카탈로그에 있어야 한다 — 하나라도 빠지면 그 진화가
@@ -573,14 +573,14 @@ final class FormSplitRequirementTests: XCTestCase {
     func testTheDefaultFormKeepsTheBaseRequirement() throws {
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
         let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 855))
-        XCTAssertEqual(node.requirementRaw, .item("cracked-pot"),
+        XCTAssertEqual(node.requirementRaw, .item(["cracked-pot"]),
                        "위작(기본)이 깨진포트를 요구하지 않는다")
     }
 
     func testTheRareVariantGetsItsOwnRequirement() throws {
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
         let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 855))
-        XCTAssertEqual(node.formRequirementsRaw["antique"], .item("chipped-pot"),
+        XCTAssertEqual(node.formRequirementsRaw["antique"], .item(["chipped-pot"]),
                        "진작이 이빠진포트를 요구하지 않는다: \(node.formRequirementsRaw)")
     }
 
@@ -600,7 +600,7 @@ final class FormSplitRequirementTests: XCTestCase {
         """
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(eeveeChain.utf8))
         let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 134))
-        XCTAssertEqual(node.requirementRaw, .item("water-stone"))
+        XCTAssertEqual(node.requirementRaw, .item(["water-stone"]))
         XCTAssertTrue(node.formRequirementsRaw.isEmpty, "\(node.formRequirementsRaw)")
     }
 
@@ -631,8 +631,8 @@ final class FormSplitRequirementTests: XCTestCase {
         """
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(reversed.utf8))
         let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 855))
-        XCTAssertEqual(node.requirementRaw, .item("cracked-pot"), "먼저 온 줄이 기본 조건을 가로챘다")
-        XCTAssertEqual(node.formRequirementsRaw["antique"], .item("chipped-pot"))
+        XCTAssertEqual(node.requirementRaw, .item(["cracked-pot"]), "먼저 온 줄이 기본 조건을 가로챘다")
+        XCTAssertEqual(node.formRequirementsRaw["antique"], .item(["chipped-pot"]))
     }
 
     /// `EvoLine.init` 은 항상 `keepingSupportedSpecies()` 를 지난다 — 트리를 다시 만들면서 모습별
@@ -641,7 +641,7 @@ final class FormSplitRequirementTests: XCTestCase {
         let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(sinisteaChain.utf8))
         let tree = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).keepingSupportedSpecies())
         let node = try XCTUnwrap(tree.node(withID: 855))
-        XCTAssertEqual(node.formRequirementsRaw["antique"], .item("chipped-pot"))
+        XCTAssertEqual(node.formRequirementsRaw["antique"], .item(["chipped-pot"]))
     }
 
     private func sinisteaLine() -> EvoLine {
@@ -661,7 +661,7 @@ final class FormSplitRequirementTests: XCTestCase {
         let s = store()
         XCTAssertEqual(s.requirement(for: 855, line: sinisteaLine(), region: nil,
                                      fixedForm: "antique"),
-                       .item(.chippedPot))
+                       .item([.chippedPot]))
     }
 
     /// 대조군 — 위작(기본형)과 **옛 세이브의 nil** 은 깨진포트다. nil 을 진작으로 읽으면
@@ -671,7 +671,7 @@ final class FormSplitRequirementTests: XCTestCase {
         for variant in [nil, "phony"] as [String?] {
             XCTAssertEqual(s.requirement(for: 855, line: sinisteaLine(), region: nil,
                                          fixedForm: variant),
-                           .item(.crackedPot), "variant=\(String(describing: variant))")
+                           .item([.crackedPot]), "variant=\(String(describing: variant))")
         }
     }
 }
@@ -746,5 +746,121 @@ final class FormScopedForageProductionTests: XCTestCase {
         XCTAssertEqual(store.state.inventory[EvolutionItem.chippedPot.rawValue] ?? 0, 0,
                        "위작 데인차가 쓸 수 없는 이빠진포트를 물어 왔다")
         XCTAssertGreaterThan(store.state.inventory[EvolutionItem.crackedPot.rawValue] ?? 0, 0)
+    }
+}
+
+/// 원작에서 **도구 두 개가 모두 유효한** 갈래가 있다 — 치고마의 족자 둘은 각각 다른 우라오스가
+/// 된다. 조건을 도구 하나로 들면 뒤의 하나가 영영 쓸 데가 없다(실측: 물의족자가 그랬다).
+final class ItemSetRequirementTests: XCTestCase {
+    /// `evolution-chain/470` 에서 잘라 왔다. 실응답에는 도구 없는 `tower-of-darkness`·
+    /// `tower-of-waters` 줄(옛 세대 트리거)이 앞에 둘 더 있어 그것도 그대로 둔다 — 파서가
+    /// 도구 없는 줄을 건너뛰고 뒤의 둘을 모으는지 보려는 것이다.
+    private let kubfuChain = """
+    {"chain": {
+      "species": {"name": "kubfu", "url": "https://pokeapi.co/api/v2/pokemon-species/891/"},
+      "evolution_details": [],
+      "evolves_to": [{
+        "species": {"name": "urshifu", "url": "https://pokeapi.co/api/v2/pokemon-species/892/"},
+        "evolution_details": [
+          {"trigger": {"name": "tower-of-darkness"}},
+          {"trigger": {"name": "tower-of-waters"}},
+          {"trigger": {"name": "use-item"}, "item": {"name": "scroll-of-darkness"}},
+          {"trigger": {"name": "use-item"}, "item": {"name": "scroll-of-waters"}}],
+        "evolves_to": []}]}}
+    """
+
+    func testBothScrollsLandInTheRequirement() throws {
+        let dto = try JSONDecoder().decode(ChainDTO.self, from: Data(kubfuChain.utf8))
+        let node = try XCTUnwrap(PokeAPIClient.node(from: dto.chain).node(withID: 892))
+        XCTAssertEqual(node.requirementRaw, .item(["scroll-of-darkness", "scroll-of-waters"]))
+        XCTAssertEqual(node.requirement, .item([.scrollOfDarkness, .scrollOfWaters]))
+    }
+
+    /// 대조군 — 도구가 하나인 종은 원소 하나짜리 집합이다(집합화가 단일 경로를 안 바꿨는지).
+    func testASingleItemIsStillASetOfOne() {
+        XCTAssertEqual(PokeAPIClient.requirement(
+            from: [PokeAPIClient.detailForTesting(item: "fire-stone")],
+            parentSpeciesID: 0, speciesID: 4, parentLevel: 1), .item(["fire-stone"]))
+    }
+
+    /// 같은 도구가 줄마다 되풀이돼도 집합에는 한 번만 든다.
+    func testARepeatedItemIsListedOnce() {
+        XCTAssertEqual(PokeAPIClient.requirement(
+            from: [PokeAPIClient.detailForTesting(item: "fire-stone"),
+                   PokeAPIClient.detailForTesting(item: "fire-stone")],
+            parentSpeciesID: 0, speciesID: 4, parentLevel: 1), .item(["fire-stone"]))
+    }
+
+    /// **아는 도구가 하나도 없으면 집합을 만들지 않는다.** `.item([])` 은 `.none` 으로 풀려
+    /// 조건 없이 진화시킨다 — 마빌크가 레벨 폴백으로 떨어져야 하는 이유와 같은 자리다.
+    func testUnknownItemsDoNotMakeAnEmptySet() {
+        let need = PokeAPIClient.requirement(
+            from: [PokeAPIClient.detailForTesting(item: "rare-candy")],
+            parentSpeciesID: 0, speciesID: 4, parentLevel: 1)
+        XCTAssertNotEqual(need, .item([]))
+        XCTAssertEqual(need, .level(20), "조건 없음으로 떨어졌다 — 공짜 진화가 된다")
+    }
+
+    /// 해석 쪽 방어 — 원시 값이 빈 집합이나 전부 모르는 이름으로 와도 `.item([])` 이 되지 않는다.
+    func testResolveNeverYieldsAnEmptyItemSet() {
+        XCTAssertEqual(EvoNode(speciesID: 2, children: [], requirementRaw: .item([])).requirement, .none)
+        XCTAssertEqual(EvoNode(speciesID: 2, children: [], requirementRaw: .item(["rare-candy"])).requirement,
+                       .none)
+        XCTAssertEqual(EvoNode(speciesID: 2, children: [],
+                               requirementRaw: .item(["rare-candy", "fire-stone"])).requirement,
+                       .item([.fireStone]), "아는 이름만 남아야 한다")
+    }
+
+    /// 지방 줄끼리도 도구를 모은다 — 첫 일치에서 끊으면 둘째 도구가 죽는다. (실응답에 이런 갈래는
+    /// 아직 없어 줄을 직접 만든 합성 픽스처다. 모으는 동작 자체를 잠그는 용도.)
+    func testRegionalItemsAreCollectedToo() {
+        XCTAssertEqual(PokeAPIClient.regionalRequirement(from: [
+            PokeAPIClient.detailForTesting(item: "ice-stone", requiredForm: "sandshrew-alola"),
+            PokeAPIClient.detailForTesting(item: "water-stone", requiredForm: "sandshrew-alola"),
+        ]), .item(["ice-stone", "water-stone"]))
+    }
+
+    /// 태생 모습 전용 줄 한 개가 도구를 들어도 그대로 집합으로 나온다.
+    func testAFormRequirementCarriesItsItem() {
+        let out = PokeAPIClient.formRequirements(
+            from: [PokeAPIClient.detailForTesting(item: "chipped-pot", requiredForm: "sinistea-antique")],
+            parentSpeciesID: 854, speciesID: 855, parentLevel: 1)
+        XCTAssertEqual(out["antique"], .item(["chipped-pot"]))
+    }
+
+    @MainActor func testOwningEitherItemSatisfiesTheRequirement() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kubfu-\(UUID().uuidString).json")
+        let store = PlayerStore(fileURL: url, rng: SeededRNG(seed: 1),
+                                now: { Date(timeIntervalSince1970: 1_000_000) })
+        var kubfu = Individual(baseID: 891, speciesID: 891, pathIDs: [891], nature: .serious,
+                               obtainedAt: Date(timeIntervalSince1970: 0), grade: .common)
+        kubfu.growthRate = .mediumFast
+        store.addForTesting(kubfu)
+        let need = EvoRequirement.item([.scrollOfDarkness, .scrollOfWaters])
+        XCTAssertFalse(store.meetsRequirement(need, for: store.state.box[0]))
+        store.grantForTesting(EvolutionItem.scrollOfWaters)
+        XCTAssertTrue(store.meetsRequirement(need, for: store.state.box[0]),
+                      "둘 중 하나만 있어도 돼야 한다")
+    }
+
+    /// 접힌 줄 — 둘까지는 이름을 다 보이고, 셋부터는 첫 이름과 개수로 접는다(마빌크는 일곱).
+    func testShortNeedNamesTwoAndFoldsThreeOrMore() {
+        let line = EvoLine(baseID: 891, tree: EvoNode(speciesID: 891, children: []),
+                           rarity: .common, names: [:])
+        for lang in AppLanguage.allCases {
+            let l = L(lang)
+            XCTAssertEqual(
+                IndividualDetailView.shortNeed(.item([.scrollOfDarkness, .scrollOfWaters]), line: line, l: l),
+                "\(EvolutionItem.scrollOfDarkness.label(lang)) / \(EvolutionItem.scrollOfWaters.label(lang))")
+            XCTAssertEqual(
+                IndividualDetailView.shortNeed(.item([.fireStone]), line: line, l: l),
+                EvolutionItem.fireStone.label(lang))
+            XCTAssertEqual(
+                IndividualDetailView.shortNeed(.item([.fireStone, .waterStone, .thunderStone]), line: line, l: l),
+                l.evolveNeedsOneOf(EvolutionItem.fireStone.label(lang), 3))
+        }
+        XCTAssertEqual(L(.ko).evolveNeedsOneOf("불꽃의돌", 7), "불꽃의돌 등 7종")
+        XCTAssertEqual(L(.en).evolveNeedsOneOf("Fire Stone", 7), "Fire Stone or 6 more")
     }
 }

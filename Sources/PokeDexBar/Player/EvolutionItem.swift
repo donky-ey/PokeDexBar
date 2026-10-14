@@ -128,8 +128,9 @@ enum EvolutionItem: String, CaseIterable, Codable, Sendable {
 enum EvoRequirement: Equatable, Sendable {
     /// 경험치만 있으면 된다.
     case none
-    /// 이 도구를 써야 한다(돌·연결의 끈·특수 도구).
-    case item(EvolutionItem)
+    /// 이 도구들 중 **하나**를 써야 한다(돌·연결의 끈·특수 도구). 치고마의 족자 둘처럼
+    /// 도구가 여럿인 갈래는 어느 쪽이든 된다. 빈 배열은 만들지 않는다(`EvoNode.resolve`).
+    case item([EvolutionItem])
     /// 충분히 오래 함께 다녀야 한다 — 본가의 친밀도를 이 앱의 "함께한 시간"으로 옮긴 것.
     case friendship
     /// 이 레벨에 닿아야 한다 — 본가 `min_level`.

@@ -376,9 +376,12 @@ actor PokeAPIClient: PokeProviding {
     }
 
     #if DEBUG
-    /// 변종 키 추출만 따로 보기 위한 테스트 헬퍼.
-    static func detailForTesting(requiredForm: String) -> EvolutionDetail {
-        let json = #"{"required_pokemon_form":{"name":"\#(requiredForm)"}}"#
+    /// 조건줄 한 개짜리 테스트 헬퍼 — 변종 키 추출이나 도구 집합만 따로 보려고 쓴다.
+    static func detailForTesting(item: String? = nil, requiredForm: String? = nil) -> EvolutionDetail {
+        var fields: [String] = []
+        if let item { fields.append(#""item":{"name":"\#(item)"}"#) }
+        if let requiredForm { fields.append(#""required_pokemon_form":{"name":"\#(requiredForm)"}"#) }
+        let json = "{\(fields.joined(separator: ","))}"
         return try! JSONDecoder().decode(EvolutionDetail.self, from: Data(json.utf8))
     }
     #endif
@@ -406,23 +409,28 @@ actor PokeAPIClient: PokeProviding {
         // 깨진포트를 가로챈다(실측: 두 줄 중 먼저 온 쪽이 이겼다).
         let own = all.filter { !Self.isRegional($0) && !Self.isFormSpecific($0, parentSpeciesID: parentSpeciesID) }
         let details = own.isEmpty ? all : own
+        // **도구는 첫 일치에서 반환하지 않고 모은다.** 치고마는 족자 둘이 각각 다른 우라오스가 되는
+        // 갈래라 첫 하나만 들면 뒤의 하나가 영영 쓸 데가 없다(실측: 물의족자). 아는 도구만 담으므로
+        // 집합이 비는 일은 없다 — 빈 `.item([])` 은 `.none` 으로 풀려 공짜 진화가 된다.
+        var items: [String] = []
+        var sawTrade = false
+        func add(_ name: String?) {
+            guard let name, EvolutionItem.named(name) != nil, !items.contains(name) else { return }
+            items.append(name)
+        }
         for d in details {
-            if let item = d.item?.name, EvolutionItem.named(item) != nil {
-                return .item(item)
-            }
-            if d.trigger?.name == "trade" {
-                // 물건을 들고 교환하는 15종은 그 물건이 조건이다 — 연결의 끈으로 뭉뚱그리면
-                // 에레키부스터·금속코트 같은 것이 게임에서 사라진다.
-                if let held = d.held_item?.name, EvolutionItem.named(held) != nil {
-                    return .item(held)
-                }
-                return .item(EvolutionItem.linkingCord.rawValue)
-            }
+            add(d.item?.name)
+            // 물건을 들고 교환하는 15종은 그 물건이 조건이다 — 연결의 끈으로 뭉뚱그리면
+            // 에레키부스터·금속코트 같은 것이 게임에서 사라진다.
+            if d.trigger?.name == "trade" { sawTrade = true }
             // **든 도구도 도구다.** 럭키(둥근돌)·글라이온(예리한이빨)·포푸니라/포푸니크(예리한손톱)
             // 넷이 여기 걸린다 — 지금까지는 통신교환일 때만 held_item 을 봤다. 원작의 "밤에" 같은
             // 시간대 조건은 이 앱에 밤낮이 없어 버린다(포푸니라/포푸니크가 같은 물건을 공유하게 된다).
-            if let held = d.held_item?.name, EvolutionItem.named(held) != nil { return .item(held) }
+            add(d.held_item?.name)
         }
+        if !items.isEmpty { return .item(items) }
+        // 교환인데 들 물건을 못 알아봤으면 연결의 끈으로 대신한다 — 이 앱엔 교환 상대가 없다.
+        if sawTrade { return .item([EvolutionItem.linkingCord.rawValue]) }
         for d in details where (d.min_happiness ?? 0) > 0 { return .friendship }
         if let stated = details.compactMap(\.min_level).min() { return .level(stated) }
         // PokéAPI 가 레벨을 아예 안 주는 31종(기술·전투·조작 조건)은 이 앱이 옮긴 표를 먼저 본다 —
@@ -441,10 +449,15 @@ actor PokeAPIClient: PokeProviding {
         guard let details else { return nil }
         let regional = details.filter(Self.isRegional)
         guard !regional.isEmpty else { return nil }
+        // 원종 쪽과 같이 도구를 모은다(지방 줄끼리만) — 첫 일치에서 끊으면 둘째 도구가 죽는다.
+        var items: [String] = []
         for d in regional {
-            if let item = d.item?.name, EvolutionItem.named(item) != nil { return .item(item) }
-            if let held = d.held_item?.name, EvolutionItem.named(held) != nil { return .item(held) }
+            for name in [d.item?.name, d.held_item?.name].compactMap({ $0 })
+            where EvolutionItem.named(name) != nil && !items.contains(name) {
+                items.append(name)
+            }
         }
+        if !items.isEmpty { return .item(items) }
         if regional.contains(where: { ($0.min_happiness ?? 0) > 0 }) { return .friendship }
         if let stated = regional.compactMap(\.min_level).min() { return .level(stated) }
         return nil

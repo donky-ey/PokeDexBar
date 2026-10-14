@@ -53,7 +53,7 @@ final class LevelEvolutionTests: XCTestCase {
     private func eeveeLine() -> EvoLine {
         EvoLine(baseID: 133,
                 tree: EvoNode(speciesID: 133, children: [
-                    EvoNode(speciesID: 134, children: [], requirementRaw: .item("water-stone")),
+                    EvoNode(speciesID: 134, children: [], requirementRaw: .item(["water-stone"])),
                     EvoNode(speciesID: 135, children: [], requirementRaw: .level(12)),
                 ]),
                 rarity: .rare, names: [:])
@@ -112,7 +112,7 @@ final class LevelEvolutionTests: XCTestCase {
         let line = EvoLine(baseID: 4,
                            tree: EvoNode(speciesID: 4,
                                          children: [EvoNode(speciesID: 5, children: [],
-                                                            requirementRaw: .item("fire-stone"))]),
+                                                            requirementRaw: .item(["fire-stone"]))]),
                            rarity: .common, names: [:])
         let individual = add(store, exp: 0)
         XCTAssertEqual(individual.level, 1)

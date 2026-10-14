@@ -57,7 +57,11 @@ enum PokemonAssets {
 /// — 아이템 이름만 남겨 두면 카탈로그가 자라도 옛 캐시가 그대로 유효하다.
 enum EvoRequirementRaw: Codable, Sendable, Equatable {
     case none
-    case item(String)
+    /// 이 도구들 **중 하나**가 필요하다. 대부분 하나지만 둘인 갈래가 있다(치고마의 족자 둘,
+    /// 마빌크의 사탕공예 일곱). 하나/여럿을 케이스로 가르지 않는 이유: 그건 데이터의 우연이지
+    /// 의미 차이가 아니라, 가르면 모든 `switch` 가 도구 모양 분기를 둘씩 영구히 갖는다.
+    /// **빈 배열은 만들지 않는다** — `resolve` 에서 `.none`(조건 없음)으로 풀려 공짜 진화가 된다.
+    case item([String])
     case friendship
     /// 이 레벨에 닿아야 한다 — 본가 `min_level`(명시가 없으면 `EvoBalance` 규칙으로 채운 값).
     case level(Int)
@@ -108,11 +112,18 @@ struct EvoNode: Codable, Sendable {
         switch raw {
         case .none: .none
         case .friendship: .friendship
-        case .item(let name): EvolutionItem.named(name).map(EvoRequirement.item) ?? .none
+        case .item(let names): itemRequirement(names)
         case .level(let n): .level(n)
         case .owns(let id): .owns(id)
         case .walked: .walked
         }
+    }
+
+    /// 아는 이름만 남긴다. 하나도 못 알아보면 파서가 애초에 집합을 안 만들었어야 하지만
+    /// (`PokeAPIClient.requirement`) 어떤 경로로 오더라도 빈 집합이 아니라 `.none` 으로 풀린다.
+    private static func itemRequirement(_ names: [String]) -> EvoRequirement {
+        let items = names.compactMap(EvolutionItem.named)
+        return items.isEmpty ? .none : .item(items)
     }
 
     /// 최장 경로 길이(형태 수). 분기는 보통 같은 깊이라 대표값으로 사용.
