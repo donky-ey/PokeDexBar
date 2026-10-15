@@ -644,6 +644,26 @@ struct L {
     var sessionKeyExpiredBadge: String {
         t("만료됨", "Expired", "期限切れ")
     }
+
+    // MARK: Claude Keychain 항상 허용 초기화 도움말 (상시 안내)
+    var claudeKeychainHelpTitle: String {
+        t("왜 주기적으로 암호를 묻나요?",
+          "Why does it ask for password periodically?",
+          "なぜ定期的にパスワードを求められるのですか？")
+    }
+    var claudeKeychainHelpBody: String {
+        t("Claude CLI가 백그라운드에서 토큰을 교체할 때 macOS 키체인의 '항상 허용' 권한이 초기화됩니다. 세션 키를 등록하면 암호 입력 없이 백그라운드 자동 갱신이 유지됩니다.",
+          "When Claude CLI rotates tokens in the background, macOS resets the Keychain 'Always Allow' permission. Registering a session key keeps background limits refreshed without any password prompt.",
+          "Claude CLI がバックグラウンドでトークンをローテーションすると、macOS Keychain の「常に許可」権限がリセットされます。セッションキーを登録すると、パスワード入力なしで自動更新が維持されます。")
+    }
+    var registerSessionKey: String {
+        t("세션 키 등록", "Register Session Key", "セッションキーを登録")
+    }
+    var claudeKeychainHelpTooltip: String {
+        t("Claude 키체인 인증 안내",
+          "Claude Keychain authentication info",
+          "Claude Keychain 認証について")
+    }
     func forecastReach(_ time: String) -> String {
         t("현재 속도면 \(time) 한도 도달", "At current rate, limit hit at \(time)", "現在のペースで \(time) に上限到達")
     }

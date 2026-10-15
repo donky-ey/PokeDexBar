@@ -18,6 +18,7 @@ struct SettingsView: View {
     /// 두 번째 진입부터 접힌 채로 열린다. onAppear 에서 1회 반영한다.
     @State private var didApplyStartExpanded = false
     @State private var sessionKeyInput = ""
+    @FocusState private var sessionKeyFocused: Bool
     @State private var isCheckingUpdate = false
     @State private var didCheckUpdate = false
     private var l: L { player.l }
@@ -36,28 +37,40 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    generalGroup(store)
-                    boxGroup(store)
-                    menuBarGroup(store)
-                    floatingPetGroup(store)
-                    notificationsGroup(store)
-                    updateGroup(store)
-                    advancedGroup(store)
-                    aboutSupportGroup
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        generalGroup(store)
+                        boxGroup(store)
+                        menuBarGroup(store)
+                        floatingPetGroup(store)
+                        notificationsGroup(store)
+                        updateGroup(store)
+                        advancedGroup(store)
+                            .id("advancedSettingsSection")
+                        aboutSupportGroup
+                    }
+                    .padding(16)
                 }
-                .padding(16)
+                .onAppear {
+                    guard !didApplyStartExpanded else { return }
+                    didApplyStartExpanded = true
+                    if startExpanded {
+                        advancedExpanded = true
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 80_000_000)
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                proxy.scrollTo("advancedSettingsSection", anchor: .top)
+                            }
+                            sessionKeyFocused = true
+                        }
+                    }
+                }
             }
             Divider()
             footer
         }
         .frame(height: 460)
-        .onAppear {
-            guard !didApplyStartExpanded else { return }
-            didApplyStartExpanded = true
-            if startExpanded { advancedExpanded = true }
-        }
     }
 
     private var header: some View {
@@ -353,6 +366,7 @@ struct SettingsView: View {
             SecureField(store.sessionKeyConfigured ? "••••••••" : "sk-ant-sid…", text: $sessionKeyInput)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 220)
+                .focused($sessionKeyFocused)
                 .onSubmit { submitSessionKey(store) }
             Button {
                 submitSessionKey(store)
