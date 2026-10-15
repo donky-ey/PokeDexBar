@@ -127,6 +127,13 @@ Vivillon follows the region rule from the games: your Mac's country decides whic
 </td>
 </tr>
 <tr>
+<td width="55%" valign="middle">
+<h3>Some looks are chosen at evolution</h3>
+Kubfu becomes one of two Urshifu depending on which scroll you hand it, and Milcery becomes one of seven Alcremie depending on the Sweet it is holding. The choice happens once, at the moment it evolves, and the look is kept for life — so filling every slot in the Dex means raising more than one.
+</td>
+<td width="45%" align="center"><img src="assets/screenshot-evolution-choice.png" width="300" alt="Kubfu's detail screen with two evolve buttons side by side — Evolve with Scroll of Darkness and Evolve with Scroll of Waters"></td>
+</tr>
+<tr>
 <td width="45%" align="center"><img src="assets/shiny-banner.gif" width="340" alt="Normal vs shiny"></td>
 <td width="55%" valign="middle">
 <h3>✨ Once in a rare while — Shiny</h3>

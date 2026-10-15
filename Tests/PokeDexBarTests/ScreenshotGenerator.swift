@@ -189,6 +189,9 @@ enum ScreenshotFixture {
         (201, [201], .common, .quirky, 6_000_000, false, nil, "q"),                // 안농 Q
         (671, [669, 670, 671], .rare, .calm, 110_000_000, false, nil, "blue"),     // 파란 꽃
         (849, [848, 849], .rare, .calm, 95_000_000, false, nil, nil),              // 로우한 모습(성격)
+        // 진화에 쓴 도구가 결과를 정하는 개체. **맨 뒤에 붙인다** — 앞에 끼우면 인덱스로
+        // 잡는 개체들(파트너 0·상세 1)이 밀려 다른 스크린샷이 통째로 달라진다.
+        (891, [891], .rare, .adamant, 85_000_000, false, nil, nil),               // 치고마 — 족자 선택
     ]
 
     /// 부화 슬롯이 몇 칸인가. 알보다 하나 많게 둬서 빈 슬롯(점선 칸)도 함께 보이게 한다.
@@ -278,9 +281,17 @@ enum ScreenshotFixture {
               671: ["ko": "플라제스", "en": "Florges", "ja": "フラージェス"]],
         848: [848: ["ko": "일레즌", "en": "Toxel", "ja": "エレズン"],
               849: [ "ko": "스트린더", "en": "Toxtricity", "ja": "ストリンダー"]],
+        891: [891: ["ko": "치고마", "en": "Kubfu", "ja": "ダクマ"],
+              892: ["ko": "우라오스", "en": "Urshifu", "ja": "ウーラオス"]],
     ]
 
     private static let trees: [Int: EvoNode] = [
+        // 치고마 — **쓴 도구가 결과의 모습을 정하는** 갈래. 어둠의족자면 일격, 물의족자면
+        // 연격이 되고 그 모습은 평생 간다. 둘 다 가진 개체를 찍어야 "고른다"가 그림에 담긴다.
+        891: EvoNode(speciesID: 891,
+                     children: [EvoNode(speciesID: 892, children: [],
+                                        requirementRaw: .item(["scroll-of-darkness",
+                                                               "scroll-of-waters"]))]),
         25: EvoNode(speciesID: 25, children: [EvoNode(speciesID: 26, children: [])]),
         133: EvoNode(speciesID: 133, children: [EvoNode(speciesID: 134, children: []),
                                                 EvoNode(speciesID: 135, children: []),
@@ -381,6 +392,8 @@ final class ScreenshotGeneratorTests: XCTestCase {
         let partnerID: UUID
         /// 이로치 — 반짝임 GIF 가 쓴다.
         let shinyID: UUID
+        /// 치고마 — 도구마다 진화 버튼이 갈리는 상세를 찍는 개체.
+        let evolutionChoiceID: UUID
         /// 태어날 때 정해진 겉모습을 가진 개체 — 그 배지를 보여주는 스크린샷이 쓴다.
         let birthFormID: UUID
     }
@@ -410,6 +423,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
         var partnerID: UUID?
         var shinyID: UUID?
         var birthFormID: UUID?
+        var evolutionChoiceID: UUID?
         for (index, entry) in ScreenshotFixture.roster.enumerated() {
             var individual = Individual(baseID: entry.path.first ?? entry.species,
                                         speciesID: entry.species, pathIDs: entry.path,
@@ -436,6 +450,8 @@ final class ScreenshotGeneratorTests: XCTestCase {
             if entry.shiny { shinyID = individual.id }
             // 비비용 — 무늬 배지가 가장 잘 읽히는 개체(이름이 짧고 그림이 크다).
             if entry.species == 666 { birthFormID = individual.id }
+            // 치고마 — 족자마다 진화 버튼이 갈리는 상세를 찍는다.
+            if entry.species == 891 { evolutionChoiceID = individual.id }
         }
         if let partnerID {
             clock = base.addingTimeInterval(-ScreenshotFixture.partnerSinceDaysAgo * 86_400)
@@ -468,6 +484,11 @@ final class ScreenshotGeneratorTests: XCTestCase {
         for item in [EvolutionItem.fireStone, .waterStone, .thunderStone, .linkingCord, .metalCoat] {
             player.grantForTesting(item)
         }
+        // 족자 **둘 다** — 하나만 주면 버튼이 하나로 접혀(`evolveChoices`) 이 그림이 담으려는
+        // "어느 쪽이 될지 고른다"가 사라진다.
+        for item in [EvolutionItem.scrollOfDarkness, .scrollOfWaters] {
+            player.grantForTesting(item)
+        }
         for item in [FormItem.griseousCore, .costumeTrunk, .plateFire] {
             player.grantForTesting(item)
         }
@@ -491,6 +512,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
         return Fixture(player: player, usage: usage,
                        updater: UpdateChecker(currentVersion: AppEnv.appVersion ?? "0"),
                        detailID: detailID!, partnerID: partnerID!, shinyID: shinyID!,
+                       evolutionChoiceID: evolutionChoiceID!,
                        birthFormID: birthFormID!)
     }
 
@@ -901,6 +923,16 @@ final class ScreenshotGeneratorTests: XCTestCase {
                                            selection: .constant(fixture.detailID))),
                       fullScroll: true),
                   "screenshot-detail.png")
+
+        // 진화 선택 — **쓴 도구가 결과의 모습을 정하는** 갈래. 족자를 둘 다 가진 치고마라
+        // "어둠의족자로 진화"·"물의족자로 진화" 두 버튼이 같이 서고, 어느 쪽을 누르냐가 일격이냐
+        // 연격이냐를 평생 정한다. 한 장에 담기는 게 그 선택이라 전용 그림이 필요하다
+        // (상세 스크린샷의 개체는 갈래가 하나라 버튼도 하나다).
+        try write(png(tabChrome(BoxTabView(store: fixture.player, lines: ScreenshotFixture.lines,
+                                           onNeedLine: { _ in },
+                                           selection: .constant(fixture.evolutionChoiceID))),
+                      fullScroll: true),
+                  "screenshot-evolution-choice.png")
 
         // 리본 — 오래 함께한 파트너의 상세. 배지 그림 + 사탕 생산 속도("1 candy per 20M") +
         // 그 리본이 어디서 왔는지(함께한 시간)가 한 화면에 같이 나와야 기능이 설명된다.

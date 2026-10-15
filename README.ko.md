@@ -127,6 +127,13 @@ PokeDexBar는 당신이 이미 태우고 있는 AI 코딩 토큰(Claude Code · 
 </td>
 </tr>
 <tr>
+<td width="55%" valign="middle">
+<h3>진화하는 순간에 정해지는 모습</h3>
+치고마는 어느 족자를 쥐여 주느냐에 따라 일격과 연격 두 우라오스로 갈리고, 마빌크는 들고 있는 사탕공예에 따라 일곱 마휘핑으로 갈립니다. 고르는 건 진화하는 그 순간 한 번뿐이고 그 모습은 평생 가요 — 그래서 도감의 칸을 다 채우려면 여러 마리를 키우게 됩니다.
+</td>
+<td width="45%" align="center"><img src="assets/screenshot-evolution-choice.png" width="300" alt="치고마 상세 화면 — 어둠의족자로 진화와 물의족자로 진화 버튼이 나란히"></td>
+</tr>
+<tr>
 <td width="45%" align="center"><img src="assets/shiny-banner.gif" width="340" alt="일반 vs 이로치"></td>
 <td width="55%" valign="middle">
 <h3>✨ 아주 드문 우연, 이로치</h3>

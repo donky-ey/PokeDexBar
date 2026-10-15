@@ -127,6 +127,13 @@ PokeDexBar は、あなたがすでに使っている AI コーディングト�
 </td>
 </tr>
 <tr>
+<td width="55%" valign="middle">
+<h3>しんかの瞬間に決まる姿</h3>
+ダクマはどちらのスクロールを渡すかでイチゲキとレンゲキ、二つのウーラオスに分かれ、マホミルは持っているアメざいくで七つのマホイップに分かれます。選べるのはしんかするその一度だけで、その姿は一生変わりません — だから図鑑のマスを埋めるには何匹も育てることになります。
+</td>
+<td width="45%" align="center"><img src="assets/screenshot-evolution-choice.png" width="300" alt="ダクマの詳細画面 — あんこくのスクロールでしんかと みずのスクロールでしんかのボタンが並ぶ"></td>
+</tr>
+<tr>
 <td width="45%" align="center"><img src="assets/shiny-banner.gif" width="340" alt="通常 vs 色違い"></td>
 <td width="55%" valign="middle">
 <h3>✨ ごくまれな偶然、色違い</h3>
