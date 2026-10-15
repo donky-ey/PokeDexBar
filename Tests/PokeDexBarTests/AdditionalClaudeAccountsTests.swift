@@ -1612,6 +1612,42 @@ final class ClaudeAccountUsageAttributionTests: XCTestCase {
         XCTAssertEqual(owner("pingpong", 45), "default", "back on the first login: its latest prompt wins")
     }
 
+    func testForkedTurnStaysWithOriginalAccountRegardlessOfScanOrder() {
+        let forkAccounts = [
+            ClaudeAccountUsageAttribution.Account(id: "original", prompts: ["source-session": [at(0)]]),
+            ClaudeAccountUsageAttribution.Account(id: "fork", prompts: ["fork-session": [at(10)]]),
+        ]
+        let source = entry("same-turn", session: "source-session", at: at(5), tokens: 100,
+                           day: "2026-09-17")
+        let replay = entry("same-turn", session: "fork-session", at: at(15), tokens: 100,
+                           day: "2026-09-17")
+
+        for scanned in [[source, replay], [replay, source]] {
+            let deduped = LocalUsageReader.dedupKeepMax(scanned)
+            let result = ClaudeAccountUsageAttribution.usage(
+                entries: deduped, accounts: forkAccounts, now: at(20),
+                todayKey: "2026-09-17", monthStartKey: "2026-09-01")
+
+            XCTAssertEqual(deduped.count, 1, "the replayed turn is counted once")
+            XCTAssertEqual(deduped[0].date, at(5), "the original turn time survives a later replay envelope")
+            XCTAssertEqual(deduped[0].claudeSessionIDs, ["fork-session", "source-session"])
+            XCTAssertEqual(result.byAccount["original"]?.todayTokens, 100,
+                           "a future prompt in the fork cannot claim a historical turn")
+            XCTAssertNil(result.byAccount["fork"])
+            XCTAssertEqual(result.unattributed.todayTokens, 0)
+        }
+    }
+
+    /// Review Focus 4 — 포크 조합: 서브에이전트 transcript 는 부모 세션 id 로 귀속된다.
+    /// 부모·자식 파일에 같은 턴이 복사돼도 dedup 키는 턴 id 그대로라 합계는 1회다(#129 계승).
+    func testASubagentTranscriptCountsWithItsParentSession() {
+        let parent = URL(fileURLWithPath: "/tmp/p/proj/abc-123.jsonl")
+        let sub = URL(fileURLWithPath: "/tmp/p/proj/abc-123/subagents/agent-7.jsonl")
+        XCTAssertEqual(LocalUsageReader.claudeSessionID(forTranscript: parent), "abc-123")
+        XCTAssertEqual(LocalUsageReader.claudeSessionID(forTranscript: sub), "abc-123",
+                       "서브에이전트는 부모 세션으로 접힌다 — 별도 세션으로 귀속되면 안 된다")
+    }
+
     func testEdgeCasesStayDeterministic() {
         XCTAssertEqual(owner("resumed", -1), "default", "before any prompt: the login that started the session")
         XCTAssertEqual(owner("tie", 6), "default", "equal prompt times: the first account in order")
