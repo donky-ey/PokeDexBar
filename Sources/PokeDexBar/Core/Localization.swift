@@ -629,6 +629,15 @@ struct L {
     func additionalClaudeAccountsFound(_ n: Int) -> String {
         t("계정 폴더 \(n)개 찾음", "\(n) account folder(s) found", "アカウントフォルダが\(n)個見つかりました")
     }
+    var sessionKeyPerAccountNote: String {
+        t("기본 Claude 계정(~/.claude)에 적용됩니다. 다른 계정은 아래에서 각자 키를 넣을 수 있어요.",
+          "Applies to the default Claude account (~/.claude). Each other account can have its own key below.",
+          "デフォルトの Claude アカウント（~/.claude）に適用されます。ほかのアカウントは下でそれぞれキーを設定できます。")
+    }
+    /// An additional account's own key row: the account's tab title, or its folder before its limits load.
+    func accountSessionKeyLabel(_ account: String) -> String {
+        t("\(account) 세션 키", "Session key for \(account)", "\(account) のセッションキー")
+    }
     func additionalAccountExpiredHint(_ folder: String) -> String {
         t("CLAUDE_CONFIG_DIR=\(folder) 로 Claude Code 를 한 번 실행한 뒤 다시 시도하세요.",
           "Run Claude Code once with CLAUDE_CONFIG_DIR=\(folder), then retry.",

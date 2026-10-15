@@ -20,6 +20,8 @@ struct SettingsView: View {
     @State private var additionalAccountsDraft = ""
     @FocusState private var additionalAccountsFocused: Bool
     @State private var sessionKeyInput = ""
+    /// Pasted keys of the additional accounts, by folder path. Emptied once saved, like the default one.
+    @State private var accountSessionKeyInputs: [String: String] = [:]
     @FocusState private var sessionKeyFocused: Bool
     @State private var isCheckingUpdate = false
     @State private var didCheckUpdate = false
@@ -362,8 +364,8 @@ struct SettingsView: View {
                             .font(.caption2).foregroundStyle(.green)
                     }
                 }
-                // The key only replaces the default login's Keychain read; other accounts keep theirs.
-                Text(store.claudeAccounts.count > 1 ? l.sessionKeyHint + " " + l.sessionKeyDefaultAccountOnly : l.sessionKeyHint)
+                // The key only replaces the default login's Keychain read; other accounts have their own below.
+                Text(store.additionalClaudeConfigRoots.isEmpty ? l.sessionKeyHint : l.sessionKeyHint + " " + l.sessionKeyPerAccountNote)
                     .font(.caption2).foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -423,6 +425,91 @@ struct SettingsView: View {
         }
     }
 
+    /// Each additional Claude folder can have its own key. Without one, its limits come from its
+    /// Keychain token, which automatic polls never read: they stop whenever that token expires.
+    @ViewBuilder
+    private func accountSessionKeyRows(_ store: UsageStore) -> some View {
+        ForEach(store.additionalClaudeConfigRoots, id: \.self) { rootPath in
+            Divider()
+            accountSessionKeyRow(store, rootPath: rootPath)
+        }
+        // The storage note is shown once, under the default key when that one is saved.
+        if !store.accountSessionKeyPaths.isEmpty, !store.sessionKeyConfigured || store.sessionKeyError != nil {
+            Text(l.sessionKeyStorageNote)
+                .font(.caption2).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12).padding(.bottom, 6)
+        }
+    }
+
+    @ViewBuilder
+    private func accountSessionKeyRow(_ store: UsageStore, rootPath: String) -> some View {
+        let folder = (rootPath as NSString).abbreviatingWithTildeInPath
+        let account = store.claudeAccounts.first {
+            $0.id == ClaudeAccountRoots.pathKey(for: URL(fileURLWithPath: rootPath))
+        }
+        let title = account?.title ?? folder
+        let configured = store.accountSessionKeyPaths.contains(rootPath)
+        let input = Binding(get: { accountSessionKeyInputs[rootPath] ?? "" },
+                            set: { accountSessionKeyInputs[rootPath] = $0 })
+        groupRow {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 6) {
+                    Text(l.accountSessionKeyLabel(title))
+                    if account?.sessionKeyExpired == true {
+                        Text(l.sessionKeyExpiredBadge)
+                            .font(.caption2).foregroundStyle(.orange)
+                    } else if configured {
+                        Text(l.sessionKeySaved)
+                            .font(.caption2).foregroundStyle(.green)
+                    }
+                }
+                // The email names the browser login to copy the key from; the folder tells two logins apart.
+                if title != folder {
+                    Text(folder).font(.caption2).foregroundStyle(.tertiary)
+                }
+            }
+            Spacer()
+        }
+        groupRow {
+            SecureField(configured ? "••••••••" : "sk-ant-sid…", text: input)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 220)
+                .onSubmit { submitAccountSessionKey(store, rootPath: rootPath) }
+            Button {
+                submitAccountSessionKey(store, rootPath: rootPath)
+            } label: {
+                if store.validatingAccountSessionKeyPath == rootPath {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text(l.save)
+                }
+            }
+            .disabled(input.wrappedValue.isEmpty || store.validatingAccountSessionKeyPath != nil)
+            if configured {
+                Button(l.delete) {
+                    accountSessionKeyInputs[rootPath] = nil
+                    store.clearAccountSessionKey(for: rootPath)
+                }
+            }
+            Spacer()
+        }
+        if let error = store.accountSessionKeyError(for: rootPath) {
+            Text(error)
+                .font(.caption2).foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12).padding(.bottom, 6)
+        }
+    }
+
+    private func submitAccountSessionKey(_ store: UsageStore, rootPath: String) {
+        guard let pasted = accountSessionKeyInputs[rootPath], !pasted.isEmpty else { return }
+        Task {
+            await store.saveAccountSessionKey(pasted, for: rootPath)
+            if store.accountSessionKeyError(for: rootPath) == nil { accountSessionKeyInputs[rootPath] = nil }
+        }
+    }
+
     private func submitSessionKey(_ store: UsageStore) {
         let pasted = sessionKeyInput
         guard !pasted.isEmpty else { return }
@@ -457,6 +544,7 @@ struct SettingsView: View {
                 sessionKeyRows(store)
                     // 재시작 후엔 후보 목록이 비어 있어 조직을 바꿀 수 없다 — 열 때 한 번 채운다.
                     .task { await store.refreshSessionOrganizations() }
+                accountSessionKeyRows(store)
                 Divider()
                 groupRow {
                     VStack(alignment: .leading, spacing: 1) {

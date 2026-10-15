@@ -910,7 +910,12 @@ struct PopoverView: View {
     private func claudeAccountLimits(_ account: ClaudeAccountLimits, showsUsage: Bool) -> some View {
         let limits = account.status
         if account.isExpired, !account.isDefault {
-            authExpiredNotice(hint: l.additionalAccountExpiredHint(account.fallbackTitle))
+            // A dead session key is fixed in Settings; the retry banner would only read the Keychain.
+            if account.sessionKeyExpired {
+                sessionKeyExpiredNotice
+            } else {
+                authExpiredNotice(hint: l.additionalAccountExpiredHint(account.fallbackTitle))
+            }
         } else if !account.isDefault, account.isStale() {
             // The default account's stale label lives in the refresh row above the tabs.
             staleBadge(updatedAt: account.updatedAt)

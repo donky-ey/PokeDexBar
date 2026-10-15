@@ -82,6 +82,13 @@ struct SessionKeyStore: Sendable {
         AppEnv.supportDirectory().appendingPathComponent("session-key.json")
     }
 
+    /// An additional Claude account's own key (`ClaudeAccountRoots`), next to the default one.
+    /// Named by the folder's path hash, like its alert keys, so no path ends up in a file name.
+    static func forConfigRoot(_ root: URL, directory: URL = AppEnv.supportDirectory()) -> SessionKeyStore {
+        SessionKeyStore(fileURL: directory.appendingPathComponent(
+            "session-key-\(ClaudeAccountRoots.pathKey(for: root)).json"))
+    }
+
     func load() -> SessionKeyCredential? {
         guard let data = try? Data(contentsOf: fileURL),
               let credential = try? JSONDecoder().decode(SessionKeyCredential.self, from: data),
@@ -290,6 +297,20 @@ struct SessionKeyLimitsProvider: ClaudeLimitsProviding, SessionKeyManaging {
 struct ChainedLimitsProvider: ClaudeLimitsProviding {
     let primary: any ClaudeLimitsProviding
     let fallback: any ClaudeLimitsProviding
+
+    /// An additional Claude folder: its own session key first, so automatic polls keep it fresh
+    /// without the Keychain, then the folder's Claude Code token as before.
+    static func forConfigRoot(
+        _ root: URL,
+        sessionKeyDirectory: URL = AppEnv.supportDirectory(),
+        http: any SessionKeyHTTPClient = URLSessionSessionKeyClient(),
+        fallback: (any ClaudeLimitsProviding)? = nil) -> ChainedLimitsProvider
+    {
+        ChainedLimitsProvider(
+            primary: SessionKeyLimitsProvider(
+                store: .forConfigRoot(root, directory: sessionKeyDirectory), http: http),
+            fallback: fallback ?? OAuthLimitsProvider(accessTokenCache: .forConfigRoot(root)))
+    }
 
     func fetch(allowKeychainPrompt: Bool) async throws -> LimitStatus {
         do {
