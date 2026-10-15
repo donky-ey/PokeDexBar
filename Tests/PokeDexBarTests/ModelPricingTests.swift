@@ -40,6 +40,25 @@ final class ModelPricingTests: XCTestCase {
         XCTAssertEqual(ModelPricing.rate(for: "claude-sonnet-5-5"), .perMillion(2, 10, 2.5, 0.2))
     }
 
+    /// 최종리뷰 지적 — #289 폴백 제거 후 **실사용 모델이 미가격**으로 남았다: Gemini 3.x(현역
+    /// CLI 세대)와 claude-haiku-5-5(실 로그 91행). 폴백 복원이 아니라 정확 행으로 채운다.
+    /// 단가 출처(2026-10-15 확인): https://ai.google.dev/gemini-api/docs/pricing ·
+    /// https://platform.claude.com/docs/en/about-claude/pricing
+    func testGemini3FamilyAndHaiku55AreExactlyPriced() throws {
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3.1-pro-preview"), .perMillion(2, 12, 0, 0.2))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3.1-flash-lite"), .perMillion(0.25, 1.5, 0, 0.025))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3-flash-preview"), .perMillion(0.5, 3, 0, 0.05))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3.8-flash"), .perMillion(0.75, 3.75, 0, 0.075))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3.6-flash"), .perMillion(0.75, 3.75, 0, 0.075))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3.5-flash-lite"), .perMillion(0.3, 2.5, 0, 0.03))
+        XCTAssertEqual(ModelPricing.rate(for: "claude-haiku-5-5"), .perMillion(0.1, 0.5, 0.125, 0.01))
+        // 3.1 Pro 는 200K 초과 구간이 공식 $4/$18/$0.40 — 기존 long-context 배수(2x 입력·캐시,
+        // 1.5x 출력)와 정확히 일치하므로 멤버십 추가로 모델링한다.
+        XCTAssertEqual(try XCTUnwrap(ModelPricing.estimatedCost(
+            model: "gemini-3.1-pro-preview", input: 200_001, output: 1_000, cacheWrite: 0, cacheRead: 0)),
+            200_001.0 * 2e-6 * 2 + 1_000 * 12e-6 * 1.5, accuracy: 1e-9)
+    }
+
     /// GPT-6 세대 요금(upstream #384) — 표 행과 272K 초과 long-context 할증 멤버십, 캐시 단가까지.
     /// (업스트림은 자기 기존 테스트 4곳에 흩어 넣었지만 그 함수들은 포크에 없어 한 곳에 모았다.)
     func testGpt6FrontierRatesAndLongContext() throws {
@@ -66,7 +85,7 @@ final class ModelPricingTests: XCTestCase {
         // so a row without a cache-write rate is unpriced in practice even when its input and
         // output columns are filled in.
         for model in ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5", "claude-sonnet-5-5",
-                      "claude-opus-4-8", "claude-opus-4-7",
+                      "claude-opus-4-8", "claude-opus-4-7", "claude-haiku-5-5",
                       "claude-sonnet-4-6", "claude-haiku-4-5", "claude-fable-5", "claude-fable-5-1"] {
             let cost = try XCTUnwrap(
                 ModelPricing.estimatedCost(model: model, input: 2, output: 175,

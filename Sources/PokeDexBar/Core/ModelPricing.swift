@@ -38,6 +38,10 @@ enum ModelPricing {
         "claude-opus-4-7":            .perMillion(5, 25, 6.25, 0.5),
         "claude-sonnet-4-6":          .perMillion(3, 15, 3.75, 0.3),
         "claude-haiku-4-5-20251001":  .perMillion(1, 5, 1.25, 0.1),
+        // Haiku 5.5, checked 2026-10-15: https://platform.claude.com/docs/en/about-claude/pricing
+        // Base (≤100K-prompt) tier. The over-100K tier ($0.50/$2.50, cache ×5) is not modeled —
+        // same as the other Claude long-context tiers; the table is a current-price estimate.
+        "claude-haiku-5-5":           .perMillion(0.1, 0.5, 0.125, 0.01),
         "claude-fable-5":             .perMillion(10, 50, 12.5, 1.0), // LiteLLM 스냅샷 가격 등재됨(2026-08) — 기존 미가격 $0 플레이스홀더 대체
         // Fable 5.1: same base rates as Fable 5, cache read cut to $0.25/MTok (0.025× input).
         "claude-fable-5-1":           .perMillion(10, 50, 12.5, 0.25),
@@ -60,6 +64,15 @@ enum ModelPricing {
         "gpt-5.5":                    .perMillion(5, 30, 0, 0.5),
         // Text token rates: https://ai.google.dev/gemini-api/docs/pricing
         // Cache storage duration and audio rates cannot be recovered from these logs.
+        // Gemini 3.x rows checked 2026-10-15 against that page (the current CLI generation —
+        // without exact rows the whole Gemini tab reads "unavailable" since #289 dropped the
+        // family fallback). 3.1 Pro's over-200K tier is handled by the long-context list below.
+        "gemini-3.1-pro-preview":     .perMillion(2, 12, 0, 0.2),
+        "gemini-3.1-flash-lite":      .perMillion(0.25, 1.5, 0, 0.025),
+        "gemini-3-flash-preview":     .perMillion(0.5, 3, 0, 0.05),
+        "gemini-3.8-flash":           .perMillion(0.75, 3.75, 0, 0.075),
+        "gemini-3.6-flash":           .perMillion(0.75, 3.75, 0, 0.075),
+        "gemini-3.5-flash-lite":      .perMillion(0.3, 2.5, 0, 0.03),
         "gemini-2.5-pro":             .perMillion(1.25, 10, 0, 0.125),
         "gemini-2.5-flash":           .perMillion(0.30, 2.5, 0, 0.03),
         // Distinct SKU. A "flash" substring match would bill this at Flash rates.
@@ -110,7 +123,7 @@ enum ModelPricing {
         let longContext = ["gpt-6-astra", "gpt-6-sol", "gpt-6.1-sol", "gpt-6-luna",
                            "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
                            "gpt-5.5", "gpt-5.4"].contains(key) && prompt > 272_000
-            || key == "gemini-2.5-pro" && prompt > 200_000
+            || ["gemini-2.5-pro", "gemini-3.1-pro-preview"].contains(key) && prompt > 200_000
         let inputMultiplier = longContext ? 2.0 : 1.0
         let outputMultiplier = longContext ? 1.5 : 1.0
         return (Double(input) * r.input + Double(cacheWrite) * r.cacheWrite

@@ -922,6 +922,7 @@ final class UsageStore {
             codexLimits = try await codexLimitsProvider.fetch()
             if let status = codexLimits {
                 codexLimitsUpdatedAt = Date()
+                AppLog.resetRepeatKey("codex-limits")
                 let buckets = status.snapshots.map { bucket in
                     "\(bucket.limitId ?? "codex"): primary=\(bucket.primary?.usedPercent.description ?? "nil") secondary=\(bucket.secondary?.usedPercent.description ?? "nil")"
                 }.joined(separator: " | ")

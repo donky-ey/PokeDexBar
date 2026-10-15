@@ -30,6 +30,9 @@ LOGIC_CORE=(
   "Sources/PokeDexBar/Core/LocalUsageReader.swift"
   "Sources/PokeDexBar/Core/LocalUsageCache.swift"
   "Sources/PokeDexBar/Core/ModelPricing.swift"
+  "Sources/PokeDexBar/Core/UsageCost.swift"
+  "Sources/PokeDexBar/Core/UsageRecap.swift"
+  "Sources/PokeDexBar/Core/PaceTier.swift"
 )
 
 echo "▶ swift test (--enable-code-coverage)"

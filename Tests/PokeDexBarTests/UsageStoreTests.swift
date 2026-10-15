@@ -418,6 +418,10 @@ final class UsageStoreTests: XCTestCase {
             .joined(separator: "\n")
         XCTAssertTrue(code.contains("AppLog.resetRepeatKey(\"claude-limits\")"),
                       "한도 성공 분기가 claude-limits 억제 키를 리셋하지 않는다")
+        // 부류 스윕(최종리뷰): writeIfChanged 를 쓰는 다른 한도 키도 같은 규칙 — codex 바이너리
+        // not-found → found → not-found 재발이 1시간 창에 삼켜지지 않아야 한다.
+        XCTAssertTrue(code.contains("AppLog.resetRepeatKey(\"codex-limits\")"),
+                      "codex 한도 성공 분기가 codex-limits 억제 키를 리셋하지 않는다")
     }
 
     func testRefreshWhileDisplaysAsleepKeepsPollingSuspended() async {
