@@ -91,7 +91,7 @@ final class UsageStore {
         didSet { defaults.set(showLimitInMenu, forKey: "showLimitInMenu") }
     }
     /// 한도 % 표시 방식 — 사용한 양(기본) 또는 남은 양. 숫자 표시에만 적용되고
-    /// 경고/위험 판정·게이지 채움·알림은 사용률 원값 기준을 유지한다(경고 의미론 분리).
+    /// 경고/위험 판정·알림은 사용률 원값 기준을 유지한다(경고 의미론 분리) — 게이지 채움은 #286 이후 표시 모드를 따른다.
     enum LimitDisplayMode: String, CaseIterable {
         case used, remaining
     }
@@ -814,7 +814,6 @@ final class UsageStore {
                 // 팝오버의 "이번 주/이번 달" 행이 사라졌다 나타나 깜빡인다.
                 prevWeek = previous.weekTotal
                 prevMonth = previous.monthTotal
-                prevMonthDaily = previous.monthDaily
             }
 
             let today: DailyUsage?

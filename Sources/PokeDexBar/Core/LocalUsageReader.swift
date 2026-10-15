@@ -1339,11 +1339,14 @@ enum LocalUsageReader {
     private static func grokEntry(turnID: String, date: Date, fmt: DateFormatter, usage: [String: Any],
                                   input: Int, output: Int, cacheRead: Int) -> Entry? {
         guard input + output + cacheRead > 0 else { return nil }   // 0 토큰 턴(취소 등)은 기록하지 않는다
+        // 비용 없음은 **불가**이지 미가격이 아니다 — Grok 은 서버 보고 비용만 쓰는 설계라,
+        // noteUnpriced 로 "단가표 행을 넣으라"는 로그를 남기면 설계와 반대 방향을 꼬드긴다(SP2 리뷰).
+        let cost = grokCost(usage)
         return Entry(
             id: "grok|\(turnID)", date: date, localDay: fmt.string(from: date),
             model: grokModel(usage) ?? "grok",
             input: input, output: output, cacheWrite: 0, cacheRead: cacheRead,
-            explicitCost: grokCost(usage))
+            explicitCost: cost, costUnavailable: cost == nil ? true : nil)
     }
 
     /// 표시용 모델명 — per-model 내역의 키에서 고른다. 토큰이 가장 많은 행이 대표(동수는 이름 순).
@@ -1361,7 +1364,7 @@ enum LocalUsageReader {
     }
 
     /// 서버가 계산한 비용만 쓴다(1e10 ticks = $1). 부분합·불완전 집계 플래그가 서 있으면 버린다
-    /// (Grok 모델 단가표가 없으므로 추정 대신 0 — 금액 오표시를 만들지 않는다).
+    /// (Grok 모델 단가표가 없으므로 nil = 비용 불가로 표시 — 금액 오표시를 만들지 않는다).
     private static func grokCost(_ usage: [String: Any]) -> Double? {
         if boolValue(usage["usageIsIncomplete"]) || boolValue(usage["usage_is_incomplete"]) { return nil }
         if boolValue(usage["costIsPartial"]) || boolValue(usage["cost_is_partial"]) { return nil }

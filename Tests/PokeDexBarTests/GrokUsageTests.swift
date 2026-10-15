@@ -127,6 +127,21 @@ final class GrokUsageTests: XCTestCase {
 
     /// camelCase(durable ACP wire) — inputTokens 는 캐시 포함이므로 캐시분을 빼야 하고,
     /// Entry.total 은 usage.totalTokens 와 정확히 일치해야 한다.
+    /// 비용 없는 Grok 턴은 **의도된 '불가'**다(서버 보고 비용만 쓰는 설계) — 미가격 모델처럼
+    /// noteUnpriced 로그를 유발해 "단가표에 행을 넣으라"고 유지보수자를 꼬드기면 안 된다(SP2 리뷰 minor).
+    func testATurnWithoutCostTicksIsUnavailableNotUnpriced() throws {
+        let url = try writeSession("s1", lines: [turnLine(promptID: "p-nocost", costTicks: nil)])
+        let entry = try XCTUnwrap(parse(url).first)
+        XCTAssertNil(entry.explicitCost)
+        XCTAssertEqual(entry.costUnavailable, true,
+                       "ticks 없음 = 비용 불가 — 미가격 보고 경로로 흘러가면 안 된다")
+        var bucket = LocalUsageReader.Bucket()
+        bucket.add(entry)
+        XCTAssertTrue(ModelPricing.firstUnpricedSighting(entry.model + "-probe-\(UUID().uuidString)"),
+                      "프로브 자체 검증")
+        XCTAssertEqual(bucket.costCoverage, .unavailable)
+    }
+
     func testTurnCompletedTokenMappingPreservesTotalIdentity() throws {
         let url = try writeSession("s1", lines: [chunkLine, turnLine(promptID: "p-1")])
         let entries = parse(url)

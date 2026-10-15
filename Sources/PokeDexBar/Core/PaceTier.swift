@@ -3,7 +3,7 @@ import Foundation
 /// 한도 게이지의 페이스 대비 6단계. 기준값은 delta = 사용률 − 페이스(%p) — 창 길이에 이미
 /// 정규화된 값이라 5시간·주간 창이 같은 경계를 쓴다.
 /// 판정은 **실제 사용률** 기준이라 표시 모드(used/remaining)와 무관하다 — `limitColor` 와 같은 규칙.
-/// 경고 알림·메뉴바·플로팅 펫은 여전히 절대 임계로 판정한다. 이건 팝오버 행의 색만 정한다.
+/// 경고 알림·플로팅 펫은 여전히 절대 임계로 판정한다. 팝오버 행과 메뉴바 %(#357)가 이 색을 쓴다.
 enum PaceTier: Int, CaseIterable {
     case wayUnder, under, onPace, slightlyOver, over, wayOver
 

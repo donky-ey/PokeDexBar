@@ -1066,12 +1066,6 @@ struct PopoverView: View {
         return f
     }()
 
-    private func limitColor(_ utilization: Double) -> Color {
-        if utilization >= store.critThreshold { return .red }
-        if utilization >= store.warnThreshold { return .orange }
-        return .green
-    }
-
     // MARK: 푸터
 
     /// 조작된 세이브 표시 — 뒤집힌 스프라이트만 보고 "버그인가?" 하지 않도록 이유를 적어 둔다.
@@ -1819,7 +1813,7 @@ struct LimitProgressBar: View {
 }
 
 /// 단계색은 시스템 색 — 라이트/다크에서 각각 조정된 값으로 바뀌고, 최상위(.red)는
-/// `limitColor` 의 crit 색과 같아 "crit 이면 항상 빨강"이 두 경로에서 같은 색으로 보인다.
+/// `PaceTier.wayOver` 의 crit 색과 같아 "crit 이면 항상 빨강"이 두 경로에서 같은 색으로 보인다.
 extension PaceTier {
     var color: Color {
         switch self {
