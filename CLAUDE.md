@@ -123,8 +123,17 @@
   의 `guard allowKeychainPrompt` 가 키체인 읽기 앞에 위치). 키체인 읽기는 명시적 사용자 버튼
   (설정 갱신·팝오버 `claudeLimitsRefreshRow`, `refreshLimitTokenFromKeychain`)에서만. 캐시 토큰이 살아있는
   동안은 자동 폴이 그 토큰으로 한도를 계속 갱신하고, 만료되면 stale 표시 후 사용자가 갱신한다. 회귀 가드:
-  `testAutoRefreshUsesNoPromptPathManualUsesPromptPath`. (완전 근절은 Developer ID notarization 으로
-  '항상 허용' 승인을 안정화하는 것뿐 — 신뢰된 서명 신원이라야 ACL 승인이 지속된다. 미도입.)
+  `testAutoRefreshUsesNoPromptPathManualUsesPromptPath`. (notarization 외의 실제 우회로: SP3 부터
+  **claude.ai 세션 키 경로**(설정→고급, `SessionKeyLimitsProvider`)가 있다 — Keychain 무접촉이라
+  자동 폴이 프롬프트 없이 한도를 계속 갱신한다. 대가는 평문 보관(소유자 전용 0600 파일, 설정이
+  그 사실과 무효화 방법을 안내). Keychain 규율은 폴백 경로에 그대로 적용된다 — 키가 설정돼 있으면
+  수동 갱신의 폴백조차 Keychain 을 열지 않는다, `testConfiguredButBrokenKeyNeverLetsFallbackOpenTheKeychain`.)
+- **테스트가 실 앱의 자격증명 저장소를 공유하게 두지 마라.** `swift test` 의 `AppEnv.storageName`
+  은 설치본과 같은 "PokeDexBar" 다 — Dev 빌드 이름 분리는 **테스트를 격리하지 않는다**. 실사고:
+  업스트림 세션 키 픽스처 테스트가 적응 전 1회 돌며 실 `~/Library/Application Support/PokeDexBar/
+  session-key.json` 에 가짜 키를 썼다(XCTAssert 실패는 실행을 멈추지 않아 뒤의 save 가 그대로
+  돌았다). 자격증명류 저장 경로는 `isBundledApp` 으로 가른다(`SessionKeyStore.defaultDirectory` —
+  비번들은 임시 폴더). 회귀 가드: `testANonBundledRunNeverTouchesTheRealAppSupportStore`.
 - **휘발성 필드를 dedup/identity 키에 쓰지 마라.** 매 fetch/refresh 마다 값이 변하는 필드(예: rolling
   한도 창의 `resets_at`)를 알림 중복방지 키에 넣으면 매번 새 키가 되어 dedup 이 무력화된다 — 주간 한도
   알림이 80·81·84…갱신마다 반복되던 회귀. 임계값 알림은 **엣지 트리거**(직전 tier 보다 높아진 순간만

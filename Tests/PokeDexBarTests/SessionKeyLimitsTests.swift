@@ -528,11 +528,29 @@ final class SessionKeyLimitsTests: XCTestCase {
 /// 갈라져 실제 자격증명을 건드리지 않는다. (포크: 업스트림 PTB_STATE_DIR 은 미도입 — 같은 목적을
 /// AppEnv.storageName 이 맡는다.)
 final class SessionKeyStoreLocationTests: XCTestCase {
-    func testDefaultPathLivesInTheAppSupportDirectory() {
-        let store = SessionKeyStore()
+    func testTheBundledDefaultPathLivesInTheAppSupportDirectory() {
+        let store = SessionKeyStore(isBundledApp: true)
         XCTAssertEqual(store.fileURL.lastPathComponent, "session-key.json")
         XCTAssertEqual(store.fileURL.deletingLastPathComponent().standardizedFileURL,
                        AppEnv.supportDirectory().standardizedFileURL,
                        "세이브·캐시와 같은 지원 디렉터리(빌드별 격리 포함)를 써야 한다")
+    }
+
+    /// 최종리뷰 지적(실사고): `swift test` 의 storageName 은 설치본과 같은 "PokeDexBar" 라,
+    /// 기본 경로를 그대로 쓰면 **테스트가 실 앱의 자격증명 저장소를 읽고 쓴다** — 실제로 업스트림
+    /// 픽스처 키가 실 폴더에 기록됐다. 비번들 실행은 임시 폴더로 갈라진다(`installedDiscovery` 와
+    /// 같은 가드 부류). `UsageStore` 기본 `sessionKeys`/`accountSessionKeys` 가 이 경로를 쓴다.
+    func testANonBundledRunNeverTouchesTheRealAppSupportStore() {
+        let plain = SessionKeyStore(isBundledApp: false)
+        XCTAssertNotEqual(plain.fileURL.deletingLastPathComponent().standardizedFileURL,
+                          AppEnv.supportDirectory().standardizedFileURL,
+                          "swift test 가 실 앱의 session-key.json 을 공유하면 안 된다")
+        let account = SessionKeyStore.forConfigRoot(
+            URL(fileURLWithPath: "/tmp/claude-work"), isBundledApp: false)
+        XCTAssertNotEqual(account.fileURL.deletingLastPathComponent().standardizedFileURL,
+                          AppEnv.supportDirectory().standardizedFileURL)
+        // 기본 생성자(실행 환경 그대로)도 xctest 아래에선 실 폴더 밖이어야 한다.
+        XCTAssertNotEqual(SessionKeyStore().fileURL.deletingLastPathComponent().standardizedFileURL,
+                          AppEnv.supportDirectory().standardizedFileURL)
     }
 }

@@ -1457,6 +1457,9 @@ final class UsageStore {
     func clearSessionKey() {
         sessionKeys.clear()
         sessionKeyConfigured = false
+        // 그 키가 만든 만료 안내도 함께 간다 — 남기면 다음 자동 폴이 OAuth 폴백의
+        // keychainInteractionNotAllowed(만료 아님)로 끝나 안내가 영영 안 지워진다(최종리뷰 #2).
+        if limitsAuthExpiry == .sessionKey { limitsAuthExpiry = nil }
         sessionKeyOrganizations = []
         sessionKeySelectedOrgID = nil
         sessionKeyError = nil

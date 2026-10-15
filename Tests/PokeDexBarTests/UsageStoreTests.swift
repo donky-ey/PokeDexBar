@@ -1247,6 +1247,26 @@ final class UsageStoreTests: XCTestCase {
     }
 
     /// 그 팝업을 띄운다. 그래서 만료의 **출처**를 남긴다.
+    /// 최종리뷰 Important 2 — 키를 지우면 그 키가 만든 만료 안내도 함께 가야 한다. 남겨 두면
+    /// 다음 자동 폴이 OAuth 폴백에서 keychainInteractionNotAllowed(만료 아님)로 끝나 안내가
+    /// 영영 안 지워지고, 배너의 처방("키 재입력")은 키가 이미 없는 사용자를 막다른 길로 보낸다.
+    func testClearingTheSessionKeyClearsItsExpiryNotice() async {
+        let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code", daily: todayDaily(10_000_000))
+        let keys = StubSessionKeys(credential: SessionKeyCredential(key: "sk-ant-sid02-x", organizationID: "o"))
+        let store = UsageStore(providers: [claude],
+                               claudeLimitsProvider: SequenceClaudeLimits(errors: [LimitsError.sessionKeyInvalid]),
+                               codexLimitsProvider: FakeCodexLimits(status: nil),
+                               sessionKeys: keys,
+                               autoRefresh: false, defaults: testDefaults)
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertEqual(store.limitsAuthExpiry, .sessionKey)
+        XCTAssertTrue(store.sessionKeyExpired)
+
+        store.clearSessionKey()
+        XCTAssertNil(store.limitsAuthExpiry, "지운 키의 만료 안내가 남아 있다")
+        XCTAssertFalse(store.sessionKeyExpired)
+    }
+
     func testSessionKeyExpiryIsDistinguishedFromOAuthExpiry() async {
         let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code", daily: todayDaily(10_000_000))
         let store = UsageStore(providers: [claude],

@@ -617,7 +617,9 @@ struct PopoverView: View {
                     claudeKeychainHelpButton
                 }
             }
-            if selectedSnapshot?.providerID == "claude_code", store.limitsAuthExpiry == .sessionKey {
+            // sessionKeyExpired(= 키가 아직 설정돼 있을 때만 true)로 게이트 — 지워진 키의
+            // 잔존 상태가 "재입력하라" 배너를 띄우는 길을 이중으로 막는다.
+            if selectedSnapshot?.providerID == "claude_code", store.sessionKeyExpired {
                 sessionKeyExpiredNotice
             } else if selectedSnapshot?.providerID == "claude_code", store.limitsAuthExpired {
                 claudeAuthExpiredNotice
