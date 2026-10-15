@@ -832,6 +832,7 @@ struct L {
     // MARK: 플로팅 펫
     var floatingPetSectionTitle: String { t("플로팅 펫", "Floating Pet", "フローティングペット") }
     var floatingPetEnableLabel: String { t("플로팅 펫 표시", "Show floating pet", "フローティングペットを表示") }
+    var floatingPetHideLabel: String { t("플로팅 펫 숨기기", "Hide floating pet", "フローティングペットを隠す") }
     var floatingPetHint: String {
         t("포켓몬이 화면 위에 떠 있어요 — 드래그로 위치를 옮길 수 있어요",
           "Your Pokémon floats over the screen — drag to reposition",
