@@ -9,6 +9,25 @@ enum AppEnv {
         Bundle.main.bundleIdentifier != nil && Bundle.main.bundlePath.hasSuffix(".app")
     }
 
+    /// `PTB_PARITY=1` — 라이브 엔드포인트를 허용하는 QA/패리티 실행(패리티 스모크가 이미 쓰는
+    /// 플래그). `isBundledApp` 이 닫아 둔 게이트를 여는 용도로만 쓰인다.
+    static var isParityRun: Bool {
+        ProcessInfo.processInfo.environment["PTB_PARITY"] == "1"
+    }
+
+    /// 테스트가 프로바이더의 실 네트워크 코드를 **스텁 전송**(URLProtocol·주입 URLSession)에 대고
+    /// 돌릴 때 연다. 테스트 안에서 켜고 `defer` 로 끈다.
+    nonisolated(unsafe) static var allowLiveFetchForTesting = false
+
+    /// 한도 프로바이더가 사용자 자격증명을 라이브 엔드포인트로 보낼 수 있는가. `swift test` 와
+    /// 로우 `swift build` 바이너리에선 닫힌다 — 스텁을 주입하지 않은 테스트가 아니면
+    /// `~/.claude/.credentials.json` 의 실 로그인으로 Anthropic 을 때려 rate limit 을 소모한다.
+    /// 게이트는 자격증명 읽기 **뒤**·네트워크 **앞** — Keychain 경로 테스트가 실 읽기를 계속
+    /// 관찰해야 하기 때문. `LiveCredentialCallGateTests` 가 전 프로바이더에 이를 강제한다. (#355)
+    static var allowsLiveLimitsFetch: Bool {
+        isBundledApp || isParityRun || allowLiveFetchForTesting
+    }
+
     #if DEBUG
     /// 테스트 전용 버전 덮어쓰기. `swift test` 의 `Bundle.main` 은 xctest 러너라 앱과 무관한 값을
     /// 돌려준다 — 설정 화면을 그대로 찍는 스크린샷 생성기가 릴리스 버전을 넣을 수 있게 하는 seam.

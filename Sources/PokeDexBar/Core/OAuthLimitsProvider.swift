@@ -3,6 +3,8 @@ import Security
 
 enum LimitsError: Error {
     case keychainAccessDisabled
+    /// `swift test`·로우 바이너리에서의 라이브 한도 호출 — `AppEnv.allowsLiveLimitsFetch` 참조.
+    case liveFetchNotPermitted
     case keychainUnavailable(OSStatus)
     case keychainInteractionNotAllowed
     case credentialFormat
@@ -48,6 +50,7 @@ struct OAuthLimitsProvider: ClaudeLimitsProviding, Sendable {
     }
 
     private func fetchStatus(accessToken: String) async throws -> LimitStatus {
+        guard AppEnv.allowsLiveLimitsFetch else { throw LimitsError.liveFetchNotPermitted }
         var request = URLRequest(url: Self.usageURL, timeoutInterval: 15)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")

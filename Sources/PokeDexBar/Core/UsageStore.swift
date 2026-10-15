@@ -932,7 +932,8 @@ final class UsageStore {
             return l.limitRefreshNoCredential
         case .credentialMissingAccountOAuth:
             return l.limitRefreshReauthNeeded
-        case .keychainInteractionNotAllowed, .keychainAccessDisabled:
+        // liveFetchNotPermitted 는 실앱(번들이 게이트를 연다)에 도달하지 않는다 — 일반 문구로.
+        case .keychainInteractionNotAllowed, .keychainAccessDisabled, .liveFetchNotPermitted:
             return l.limitRefreshGeneric
         }
     }
