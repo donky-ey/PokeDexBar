@@ -36,4 +36,10 @@ struct LogRepeatSuppressor {
         }
         return false
     }
+
+    /// Forgets one key so its next line is always written. Call on the success path: after a
+    /// recovery, the same error recurring is a new incident, not a repeat of the old one.
+    mutating func reset(key: String) {
+        lastWritten[key] = nil
+    }
 }

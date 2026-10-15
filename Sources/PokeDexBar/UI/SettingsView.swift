@@ -114,6 +114,16 @@ struct SettingsView: View {
             }
             Divider()
             groupRow {
+                Text(l.limitDisplayModeLabel)
+                Spacer()
+                Picker("", selection: $store.limitDisplayMode) {
+                    Text(l.limitDisplayUsed).tag(UsageStore.LimitDisplayMode.used)
+                    Text(l.limitDisplayRemaining).tag(UsageStore.LimitDisplayMode.remaining)
+                }
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
+            }
+            Divider()
+            groupRow {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(l.launchAtLogin)
                     if !isBundledApp {
@@ -155,6 +165,23 @@ struct SettingsView: View {
                 toggleRow(l.todayCost, $store.showCostInMenu)
                 Divider()
                 toggleRow(l.limitPercent, $store.showLimitInMenu)
+                if store.showLimitInMenu {
+                    Divider()
+                    groupRow {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(l.menuLimitColor)
+                            Text(l.menuLimitColorHint).font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        Picker(l.menuLimitColor, selection: $store.menuLimitColorMode) {
+                            ForEach(UsageStore.MenuLimitColorMode.allCases, id: \.self) {
+                                Text(l.menuLimitColorMode($0)).tag($0)
+                            }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                }
             }
             Text(l.allOffHint).font(.caption2).foregroundStyle(.tertiary).padding(.leading, 4)
         }

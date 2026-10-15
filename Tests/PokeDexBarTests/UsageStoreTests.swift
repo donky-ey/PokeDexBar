@@ -189,6 +189,30 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(store.todayTotalTokens, 0, "캐리어는 오늘 합계에 더해지면 안 된다")
     }
 
+    /// [Review Focus 2] 메뉴바 한도 %도 표시 모드를 따른다(#150 업스트림 결정 — 접미사만 없음).
+    /// 팝오버가 "잔여 19%"인데 메뉴바가 "81%"면 같은 값이 두 화면에서 반대로 읽힌다.
+    func testMenuLimitLineFollowsTheDisplayMode() async {
+        let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code",
+                                       daily: todayDaily(1_000))
+        let store = makeStore(providers: [claude], claude: claudeLimits(fiveHourUtil: 81))
+        store.showLimitInMenu = true
+        await store.refresh(scheduleEmptyRetry: false)
+        store.limitDisplayMode = .used
+        XCTAssertTrue(store.menuLines.contains { $0.contains("81%") }, store.menuLines.description)
+        store.limitDisplayMode = .remaining
+        XCTAssertTrue(store.menuLines.contains { $0.contains("19%") }, "메뉴바가 잔여 모드를 무시했다")
+    }
+
+    /// 절대 리셋 시각(#263)의 포맷 선택 — 6시간 안/오늘이면 시:분만, 며칠 뒤(주간 한도)면
+    /// 요일·일자까지. "in 2 days" 카운트다운만으론 언제 풀리는지 감이 안 와 붙이는 접미사다.
+    func testResetClockTemplatePicksDayDetailOnlyWhenFar() {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        XCTAssertEqual(PopoverView.resetClockFormatTemplate(reset: now.addingTimeInterval(3600), now: now),
+                       "HHmm", "1시간 뒤는 시:분만")
+        XCTAssertEqual(PopoverView.resetClockFormatTemplate(reset: now.addingTimeInterval(3 * 86_400), now: now),
+                       "EEEEdHHmm", "사흘 뒤는 요일·일자 포함")
+    }
+
     /// [Review Focus 5] 캐리어는 메뉴바 컴팩트 표시 규율("오늘 사용>0")을 못 깬다 — 한도 줄도,
     /// **비용 줄도**. showsCost 가 캐리어까지 세면 오늘 아무것도 안 쓴 사용자의 메뉴바에
     /// "$0.00" 둘째 줄이 생긴다(안 쓴 프로바이더가 레이아웃을 바꾸는 회귀).
@@ -357,6 +381,47 @@ final class UsageStoreTests: XCTestCase {
         await store.runSuspendedPollingProbe()
         XCTAssertEqual(provider.fetchCallCount, callsBefore, "정지가 아닌데 probe 가 refresh 를 쐈다")
         XCTAssertFalse(store.isPollingSuspended)
+    }
+
+    /// 네트워크 복귀 refresh 는 디스플레이 꺼짐(pollingSuspended) 중엔 쏘지 않는다 — 슬립 중
+    /// 와이파이 토글마다 서브프로세스 spawn 이 깨어나면 suspendPolling 의 목적(배터리)이 무너진다.
+    /// 복귀 직후 1회 갱신은 resumePolling 몫이라 잃는 것도 없다.
+    func testReconnectRefreshIsSuppressedWhileSuspended() async {
+        let provider = FakeUsageProvider(id: "claude_code", displayName: "Claude Code",
+                                         daily: todayDaily(1_000))
+        let store = makeStore(providers: [provider])
+        store.suspendPolling()
+        let callsBefore = provider.fetchCallCount
+        await store.handleNetworkReconnected()
+        XCTAssertEqual(provider.fetchCallCount, callsBefore, "정지 중 재연결이 refresh 를 쐈다")
+    }
+
+    /// 대조군 — 정지가 아니면 재연결은 즉시 갱신한다(이 경로의 존재 이유).
+    func testReconnectRefreshRunsWhenActive() async {
+        let provider = FakeUsageProvider(id: "claude_code", displayName: "Claude Code",
+                                         daily: todayDaily(1_000))
+        let store = makeStore(providers: [provider])
+        let callsBefore = provider.fetchCallCount
+        await store.handleNetworkReconnected()
+        XCTAssertGreaterThan(provider.fetchCallCount, callsBefore)
+    }
+
+    /// 한도 성공 분기가 claude-limits 억제 키를 리셋하는지 — AppLog 는 xctest 에서 no-op 이라
+    /// 소스로 확인한다(`testTheBackfillIsCalledFromAppLaunchNotOnlyFromAView` 방식: 주석 제거 후
+    /// 호출 형태 검색).
+    func testTheLimitsSuccessPathResetsTheSuppressionKey() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let file = root.appendingPathComponent("Sources/PokeDexBar/Core/UsageStore.swift")
+        let code = try String(contentsOf: file, encoding: .utf8).split(separator: "\n")
+            .map { $0.contains("//") ? String($0[..<$0.range(of: "//")!.lowerBound]) : String($0) }
+            .joined(separator: "\n")
+        XCTAssertTrue(code.contains("AppLog.resetRepeatKey(\"claude-limits\")"),
+                      "한도 성공 분기가 claude-limits 억제 키를 리셋하지 않는다")
+        // 부류 스윕(최종리뷰): writeIfChanged 를 쓰는 다른 한도 키도 같은 규칙 — codex 바이너리
+        // not-found → found → not-found 재발이 1시간 창에 삼켜지지 않아야 한다.
+        XCTAssertTrue(code.contains("AppLog.resetRepeatKey(\"codex-limits\")"),
+                      "codex 한도 성공 분기가 codex-limits 억제 키를 리셋하지 않는다")
     }
 
     func testRefreshWhileDisplaysAsleepKeepsPollingSuspended() async {
@@ -605,6 +670,41 @@ final class UsageStoreTests: XCTestCase {
             warn: 80, crit: 95, tiers: &tiers).isEmpty)
     }
 
+    /// The Settings sliders overlap (warn 50…95, crit 80…100). If warn could sit at or above
+    /// crit, a window between them would raise a *critical* alert below the warning line and
+    /// the warning tier could never fire. Moving either slider pushes the other one past it. (#410)
+    func testWarningStaysBelowCritical() {
+        let store = makeStore(providers: [])
+        store.critThreshold = 80
+        store.warnThreshold = 95
+        XCTAssertEqual(store.warnThreshold, 95)
+        XCTAssertEqual(store.critThreshold, 100, "raising warn pushes crit above it")
+
+        store.critThreshold = 80
+        XCTAssertEqual(store.critThreshold, 80)
+        XCTAssertEqual(store.warnThreshold, 75, "lowering crit pushes warn below it")
+
+        store.warnThreshold = 60
+        XCTAssertEqual(store.critThreshold, 80, "an already ordered pair is left alone")
+        XCTAssertEqual(testDefaults.double(forKey: "warnThreshold"), 60)
+        XCTAssertEqual(testDefaults.double(forKey: "critThreshold"), 80)
+    }
+
+    func testStoredThresholdsLoadInOrder() {
+        testDefaults.set(95.0, forKey: "warnThreshold")
+        testDefaults.set(80.0, forKey: "critThreshold")
+        let store = makeStore(providers: [])
+        XCTAssertLessThan(store.warnThreshold, store.critThreshold)
+        XCTAssertEqual(store.critThreshold, 80)
+        XCTAssertEqual(store.warnThreshold, 75)
+
+        var tiers: [String: Int] = [:]
+        let alerts = UsageStore.evaluateLimitAlerts(
+            windows: [(key: "k", name: "5h", utilization: 77)],
+            warn: store.warnThreshold, crit: store.critThreshold, tiers: &tiers)
+        XCTAssertEqual(alerts.map(\.isCritical), [false], "77% is a warning, not a critical alert")
+    }
+
     // MARK: 메뉴바 표시 (menuLines)
 
     /// 회귀(#사용자리포트): 오늘 안 쓴 프로바이더의 한도가 메뉴바에 떴다.
@@ -695,6 +795,47 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertTrue(three[0].contains(" · "))              // 윗줄=토큰·비용 나란히
         XCTAssertFalse(three[0].contains("Claude"))          // 윗줄에 한도 없음
         XCTAssertTrue(three[1].contains("Claude"))           // 아랫줄=한도
+    }
+
+    // MARK: 한도 표시 방식 (used / remaining)
+
+    /// 표시 변환 순수 판정 — remaining = 100−사용률, 0 하한(사용률 100 초과 시 음수 금지), 경계 포함.
+    func testLimitDisplayPercentModes() {
+        XCTAssertEqual(UsageStore.displayPercent(40, mode: .used), 40)
+        XCTAssertEqual(UsageStore.displayPercent(40, mode: .remaining), 60)
+        XCTAssertEqual(UsageStore.displayPercent(0, mode: .remaining), 100)
+        XCTAssertEqual(UsageStore.displayPercent(100, mode: .remaining), 0)
+        XCTAssertEqual(UsageStore.displayPercent(120, mode: .remaining), 0, "100% 초과 사용 → 남은 양 0 클램프")
+        XCTAssertEqual(UsageStore.displayPercent(40.5, mode: .remaining), 59.5, "소수 유지")
+    }
+
+    /// remaining 모드의 메뉴바 한도 줄 — 숫자만 반전, 프로바이더 라벨·조합 규칙은 그대로.
+    func testMenuBarLimitRemainingModeInvertsPercents() async {
+        let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code", daily: todayDaily(10_000_000))
+        let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: todayDaily(5_000_000))
+        let store = makeStore(
+            providers: [claude, codex],
+            claude: claudeLimits(fiveHourUtil: 40, resetsAt: "2099-01-01T00:00:00Z"),
+            codex: codexLimits(primaryUsed: 85))
+        store.showTokensInMenu = false
+        store.showCostInMenu = false
+        store.showLimitInMenu = true
+        store.limitDisplayMode = .remaining
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertTrue(store.menuTitle.contains("Claude 60%"), "used 40 → remaining 60: \(store.menuTitle)")
+        XCTAssertTrue(store.menuTitle.contains("Codex 15%"), "used 85 → remaining 15: \(store.menuTitle)")
+
+        store.limitDisplayMode = .used
+        XCTAssertTrue(store.menuTitle.contains("Claude 40%"), "used 모드 복귀: \(store.menuTitle)")
+    }
+
+    /// 설정 영속 — 기본은 used(기존 사용자 무변화), remaining 선택은 재시작(같은 defaults 재로드) 후 유지.
+    func testLimitDisplayModePersistsAcrossRestart() {
+        let s1 = makeStore(providers: [])
+        XCTAssertEqual(s1.limitDisplayMode, .used, "기본값 = used(현행 표시 유지)")
+        s1.limitDisplayMode = .remaining
+        let s2 = makeStore(providers: [])
+        XCTAssertEqual(s2.limitDisplayMode, .remaining, "같은 defaults 재로드 → 유지")
     }
 
     // MARK: 집계
@@ -801,9 +942,8 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(store.weekTotalTokens, 90_000_000)
     }
 
-    /// 오늘·최근 미사용(활성 블록 없음)인데 주/월 기록만 있으면 캐리어를 만들지 않는다 —
-    /// weekTotal 이 항상 non-nil 이라 탭이 뜨던 회귀 방지("안 썼는데 왜 뜨지").
-    func testNoCarrierForWeekMonthOnlyWithoutActiveBlock() async {
+    /// Positive historical usage remains visible even before today's first token (#377).
+    func testCarrierForWeekMonthOnlyWithoutActiveBlock() async {
         let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: nil)
         codex.enrichment = ProviderEnrichment(
             activeBlock: nil, blocksOK: true,   // 최근 5h 사용 없음 → 블록 없음
@@ -812,8 +952,63 @@ final class UsageStoreTests: XCTestCase {
             periodsOK: true)
         let store = makeStore(providers: [codex])
         await store.refresh(scheduleEmptyRetry: false)
-        XCTAssertFalse(store.snapshots.contains { $0.providerID == "codex" },
-                       "오늘·최근 미사용 프로바이더는 탭이 뜨면 안 됨")
+
+        XCTAssertTrue(store.snapshots.contains { $0.providerID == "codex" })
+        XCTAssertEqual(store.todayTotalTokens, 0)
+        XCTAssertTrue(store.snapshots.allSatisfy { $0.todayTotalTokens == 0 })
+        XCTAssertEqual(store.weekTotalTokens, 50_000_000)
+        XCTAssertEqual(store.monthTotalTokens, 80_000_000)
+        // 포크: 업스트림 burnTier .idle ↔ 포크는 burn 레이트 0 으로 같은 사실을 본다.
+        XCTAssertEqual(UsageStore.burnPerMinute(snapshots: store.snapshots, isStale: false), 0)
+    }
+
+    func testIdleHistoryPersistsAcrossRefreshAndEnrichmentFailure() async {
+        let provider = FakeUsageProvider(id: "future_tool", displayName: "Future Tool")
+        var history = todayDaily(12_000)
+        history.date = LocalUsageReader.localDayFormatter().string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+        provider.enrichment = ProviderEnrichment(
+            activeBlock: nil, blocksOK: true,
+            weekTotal: PeriodUsage(period: "w", totalTokens: 12_000, totalCost: 0),
+            monthTotal: PeriodUsage(period: "m", totalTokens: 12_000, totalCost: 0),
+            monthDaily: [history, todayDaily(0)], periodsOK: true)
+        let store = makeStore(providers: [provider])
+
+        for _ in 0..<2 {
+            await store.refresh(scheduleEmptyRetry: false)
+            XCTAssertEqual(store.monthDailyTotals.map(\.totalTokens), [12_000, 0])
+            XCTAssertEqual(store.dailyLedger.tokens(on: history.date), 12_000)
+            XCTAssertEqual(store.todayTotalTokens, 0)
+            XCTAssertTrue(store.snapshots.allSatisfy { $0.todayTotalTokens == 0 })
+        }
+
+        provider.enrichment = ProviderEnrichment()
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertEqual(store.weekTotalTokens, 12_000)
+        XCTAssertEqual(store.monthTotalTokens, 12_000)
+        XCTAssertEqual(store.monthDailyTotals.map(\.totalTokens), [12_000, 0])
+
+        // A successful empty scan is authoritative; it must not retain a ghost provider.
+        provider.enrichment = ProviderEnrichment(blocksOK: true, periodsOK: true)
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertTrue(store.snapshots.isEmpty)
+        XCTAssertEqual(store.dailyLedger.tokens(on: history.date), 12_000)
+    }
+
+    func testIdleCarrierRequiresPositiveHistoricalValue() async {
+        for source in ["week", "month", "series", "empty", "failed"] {
+            let provider = FakeUsageProvider(id: "future_tool", displayName: "Future Tool")
+            var day = todayDaily(source == "series" ? 12_000 : 0)
+            day.date = LocalUsageReader.localDayFormatter().string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+            provider.enrichment = ProviderEnrichment(
+                blocksOK: true,
+                weekTotal: PeriodUsage(period: "w", totalTokens: source == "week" ? 12_000 : 0, totalCost: 0),
+                monthTotal: PeriodUsage(period: "m", totalTokens: source == "month" ? 12_000 : 0, totalCost: 0),
+                monthDaily: [day], periodsOK: source != "failed")
+            let store = makeStore(providers: [provider])
+            await store.refresh(scheduleEmptyRetry: false)
+            XCTAssertEqual(store.snapshots.count, ["empty", "failed"].contains(source) ? 0 : 1, source)
+            XCTAssertEqual(store.todayTotalTokens, 0, source)
+        }
     }
 
     // MARK: 확장 규약 — 프로바이더 무관 집계 (CLAUDE.md "확장 규약" 강제)
@@ -1014,5 +1209,88 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertFalse(store.showsCost)
         XCTAssertEqual(store.menuLines, [TokenFormatter.compact(50_000)],
                        "Cursor-only must not render $0.00 / $0.0 in the menu bar")
+    }
+}
+
+// MARK: 메뉴바 한도 색
+
+private func claudeFiveHour(_ utilization: Double, resetsIn: TimeInterval?, now: Date) -> LimitStatus {
+    let reset = resetsIn.map { "\"\(ISO8601DateFormatter().string(from: now.addingTimeInterval($0)))\"" } ?? "null"
+    let json = "{\"five_hour\":{\"utilization\":\(utilization),\"resets_at\":\(reset)}}"
+    return try! JSONDecoder().decode(LimitStatus.self, from: Data(json.utf8))
+}
+
+private func codexPrimary(_ usedPercent: Int, resetsIn: TimeInterval, now: Date) -> CodexRateLimitStatus {
+    let reset = Int(now.addingTimeInterval(resetsIn).timeIntervalSince1970)
+    let json = "{\"rateLimits\":{\"primary\":{\"usedPercent\":\(usedPercent),\"windowDurationMins\":300,\"resetsAt\":\(reset)}}}"
+    return try! JSONDecoder().decode(CodexRateLimitStatus.self, from: Data(json.utf8))
+}
+
+extension UsageStoreTests {
+    /// Half of each 5-hour window has passed: Claude 40% is on pace (−10), Codex 70% is fast (+20).
+    private func halfwayStore(now: Date) async -> UsageStore {
+        let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code", daily: todayDaily(1_000))
+        let codex = FakeUsageProvider(id: "codex", displayName: "Codex", daily: todayDaily(1_000))
+        let store = makeStore(providers: [claude, codex],
+                              claude: claudeFiveHour(40, resetsIn: 2.5 * 3600, now: now),
+                              codex: codexPrimary(70, resetsIn: 2.5 * 3600, now: now))
+        store.showTokensInMenu = false
+        store.showCostInMenu = false
+        store.showLimitInMenu = true
+        await store.refresh(scheduleEmptyRetry: false)
+        return store
+    }
+
+    func testMenuLimitPartsCarryThePaceOfTheirOwnWindow() async throws {
+        let now = Date()
+        let store = await halfwayStore(now: now)
+        let parts = store.menuLimitParts(now: now)
+        XCTAssertEqual(parts.map(\.text), ["Claude 40%", "Codex 70%"])
+        XCTAssertEqual(try XCTUnwrap(parts[0].pace), 0.5, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(parts[1].pace), 0.5, accuracy: 0.01)
+        XCTAssertEqual(store.menuTitle, "Claude 40% · Codex 70%", "the text itself is unchanged")
+    }
+
+    func testMenuLimitColorRunsFollowTheMode() async {
+        let now = Date()
+        let store = await halfwayStore(now: now)
+        XCTAssertEqual(store.menuLimitColorMode, .gauge, "matching the gauges is the default")
+        XCTAssertEqual(store.menuLimitColorRuns(now: now),
+                       [.init(text: "Claude 40%", tier: .onPace), .init(text: "Codex 70%", tier: .over)])
+
+        store.menuLimitColorMode = .attention
+        XCTAssertEqual(store.menuLimitColorRuns(now: now), [.init(text: "Codex 70%", tier: .over)],
+                       "on pace keeps the system color")
+
+        store.menuLimitColorMode = .off
+        XCTAssertEqual(store.menuLimitColorRuns(now: now), [])
+    }
+
+    /// Without a reset time there is no pace, so the item takes the absolute threshold colors (warn 80, crit 95).
+    func testMenuLimitItemsWithoutAPaceUseTheThresholdColors() async {
+        let now = Date()
+        for (utilization, expected) in [(50.0, PaceTier.onPace), (85, .over), (96, .wayOver)] {
+            let claude = FakeUsageProvider(id: "claude_code", displayName: "Claude Code", daily: todayDaily(1_000))
+            let store = makeStore(providers: [claude], claude: claudeFiveHour(utilization, resetsIn: nil, now: now))
+            store.showLimitInMenu = true
+            await store.refresh(scheduleEmptyRetry: false)
+            XCTAssertNil(store.menuLimitParts(now: now).first?.pace)
+            XCTAssertEqual(store.menuLimitColorRuns(now: now).map(\.tier), [expected], "utilization=\(utilization)")
+        }
+    }
+
+    /// The number follows "remaining", the color follows actual usage — the same split as the popover row.
+    func testMenuLimitColorIsJudgedFromUsageInRemainingMode() async {
+        let now = Date()
+        let store = await halfwayStore(now: now)
+        store.limitDisplayMode = .remaining
+        XCTAssertEqual(store.menuLimitColorRuns(now: now),
+                       [.init(text: "Claude 60%", tier: .onPace), .init(text: "Codex 30%", tier: .over)])
+    }
+
+    func testMenuLimitColorModePersists() {
+        let store = makeStore(providers: [])
+        store.menuLimitColorMode = .attention
+        XCTAssertEqual(makeStore(providers: []).menuLimitColorMode, .attention)
     }
 }

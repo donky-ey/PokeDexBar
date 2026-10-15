@@ -10,6 +10,8 @@ struct DailyUsage: Decodable, Sendable {
     var cacheReadTokens: Int
     var totalTokens: Int
     var totalCost: Double
+    var costCoverage: CostCoverage = .source
+    var usageCost: UsageCost { UsageCost(amount: totalCost, coverage: costCoverage) }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -26,10 +28,13 @@ struct DailyUsage: Decodable, Sendable {
             ?? (inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens)
         totalCost = try c.decodeIfPresent(Double.self, forKey: .totalCost)
             ?? c.decodeIfPresent(Double.self, forKey: .costUSD) ?? 0
+        costCoverage = try c.decodeIfPresent(CostCoverage.self, forKey: .costCoverage)
+            ?? (totalTokens == 0 ? .empty : (totalCost > 0 ? .estimate : .unavailable))
     }
 
     init(date: String, inputTokens: Int, outputTokens: Int,
-         cacheCreationTokens: Int, cacheReadTokens: Int, totalTokens: Int, totalCost: Double) {
+         cacheCreationTokens: Int, cacheReadTokens: Int, totalTokens: Int, totalCost: Double,
+         costCoverage: CostCoverage = .source) {
         self.date = date
         self.inputTokens = inputTokens
         self.outputTokens = outputTokens
@@ -37,11 +42,12 @@ struct DailyUsage: Decodable, Sendable {
         self.cacheReadTokens = cacheReadTokens
         self.totalTokens = totalTokens
         self.totalCost = totalCost
+        self.costCoverage = costCoverage
     }
 
     private enum CodingKeys: String, CodingKey {
         case date, period, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens
-        case cachedInputTokens, totalTokens, totalCost, costUSD
+        case cachedInputTokens, totalTokens, totalCost, costUSD, costCoverage
     }
 }
 
@@ -65,19 +71,22 @@ struct BlockUsage: Decodable, Sendable {
     var isActive: Bool
     var totalTokens: Int
     var costUSD: Double
+    var costCoverage: CostCoverage = .source
+    var usageCost: UsageCost { UsageCost(amount: costUSD, coverage: costCoverage) }
     /// ccusage blocks 의 burnRate.tokensPerMinute — 한도 소진 예측과 companion 표시 상태에 사용
     var tokensPerMinute: Double?
 
     var endDate: Date? { ISO8601Parser.date(from: endTime) }
 
     init(id: String, startTime: String, endTime: String, isActive: Bool,
-         totalTokens: Int, costUSD: Double, tokensPerMinute: Double?) {
+         totalTokens: Int, costUSD: Double, tokensPerMinute: Double?, costCoverage: CostCoverage = .source) {
         self.id = id
         self.startTime = startTime
         self.endTime = endTime
         self.isActive = isActive
         self.totalTokens = totalTokens
         self.costUSD = costUSD
+        self.costCoverage = costCoverage
         self.tokensPerMinute = tokensPerMinute
     }
 
@@ -89,6 +98,8 @@ struct BlockUsage: Decodable, Sendable {
         isActive = try c.decodeIfPresent(Bool.self, forKey: .isActive) ?? false
         totalTokens = try c.decodeIfPresent(Int.self, forKey: .totalTokens) ?? 0
         costUSD = try c.decodeIfPresent(Double.self, forKey: .costUSD) ?? 0
+        costCoverage = try c.decodeIfPresent(CostCoverage.self, forKey: .costCoverage)
+            ?? (totalTokens == 0 ? .empty : (costUSD > 0 ? .estimate : .unavailable))
         if let burn = try? c.decodeIfPresent(BurnRate.self, forKey: .burnRate) {
             tokensPerMinute = burn.tokensPerMinute
         }
@@ -99,6 +110,7 @@ struct BlockUsage: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case costCoverage
         case id, startTime, endTime, isActive, totalTokens, costUSD, burnRate
     }
 }
@@ -121,6 +133,8 @@ struct PeriodUsage: Decodable, Sendable {
     var period: String
     var totalTokens: Int
     var totalCost: Double
+    var costCoverage: CostCoverage = .source
+    var usageCost: UsageCost { UsageCost(amount: totalCost, coverage: costCoverage) }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -136,21 +150,26 @@ struct PeriodUsage: Decodable, Sendable {
             ?? (input + output + cacheW + cacheR)
         totalCost = try c.decodeIfPresent(Double.self, forKey: .totalCost)
             ?? c.decodeIfPresent(Double.self, forKey: .costUSD) ?? 0
+        costCoverage = try c.decodeIfPresent(CostCoverage.self, forKey: .costCoverage)
+            ?? (totalTokens == 0 ? .empty : (totalCost > 0 ? .estimate : .unavailable))
     }
 
-    init(period: String, totalTokens: Int, totalCost: Double) {
+    init(period: String, totalTokens: Int, totalCost: Double, costCoverage: CostCoverage = .source) {
         self.period = period
         self.totalTokens = totalTokens
         self.totalCost = totalCost
+        self.costCoverage = costCoverage
     }
 
     init(period: String, daily: [DailyUsage]) {
         self.period = period
         totalTokens = daily.reduce(0) { $0 + $1.totalTokens }
         totalCost = daily.reduce(0) { $0 + $1.totalCost }
+        costCoverage = daily.reduce(into: .empty) { $0.merge($1.costCoverage) }
     }
 
     private enum CodingKeys: String, CodingKey {
+        case costCoverage
         case week, month, period, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens
         case cachedInputTokens, totalTokens, totalCost, costUSD
     }
@@ -172,6 +191,31 @@ struct MonthlyReport: Decodable, Sendable {
         monthly = try c.decodeIfPresent([PeriodUsage].self, forKey: .monthly) ?? []
     }
     private enum CodingKeys: String, CodingKey { case monthly }
+}
+
+// MARK: - 한도 창 길이
+
+/// 한도 창의 길이 — 페이스(균등 소진) 기준선을 그리려면 리셋 시각만으론 부족하고 창 길이가 있어야 한다.
+/// 프로바이더마다 길이를 알리는 방식이 다르므로(Codex=명시 분 수, Antigravity=창 이름, Claude=kind·필드명)
+/// 변환을 여기 한 곳에 모은다 — 프로바이더 분기가 UI 로 새지 않게 하는 확장 규약.
+enum LimitWindowSpan {
+    static let fiveHour: TimeInterval = 5 * 3600
+    static let sevenDay: TimeInterval = 7 * 24 * 3600
+
+    /// 분 단위 창 길이. 0 이하는 길이로 쓸 수 없어 nil.
+    static func fromMinutes(_ minutes: Int?) -> TimeInterval? {
+        guard let minutes, minutes > 0 else { return nil }
+        return TimeInterval(minutes) * 60
+    }
+
+    /// oauth `limits[]` 의 kind. weekly_scoped(모델별 주간)도 창 길이는 주간과 같다.
+    static func fromKind(_ kind: String?) -> TimeInterval? {
+        switch kind {
+        case "session": return fiveHour
+        case "weekly_all", "weekly_scoped": return sevenDay
+        default: return nil
+        }
+    }
 }
 
 // MARK: - OAuth limits (api.anthropic.com/api/oauth/usage)
@@ -268,6 +312,8 @@ struct OAuthLimitEntry: Decodable, Sendable {
         return ISO8601Parser.date(from: resetsAt)
     }
 
+    var windowSpan: TimeInterval? { LimitWindowSpan.fromKind(kind) }
+
     private enum CodingKeys: String, CodingKey {
         case kind, group, percent, severity, scope
         case resetsAt = "resets_at"
@@ -286,6 +332,8 @@ struct CodexRateLimitWindow: Decodable, Sendable {
         guard let resetsAt else { return nil }
         return Date(timeIntervalSince1970: TimeInterval(resetsAt))
     }
+
+    var windowSpan: TimeInterval? { LimitWindowSpan.fromMinutes(windowDurationMins) }
 
     var displayName: String {
         switch windowDurationMins {
@@ -384,6 +432,9 @@ struct ProviderSnapshot: Sendable, Identifiable {
     var reportsCost: Bool = true
     /// Mirrors `ProviderEnrichment.lastUsage`.
     var lastUsage: Date? = nil
+    /// 이번 달 일별 합계(월초→오늘, 빈 날은 0). 시리즈를 못 내는 프로바이더는 nil —
+    /// 집계는 가능한 프로바이더만 더한다. 기본값이라 기존 호출부는 무변경.
+    var monthDaily: [DailyUsage]? = nil
 
     var id: String { providerID }
     var todayTotalTokens: Int { today?.totalTokens ?? 0 }

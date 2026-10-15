@@ -90,15 +90,18 @@ final class GeminiUsageTests: XCTestCase {
         XCTAssertTrue(entries.isEmpty)
     }
 
-    /// Gemini 단가 — 정확 매칭 + pro/flash 패밀리 폴백 + 미지 변형은 0.
+    /// Gemini 단가 — 정확 행만(#289: 패밀리 폴백 없음), 미지 변형은 0. 현역 3.x 세대는
+    /// 정확 행이 있어야 한다 — 없으면 Gemini 사용자의 비용이 통째로 "불가"가 된다(최종리뷰 지적).
     func testGeminiPricing() {
-        XCTAssertEqual(ModelPricing.rate(for: "gemini-2.5-pro"), .perMillion(1.25, 10, 0, 0.3125))
-        XCTAssertEqual(ModelPricing.rate(for: "gemini-2.5-flash"), .perMillion(0.30, 2.5, 0, 0.075))
-        XCTAssertEqual(ModelPricing.rate(for: "gemini-3.1-pro-preview"), .perMillion(1.25, 10, 0, 0.3125))
-        XCTAssertEqual(ModelPricing.rate(for: "gemini-3-flash-lite"), .perMillion(0.30, 2.5, 0, 0.075))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-2.5-pro"), .perMillion(1.25, 10, 0, 0.125))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-2.5-flash"), .perMillion(0.30, 2.5, 0, 0.03))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3.1-pro-preview"), .perMillion(2, 12, 0, 0.2))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3.1-flash-lite"), .perMillion(0.25, 1.5, 0, 0.025))
+        XCTAssertEqual(ModelPricing.rate(for: "gemini-3-flash-lite"), .zero,
+                       "공식 ID 는 gemini-3.1-flash-lite — 미지 스펠링은 이웃 가격을 빌리지 않는다")
         XCTAssertEqual(ModelPricing.rate(for: "gemini-nano-banana"), .zero, "미지 변형은 오표시 방지 위해 0")
         // 실제 비용 산술 (m2 케이스): 420 in + 80 out + 600 cacheR @2.5-pro
         let c = ModelPricing.cost(model: "gemini-2.5-pro", input: 420, output: 80, cacheWrite: 0, cacheRead: 600)
-        XCTAssertEqual(c, 420 * 1.25e-6 + 80 * 10e-6 + 600 * 0.3125e-6, accuracy: 1e-12)
+        XCTAssertEqual(c, 420 * 1.25e-6 + 80 * 10e-6 + 600 * 0.125e-6, accuracy: 1e-12)
     }
 }

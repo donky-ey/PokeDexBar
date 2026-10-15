@@ -650,6 +650,113 @@ struct L {
     /// 곱한 금액을 "쓴 돈"이라 부르면 안 나간 돈을 나갔다고 말하는 셈이라, 이름을 환산으로 둔다.
     var todayCost: String { t("오늘 API 환산 ($)", "Today's API equivalent ($)", "本日のAPI換算 ($)") }
     var limitPercent: String { t("한도 %", "Limit %", "上限 %") }
+    /// 일별 추이 막대 행의 제목. 범위가 "이번 달"임을 문구에 담는다 — 롤링 30일로 읽히면 안 된다.
+    /// 페이스 대비 단계 이름. paceHint 와 같은 이유로 "적정"처럼 규범적인 말은 피하고
+    /// 소진 속도만 묘사한다.
+    func paceTier(_ tier: PaceTier) -> String {
+        switch tier {
+        case .wayUnder: return t("여유 많음", "Well under pace", "かなり余裕")
+        case .under: return t("여유", "Under pace", "余裕あり")
+        case .onPace: return t("페이스대로", "On pace", "ペース通り")
+        case .slightlyOver: return t("조금 빠름", "Slightly fast", "やや速い")
+        case .over: return t("빠름", "Fast", "速い")
+        case .wayOver: return t("매우 빠름", "Very fast", "とても速い")
+        }
+    }
+    /// 페이스 대비 차이(%p). **쓴 양**으로 말한다 — "앞섬/위" 같은 위치 표현은 잔량 모드에서
+    /// 채움이 마커보다 짧게 그려질 때 방향이 반대로 읽힌다(#286 부류). 0 이면 문구 없음.
+    /// 유럽어는 단계 이름("Under pace")이 이미 "페이스"를 말하므로 여기선 반복하지 않는다.
+    func paceDelta(_ points: Int) -> String? {
+        if points > 0 {
+            return t("페이스보다 \(points)%p 더 씀", "\(points) pts more used", "ペースより\(points)pt多く使用")
+        }
+        if points < 0 {
+            let n = -points
+            return t("페이스보다 \(n)%p 덜 씀", "\(n) pts less used", "ペースより\(n)pt少なく使用")
+        }
+        return nil
+    }
+    /// 페이스 눈금 툴팁. "적정 사용량"으로 부르지 않는다 — 권고가 아니라 "이 속도면 리셋 전에
+    /// 소진된다"는 기준선이다.
+    func paceHint(_ percent: String) -> String {
+        t("페이스 — 창 시간만큼 균등하게 썼다면 지금 \(percent)입니다.",
+          "Pace — an even burn across this window would sit at \(percent) now.",
+          "ペース — この枠を均等に使っていれば今は \(percent) です。")
+    }
+
+    // MARK: Usage recap
+    var recapOpen: String { t("사용량 돌아보기", "Usage recap", "使用量のふりかえり") }
+    var recapTokensUnit: String { t("토큰", "tokens", "トークン") }
+    func recapScopeName(_ scope: RecapScope) -> String {
+        switch scope {
+        case .week: t("주간", "Week", "週")
+        case .month: t("월간", "Month", "月")
+        case .year: t("연간", "Year", "年")
+        }
+    }
+    /// Shown under a running period, whose chip compares the same number of days.
+    func recapCompareSoFar(_ scope: RecapScope) -> String {
+        switch scope {
+        case .week: t("지난주 같은 기간과 비교", "Compared with the same days last week", "先週の同じ期間と比較")
+        case .month: t("지난달 같은 기간과 비교", "Compared with the same days last month", "先月の同じ期間と比較")
+        case .year: t("작년 같은 기간과 비교", "Compared with the same days last year", "昨年の同じ期間と比較")
+        }
+    }
+    func recapCurrentPeriod(_ scope: RecapScope) -> String {
+        switch scope {
+        case .week: thisWeek
+        case .month: thisMonth
+        case .year: t("올해", "This year", "今年")
+        }
+    }
+    var recapPrevious: String { t("이전", "Previous", "前へ") }
+    var recapNext: String { t("다음", "Next", "次へ") }
+    var recapBestDay: String { t("최고의 날", "Best day", "最高の日") }
+    var recapActiveDays: String { t("활동한 날", "Active days", "稼働日") }
+    var recapBestStreak: String { t("최장 연속", "Best streak", "最長連続") }
+    var recapHatched: String { t("부화", "Hatched", "ふか") }
+    var recapNoData: String { t("기록 없음", "no data", "記録なし") }
+    func recapDays(_ count: Int) -> String {
+        t("\(count)일", "\(count)d", "\(count)日")
+    }
+    func recapBestDayLine(_ day: String, _ tokens: String) -> String {
+        t("최고의 날은 \(day) — \(tokens) 토큰.", "Your best day was \(day) — \(tokens) tokens.", "最高の日は \(day)、\(tokens) トークン。")
+    }
+    var recapNoGraduates: String {
+        t("이 기간에 졸업한 포켓몬이 없어요.", "No graduation in this period.", "この期間の卒業はありません。")
+    }
+
+    var costUnavailable: String { t("계산 불가", "Unavailable", "計算不可") }
+    var costEstimateHint: String { t("모델 단가로 환산한 추정 비용입니다. 구독료나 실제 청구액이 아닙니다.", "Estimated from model token rates; not a subscription fee or invoice.", "モデル単価による推定です。購読料や実際の請求額ではありません。") }
+    var costReportedHint: String { t("도구가 기록한 비용입니다. 실제 청구액과 다를 수 있습니다.", "Cost recorded by the tool; it may differ from the actual bill.", "ツールが記録したコストです。実際の請求額とは異なる場合があります。") }
+    var costUnavailableHint: String { t("비용 기록이나 확인된 단가·토큰 구분이 없어 계산할 수 없습니다.", "No usable cost record or verified model rate and token breakdown is available.", "コスト記録、確認済み単価、またはトークン内訳がないため計算できません。") }
+    var costPartialHint: String { t("일부 사용량은 계산할 수 없어 제외했습니다. 표시 금액은 계산 가능한 부분의 합계이며 청구액이 아닙니다.", "Some usage could not be priced and is excluded. This is the known portion, not an invoice.", "計算できない使用量を除いた部分合計です。請求額ではありません。") }
+    var dailyTrend: String { t("이번 달 일별", "Daily this month", "今月の日別") }
+    /// 추이의 최댓값 라벨 — 막대 높이가 상대값이라 절대 스케일을 한 군데는 적어줘야 한다.
+    var peakDay: String { t("최다", "Peak", "最多") }
+    var menuLimitColor: String {
+        t("퍼센트 색상", "Percent color", "パーセントの色")
+    }
+    var menuLimitColorHint: String {
+        t("팝오버 한도 게이지와 같은 색", "Same colors as the popover limit gauges", "ポップオーバーの上限ゲージと同じ色")
+    }
+    func menuLimitColorMode(_ mode: UsageStore.MenuLimitColorMode) -> String {
+        switch mode {
+        case .gauge:
+            return t("게이지와 같게", "Match gauges", "ゲージと同じ")
+        case .attention:
+            return t("주의 단계만", "Only when fast", "速いときだけ")
+        case .off:
+            return t("끔", "Off", "オフ")
+        }
+    }
+    var limitDisplayModeLabel: String { t("한도 표시 방식", "Limit display", "上限の表示") }
+    var limitDisplayUsed: String { t("사용량", "Used", "使用量") }
+    var limitDisplayRemaining: String { t("남은 양", "Remaining", "残量") }
+    /// 팝오버 한도 행의 remaining 모드 표시 — %에 자기설명 접미사를 붙인다.
+    func percentRemaining(_ percent: String) -> String {
+        t("\(percent) 남음", "\(percent) left", "残り\(percent)")
+    }
     var allOffHint: String { t("전부 끄면 캐릭터만 보여요", "All off shows only the character", "すべてオフにするとキャラクターのみ表示") }
     // MARK: 플로팅 펫
     var floatingPetSectionTitle: String { t("플로팅 펫", "Floating Pet", "フローティングペット") }

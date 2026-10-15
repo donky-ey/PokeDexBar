@@ -19,7 +19,7 @@ struct LocalOpenCodeProvider: UsageProvider {
 
     func fetchEnrichment() async -> ProviderEnrichment {
         let entries = await LocalAdditionalUsageCache.shared.entries(for: .opencode)
-        return enrichment(entries: entries)
+        return .local(entries: entries)
     }
 }
 
@@ -35,7 +35,7 @@ struct LocalHermesProvider: UsageProvider {
 
     func fetchEnrichment() async -> ProviderEnrichment {
         let entries = await LocalAdditionalUsageCache.shared.entries(for: .hermes)
-        return enrichment(entries: entries)
+        return .local(entries: entries)
     }
 }
 
@@ -52,29 +52,10 @@ struct LocalCursorProvider: UsageProvider {
 
     func fetchEnrichment() async -> ProviderEnrichment {
         let entries = await LocalAdditionalUsageCache.shared.entries(for: .cursor)
-        return enrichment(entries: entries)
+        return .local(entries: entries)
     }
 }
 
-private func enrichment(entries: [LocalUsageReader.Entry]) -> ProviderEnrichment {
-    let now = Date()
-    let monthStart = LocalUsageReader.startOfMonth(now)
-    let weekStart = LocalUsageReader.startOfWeek(now)
-    let formatter = LocalUsageReader.localDayFormatter()
-    var result = ProviderEnrichment()
-    result.activeBlock = LocalUsageReader.activeBlock(entries: entries, now: now)
-    result.recentTokensPerMinute = LocalUsageReader.recentRate(entries: entries, now: now)
-    result.blocksOK = true
-    result.weekTotal = LocalUsageReader.period(
-        entries: entries, periodKey: formatter.string(from: weekStart),
-        fromDay: formatter.string(from: weekStart), toDay: formatter.string(from: now))
-    result.monthTotal = LocalUsageReader.period(
-        entries: entries, periodKey: LocalUsageReader.monthKey(now),
-        fromDay: formatter.string(from: monthStart), toDay: formatter.string(from: now))
-    result.periodsOK = true
-    result.lastUsage = entries.lazy.filter { $0.total > 0 }.map(\.date).max()
-    return result
-}
 
 /// Shares a single native read between a provider's daily and enrichment calls.
 private actor LocalAdditionalUsageCache {
@@ -287,9 +268,9 @@ enum LocalAdditionalUsageReader {
                   let model = columnText(statement, 1)?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !model.isEmpty,
                   let date = dateValue(sqlite3_column_double(statement, 3)) else { return nil }
-            let estimatedCost = sqlite3_column_double(statement, 10)
-            let actualCost = sqlite3_column_double(statement, 11)
-            return makeEntry(
+            let estimatedCost = sqlite3_column_type(statement, 10) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 10)
+            let actualCost = sqlite3_column_type(statement, 11) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 11)
+            var entry = makeEntry(
                 id: "hermes|\(id)",
                 date: date,
                 model: model,
@@ -297,7 +278,10 @@ enum LocalAdditionalUsageReader {
                 output: columnInt(statement, 6) + columnInt(statement, 9),
                 cacheWrite: columnInt(statement, 8),
                 cacheRead: columnInt(statement, 7),
-                cost: actualCost > 0 ? actualCost : estimatedCost)
+                cost: actualCost ?? estimatedCost)
+            entry?.costIsEstimate = actualCost == nil
+            entry?.costUnavailable = true // Session totals cannot reconstruct per-request pricing.
+            return entry
         } ?? []
     }
 
@@ -483,7 +467,7 @@ enum LocalAdditionalUsageReader {
             date: date,
             model: model,
             input: input,
-            output: output)
+            output: output, costUnavailable: true)
     }
 
     private static let iso8601Lock = NSLock()
@@ -532,7 +516,7 @@ enum LocalAdditionalUsageReader {
         cacheWrite: Int = 0,
         cacheRead: Int = 0,
         total: Int = 0,
-        cost: Double? = nil
+        cost: Double? = nil, costUnavailable: Bool = false
     ) -> LocalUsageReader.Entry? {
         let safeInput = max(0, input)
         let safeCacheWrite = max(0, cacheWrite)
@@ -550,7 +534,7 @@ enum LocalAdditionalUsageReader {
             output: safeOutput,
             cacheWrite: safeCacheWrite,
             cacheRead: safeCacheRead,
-            explicitCost: cost)
+            explicitCost: cost, costUnavailable: costUnavailable || total > parts)
     }
 
     /// GUI 앱은 셸 환경을 상속하지 않으므로 `UsageEnvironment` 를 통해 읽는다 — 프로세스 환경만

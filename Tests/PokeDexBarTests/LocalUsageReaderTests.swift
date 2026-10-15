@@ -68,8 +68,11 @@ final class LocalUsageReaderTests: XCTestCase {
             ModelPricing.cost(model: "claude-fable-5-1", input: 0, output: 0, cacheWrite: 0, cacheRead: 1_000_000),
             0.25, accuracy: 1e-6
         )
-        // 미지 모델 → 패밀리 폴백
-        XCTAssertEqual(ModelPricing.cost(model: "claude-opus-4-99", input: 1_000_000, output: 0, cacheWrite: 0, cacheRead: 0), 5.0, accuracy: 1e-6)
+        // Unknown model names must not borrow family prices (#289).
+        XCTAssertEqual(ModelPricing.cost(model: "claude-opus-4-99", input: 1_000_000, output: 0, cacheWrite: 0, cacheRead: 0), 0, accuracy: 1e-6)
+        XCTAssertEqual(ModelPricing.cost(model: "claude-fable-6", input: 1_000_000, output: 0, cacheWrite: 0, cacheRead: 0), 0, accuracy: 1e-6)
+        // Claude 5 family rows were added by #304 after #289 dropped the family fallback.
+        XCTAssertEqual(ModelPricing.rate(for: "claude-opus-5"), .perMillion(5, 25, 6.25, 0.5))
         XCTAssertEqual(ModelPricing.cost(model: "totally-unknown", input: 1_000_000, output: 0, cacheWrite: 0, cacheRead: 0), 0, accuracy: 1e-9)
     }
 
