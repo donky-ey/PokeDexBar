@@ -14,6 +14,25 @@ enum KeychainAccessGate {
         UserDefaults.standard.bool(forKey: "disableKeychainAccess")
 }
 
+/// `SecItemCopyMatching` 의 단일 통로 — 테스트가 호출 횟수를 세고(자동 폴 무접촉 단언) 항목을
+/// 주입할 수 있다(실 키체인 무접촉). (upstream #221 유래, #227 테스트가 소비)
+enum KeychainReader {
+    nonisolated(unsafe) private(set) static var queryCount = 0
+    /// 테스트가 Keychain 항목을 주입한다. 설정돼 있으면 `SecItemCopyMatching` 을 부르지 않는다.
+    /// tearDown 에서 반드시 nil 로 되돌린다 — 남으면 다른 테스트가 실제 키체인을 못 본다.
+    nonisolated(unsafe) static var copyMatchingForTesting: (([String: Any], inout CFTypeRef?) -> OSStatus)?
+
+    static func resetQueryCountForTesting() { queryCount = 0 }
+
+    static func copyMatching(_ query: [String: Any], _ result: inout CFTypeRef?) -> OSStatus {
+        queryCount += 1
+        if let copyMatchingForTesting {
+            return copyMatchingForTesting(query, &result)
+        }
+        return SecItemCopyMatching(query as CFDictionary, &result)
+    }
+}
+
 enum KeychainNoUIQuery {
     private static let uiFailPolicy = resolveUIFailPolicy()
 
