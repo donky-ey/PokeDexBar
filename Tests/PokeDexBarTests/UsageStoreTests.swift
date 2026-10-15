@@ -383,6 +383,43 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertFalse(store.isPollingSuspended)
     }
 
+    /// 네트워크 복귀 refresh 는 디스플레이 꺼짐(pollingSuspended) 중엔 쏘지 않는다 — 슬립 중
+    /// 와이파이 토글마다 서브프로세스 spawn 이 깨어나면 suspendPolling 의 목적(배터리)이 무너진다.
+    /// 복귀 직후 1회 갱신은 resumePolling 몫이라 잃는 것도 없다.
+    func testReconnectRefreshIsSuppressedWhileSuspended() async {
+        let provider = FakeUsageProvider(id: "claude_code", displayName: "Claude Code",
+                                         daily: todayDaily(1_000))
+        let store = makeStore(providers: [provider])
+        store.suspendPolling()
+        let callsBefore = provider.fetchCallCount
+        await store.handleNetworkReconnected()
+        XCTAssertEqual(provider.fetchCallCount, callsBefore, "정지 중 재연결이 refresh 를 쐈다")
+    }
+
+    /// 대조군 — 정지가 아니면 재연결은 즉시 갱신한다(이 경로의 존재 이유).
+    func testReconnectRefreshRunsWhenActive() async {
+        let provider = FakeUsageProvider(id: "claude_code", displayName: "Claude Code",
+                                         daily: todayDaily(1_000))
+        let store = makeStore(providers: [provider])
+        let callsBefore = provider.fetchCallCount
+        await store.handleNetworkReconnected()
+        XCTAssertGreaterThan(provider.fetchCallCount, callsBefore)
+    }
+
+    /// 한도 성공 분기가 claude-limits 억제 키를 리셋하는지 — AppLog 는 xctest 에서 no-op 이라
+    /// 소스로 확인한다(`testTheBackfillIsCalledFromAppLaunchNotOnlyFromAView` 방식: 주석 제거 후
+    /// 호출 형태 검색).
+    func testTheLimitsSuccessPathResetsTheSuppressionKey() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let file = root.appendingPathComponent("Sources/PokeDexBar/Core/UsageStore.swift")
+        let code = try String(contentsOf: file, encoding: .utf8).split(separator: "\n")
+            .map { $0.contains("//") ? String($0[..<$0.range(of: "//")!.lowerBound]) : String($0) }
+            .joined(separator: "\n")
+        XCTAssertTrue(code.contains("AppLog.resetRepeatKey(\"claude-limits\")"),
+                      "한도 성공 분기가 claude-limits 억제 키를 리셋하지 않는다")
+    }
+
     func testRefreshWhileDisplaysAsleepKeepsPollingSuspended() async {
         let displays = DisplayState(asleep: true)
         let store = makeSleepStore(displays: displays)

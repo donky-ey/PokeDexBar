@@ -537,7 +537,7 @@ final class UsageStore {
             let net = NetworkReachabilityMonitor()
             net.onReconnected = { [weak self] in
                 Task { @MainActor [weak self] in
-                    await self?.refresh()
+                    await self?.handleNetworkReconnected()
                 }
             }
             net.start()
@@ -559,6 +559,14 @@ final class UsageStore {
         t.tolerance = refreshInterval * 0.1
         RunLoop.main.add(t, forMode: .common)
         timer = t
+    }
+
+    /// 네트워크 복귀 즉시 갱신 — 단 디스플레이 꺼짐(pollingSuspended) 중엔 하지 않는다: 슬립 중
+    /// 와이파이 토글마다 서브프로세스 spawn 이 깨어나면 폴링 정지의 목적(배터리)이 무너진다.
+    /// 복귀 직후 1회 갱신은 resumePolling 이 하므로 잃는 것도 없다.
+    func handleNetworkReconnected() async {
+        guard !pollingSuspended else { return }
+        await refresh()
     }
 
     var isPollingSuspended: Bool { pollingSuspended }
@@ -801,6 +809,7 @@ final class UsageStore {
                 limitsUpdatedAt = Date()
                 limitsAuthExpired = false
                 resetLimitsBackoff()
+                AppLog.resetRepeatKey("claude-limits")
                 AppLog.write("limits refreshed fiveHour=\(limits?.fiveHour?.utilization?.description ?? "nil") sevenDay=\(limits?.sevenDay?.utilization?.description ?? "nil")")
             } catch {
                 // 비공식 endpoint 실패 → 섹션 숨김, 토큰 표시는 무영향

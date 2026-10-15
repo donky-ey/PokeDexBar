@@ -31,6 +31,13 @@ enum AppLog {
         write(message)
     }
 
+    /// 성공 경로에서 억제 키를 잊는다 — 회복 뒤 재발한 같은 오류가 "반복"으로 삼켜지지 않게.
+    static func resetRepeatKey(_ key: String) {
+        suppressorLock.lock()
+        suppressor.reset(key: key)
+        suppressorLock.unlock()
+    }
+
     /// 여러 스레드에서 변형되는 딕셔너리라(불리언 플래그와 달리) 락이 필요하다.
     nonisolated(unsafe) private static var suppressor = LogRepeatSuppressor()
     private static let suppressorLock = NSLock()
