@@ -17,6 +17,8 @@ struct SettingsView: View {
     /// startExpanded 를 @State 초기값으로 못 쓴다 — 뷰가 재사용되면 초기화가 다시 안 돌아
     /// 두 번째 진입부터 접힌 채로 열린다. onAppear 에서 1회 반영한다.
     @State private var didApplyStartExpanded = false
+    @State private var additionalAccountsDraft = ""
+    @FocusState private var additionalAccountsFocused: Bool
     @State private var sessionKeyInput = ""
     @FocusState private var sessionKeyFocused: Bool
     @State private var isCheckingUpdate = false
@@ -146,6 +148,10 @@ struct SettingsView: View {
                     Text(l.limitDisplayRemaining).tag(UsageStore.LimitDisplayMode.remaining)
                 }
                 .labelsHidden().pickerStyle(.segmented).fixedSize()
+            }
+            if store.claudeAccounts.count > 1 {
+                Divider()
+                trackedAccountRow(store)
             }
             Divider()
             groupRow {
@@ -356,7 +362,9 @@ struct SettingsView: View {
                             .font(.caption2).foregroundStyle(.green)
                     }
                 }
-                Text(l.sessionKeyHint).font(.caption2).foregroundStyle(.tertiary)
+                // The key only replaces the default login's Keychain read; other accounts keep theirs.
+                Text(store.claudeAccounts.count > 1 ? l.sessionKeyHint + " " + l.sessionKeyDefaultAccountOnly : l.sessionKeyHint)
+                    .font(.caption2).foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
@@ -477,11 +485,14 @@ struct SettingsView: View {
                     }
                     .disabled(store.disableKeychainAccess || store.isRefreshingLimitToken)
                 }
-                if let limitTokenRefreshError = store.limitTokenRefreshError {
-                    Text(limitTokenRefreshError)
-                        .font(.caption2).foregroundStyle(.orange).lineLimit(2)
+                if let message = store.limitTokenRefreshMessage {
+                    Text(message)
+                        .font(.caption2).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 12).padding(.bottom, 6)
                 }
+                Divider()
+                additionalAccountsRow(store)
                 Divider()
                 Text(l.aggregationNote)
                     .font(.caption2).foregroundStyle(.tertiary)
@@ -497,6 +508,70 @@ struct SettingsView: View {
         @Bindable var store = store
         return settingsSection(l.boxSectionTitle) {
             toggleRow(l.fillBoxSlotsLabel, $store.fillBoxSlots)
+        }
+    }
+
+    /// Only shown with several Claude accounts. The default account is listed under its own title.
+    private func trackedAccountRow(_ store: UsageStore) -> some View {
+        let accountModes = store.claudeAccounts.map {
+            (account: $0, mode: $0.isDefault ? ClaudeTrackedAccountMode.defaultAccount : .account($0.id))
+        }
+        // A pinned account that is gone falls back to automatic (`UsageStore.trackedAccount`): show that.
+        let selection = Binding(
+            get: {
+                let mode = store.claudeTrackedAccountMode
+                return accountModes.contains { $0.mode == mode } || mode == .highest ? mode : .automatic
+            },
+            set: { store.claudeTrackedAccountMode = $0 })
+        // Stacked: account emails make the picker too wide to sit next to the label.
+        return groupRow {
+            VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(l.trackedAccountLabel)
+                    Text(l.trackedAccountHint).font(.caption2).foregroundStyle(.tertiary)
+                }
+                HStack {
+                    Spacer()
+                    Picker(l.trackedAccountLabel, selection: selection) {
+                        Text(l.trackedAccountAutomatic).tag(ClaudeTrackedAccountMode.automatic)
+                        Text(l.trackedAccountHighest).tag(ClaudeTrackedAccountMode.highest)
+                        ForEach(accountModes, id: \.account.id) { item in
+                            Text(item.account.title).tag(item.mode)
+                        }
+                    }
+                    .labelsHidden().pickerStyle(.menu).fixedSize()
+                }
+            }
+        }
+    }
+
+    /// Detected and extra Claude config folders; each account gets its own tab in the popover's official limits.
+    /// Committed on submit / focus loss, like the custom scan folders: each commit triggers a refresh.
+    private func additionalAccountsRow(_ store: UsageStore) -> some View {
+        groupRow {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(l.additionalClaudeAccountsLabel)
+                Text(l.additionalClaudeAccountsHint).font(.caption2).foregroundStyle(.tertiary)
+                if !store.detectedClaudeConfigDirs.isEmpty {
+                    Text(l.additionalClaudeAccountsDetected(store.detectedClaudeConfigDirs
+                        .map { ($0 as NSString).abbreviatingWithTildeInPath }
+                        .joined(separator: ", ")))
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                TextField(l.additionalClaudeAccountsPlaceholder, text: $additionalAccountsDraft, axis: .vertical)
+                    .textFieldStyle(.roundedBorder).font(.caption)
+                    .focused($additionalAccountsFocused)
+                    .onSubmit { store.additionalClaudeConfigDirs = additionalAccountsDraft }
+                if !additionalAccountsDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(l.additionalClaudeAccountsFound(ClaudeAccountRoots.roots(from: additionalAccountsDraft).count))
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .onAppear { additionalAccountsDraft = store.additionalClaudeConfigDirs }
+        .onDisappear { store.additionalClaudeConfigDirs = additionalAccountsDraft }
+        .onChange(of: additionalAccountsFocused) { _, focused in
+            if !focused { store.additionalClaudeConfigDirs = additionalAccountsDraft }
         }
     }
 

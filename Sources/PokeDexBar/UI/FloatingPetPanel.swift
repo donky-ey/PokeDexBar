@@ -112,21 +112,71 @@ final class FloatingPetController: NSObject, NSWindowDelegate {
 
     /// Measure speech-bubble chrome for a title/body at the fixed content width (wrapping).
     /// Pure AppKit typography — keeps the layout test free of SwiftUI hosting.
+    /// The alert text, with its Claude account only when it still fits: the percentage matters more.
+    static func bubbleBody(for alert: UsageStore.LimitAlert, title: String, l: L) -> String {
+        let full = alert.body(l)
+        guard alert.account != nil, measureSpeechBubbleLayout(title: title, body: full).wouldTruncate else { return full }
+        return alert.body(l, withAccount: false)
+    }
+
+    /// 말풍선 본문 최대 줄 수 — SpeechBubbleView 의 `.lineLimit` 와 짝(둘이 어긋나면 잘림 판정이 거짓말).
+    static let bubbleBodyLineLimit = 2
+
     static func measureSpeechBubble(title: String, body: String,
                                     contentWidth: CGFloat = bubbleContentWidth) -> NSSize {
+        measureSpeechBubbleLayout(title: title, body: body, contentWidth: contentWidth).size
+    }
+
+    struct SpeechBubbleLayout: Equatable {
+        var size: NSSize
+        var bodyLineCount: Int
+        var unclampedTitleWidth: CGFloat
+        var unclampedBodyWidth: CGFloat
+        var wouldTruncate: Bool
+    }
+
+    /// Layout the view draws: unconstrained chrome (`size`) plus wrap count and
+    /// single-line widths. `size.width` is clamped to the column (cannot fail a
+    /// `≤ panel.width` assert); `unclamped*Width` is the check that can.
+    static func measureSpeechBubbleLayout(title: String, body: String,
+                                          contentWidth: CGFloat = bubbleContentWidth) -> SpeechBubbleLayout {
         let titleFont = NSFont.systemFont(ofSize: 11, weight: .bold)
         let bodyFont = NSFont.systemFont(ofSize: 10)
-        let constraint = NSSize(width: contentWidth, height: 10_000)
+        let wrap = NSSize(width: contentWidth, height: 10_000)
+        let unclamped = NSSize(width: CGFloat.greatestFiniteMagnitude, height: 10_000)
         let opts: NSString.DrawingOptions = [.usesLineFragmentOrigin, .usesFontLeading]
         let titleRect = (title as NSString).boundingRect(
-            with: constraint, options: opts, attributes: [.font: titleFont])
+            with: wrap, options: opts, attributes: [.font: titleFont])
         let bodyRect = (body as NSString).boundingRect(
-            with: constraint, options: opts, attributes: [.font: bodyFont])
+            with: wrap, options: opts, attributes: [.font: bodyFont])
+        let unclampedTitle = (title as NSString).boundingRect(
+            with: unclamped, options: opts, attributes: [.font: titleFont])
+        let unclampedBody = (body as NSString).boundingRect(
+            with: unclamped, options: opts, attributes: [.font: bodyFont])
         let textWidth = min(contentWidth, max(titleRect.width, bodyRect.width))
         let textHeight = ceil(titleRect.height) + 2 + ceil(bodyRect.height)
         // Match SpeechBubbleView: horizontal padding ×2, vertical 6, bottom pad 6 for the tail.
         let hPad = bubbleHorizontalPadding * 2
-        return NSSize(width: textWidth + hPad, height: textHeight + 12 + 6)
+        let bodyLineCount = wrappedLineCount(body, font: bodyFont, width: contentWidth)
+        return SpeechBubbleLayout(
+            size: NSSize(width: textWidth + hPad, height: textHeight + 12 + 6),
+            bodyLineCount: bodyLineCount,
+            unclampedTitleWidth: unclampedTitle.width,
+            unclampedBodyWidth: unclampedBody.width,
+            wouldTruncate: bodyLineCount > bubbleBodyLineLimit)
+    }
+
+    /// Wrap count at `width` using the same `boundingRect` path as `size`, so a
+    /// height-jump fixture and `bodyLineCount` cannot disagree.
+    private static func wrappedLineCount(_ string: String, font: NSFont, width: CGFloat) -> Int {
+        guard !string.isEmpty else { return 0 }
+        let opts: NSString.DrawingOptions = [.usesLineFragmentOrigin, .usesFontLeading]
+        let wrapped = (string as NSString).boundingRect(
+            with: NSSize(width: width, height: 10_000), options: opts, attributes: [.font: font])
+        let single = ("Ay" as NSString).boundingRect(
+            with: NSSize(width: 10_000, height: 10_000), options: opts, attributes: [.font: font])
+        let unit = max(single.height, 1)
+        return max(1, Int((wrapped.height / unit).rounded()))
     }
 
     private func sync() {
@@ -490,10 +540,10 @@ private struct SpeechBubbleView: View {
             Text(alert.isCritical ? l.notifCritical : l.notifWarning)
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(alert.isCritical ? .red : .primary)
-            Text(l.notifBody(alert.window, TokenFormatter.percent(alert.utilization)))
+            Text(FloatingPetController.bubbleBody(for: alert, title: alert.isCritical ? l.notifCritical : l.notifWarning, l: l))
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
-                .lineLimit(2)
+                .lineLimit(FloatingPetController.bubbleBodyLineLimit)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(width: FloatingPetController.bubbleContentWidth, alignment: .leading)

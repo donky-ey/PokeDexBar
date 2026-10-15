@@ -136,7 +136,16 @@ actor LocalUsageCache {
         let roots = claudeRoots ?? claudeRoot.map { [$0] } ?? LocalUsageReader.claudeProjectRoots
         var all: [LocalUsageReader.Entry] = []
         for root in roots {
-            all += collect(root: root, since: modifiedSince, cache: &claudeCache) {
+            // Blobs cached before `Entry.sessionID` existed get it from their path, without a re-parse.
+            all += collect(root: root, since: modifiedSince, cache: &claudeCache, annotate: { url, entries in
+                guard entries.contains(where: { $0.sessionID == nil }) else { return entries }
+                let session = LocalUsageReader.claudeSessionID(forTranscript: url)
+                return entries.map { entry in
+                    var entry = entry
+                    if entry.sessionID == nil { entry.sessionID = session }
+                    return entry
+                }
+            }) {
                 LocalUsageReader.parseClaudeFile($0, fmt: fmt)
             }
         }
@@ -193,8 +202,11 @@ actor LocalUsageCache {
 
     /// `include` 는 blob 캐시 조회 **전에** 평가된다 — 파일 밖 상태(옆 파일 등)에 의존하는 판정을
     /// 캐시에 굳히지 않기 위해서다.
+    /// `annotate` adjusts what is returned for a file, never what is cached — 파일 밖 상태(계정
+    /// 귀속 등)에 의존하는 꼬리표를 blob 에 굳히지 않기 위해서다(#327).
     private func collect(root: URL, since: Date, cache: inout [String: Blob],
                          allowJSON: Bool = false, include: ((URL) -> Bool)? = nil,
+                         annotate: ((URL, [LocalUsageReader.Entry]) -> [LocalUsageReader.Entry])? = nil,
                          parse: (URL) -> [LocalUsageReader.Entry]) -> [LocalUsageReader.Entry] {
         let fm = FileManager.default
         guard let en = fm.enumerator(
@@ -211,14 +223,16 @@ actor LocalUsageCache {
                   let mtime = v.contentModificationDate, mtime >= since else { continue }
             let size = v.fileSize ?? 0
             let key = url.path
+            let fileEntries: [LocalUsageReader.Entry]
             if let blob = cache[key], blob.mtime == mtime, blob.size == size {
-                result.append(contentsOf: blob.entries)            // 변경 없음 → 재파싱 안 함
+                fileEntries = blob.entries            // 변경 없음 → 재파싱 안 함
             } else {
                 let entries = parse(url)
                 cache[key] = Blob(mtime: mtime, size: size, entries: entries)
                 dirty = true
-                result.append(contentsOf: entries)
+                fileEntries = entries
             }
+            result.append(contentsOf: annotate?(url, fileEntries) ?? fileEntries)
         }
         return result
     }

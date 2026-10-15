@@ -595,6 +595,46 @@ struct L {
     func plan(_ p: String) -> String { t("플랜 \(p)", "Plan \(p)", "プラン \(p)") }
     func limitsAccount(_ a: String) -> String { t("계정 \(a)", "Account \(a)", "アカウント \(a)") }
 
+    // MARK: Additional Claude accounts (#327)
+    var today: String { t("오늘", "Today", "今日") }
+    func unattributedClaudeUsage(_ tokens: String) -> String {
+        t("이번 달 계정 미확인: \(tokens)", "Not linked to an account this month: \(tokens)", "今月アカウント不明: \(tokens)")
+    }
+    var fiveHourNotStarted: String { t("다음 메시지부터 시작", "Starts with your next message", "次のメッセージから開始") }
+    var sessionKeyDefaultAccountOnly: String {
+        t("기본 Claude 계정(~/.claude)에만 적용됩니다.", "Applies to the default Claude account (~/.claude) only.",
+          "デフォルトの Claude アカウント（~/.claude）にのみ適用されます。")
+    }
+    var additionalClaudeAccountsLabel: String { t("추가 Claude 계정", "Additional Claude accounts", "追加のClaudeアカウント") }
+    var additionalClaudeAccountsHint: String {
+        t("다른 Claude Code 로그인(CLAUDE_CONFIG_DIR)은 ~/.claude-* 폴더와 export 된 CLAUDE_CONFIG_DIR 에서 자동으로 찾습니다. 다른 위치의 설정 폴더만 여기 추가하세요(콤마·줄바꿈 구분). 공식 한도에 계정마다 탭이 생기며, 수동 갱신 때 폴더마다 Keychain 접근을 물을 수 있습니다.",
+          "Other Claude Code logins (CLAUDE_CONFIG_DIR) are detected in ~/.claude-* folders and from an exported CLAUDE_CONFIG_DIR. Add config folders stored elsewhere here, comma/newline separated. Each account gets its own tab in the official limits; a manual refresh may ask for Keychain access for each folder.",
+          "他のClaude Codeログイン(CLAUDE_CONFIG_DIR)は ~/.claude-* フォルダと、エクスポートされた CLAUDE_CONFIG_DIR から自動検出されます。別の場所にある設定フォルダだけをここに追加してください(カンマ・改行区切り)。公式上限にアカウントごとのタブが追加され、手動更新時にフォルダごとにKeychainへのアクセスを確認することがあります。")
+    }
+    func additionalClaudeAccountsDetected(_ folders: String) -> String {
+        t("자동 감지: \(folders)", "Detected: \(folders)", "自動検出: \(folders)")
+    }
+    var trackedAccountLabel: String { t("추적할 Claude 계정", "Tracked Claude account", "追跡する Claude アカウント") }
+    func trackedAccountToolTip(_ title: String) -> String {
+        t("추적할 Claude 계정: \(title)", "Tracked Claude account: \(title)", "追跡する Claude アカウント: \(title)")
+    }
+    var trackedAccountHint: String {
+        t("메뉴바 한도·5시간 예측의 기준이에요.",
+          "Drives the menu bar limit and the 5h forecast.",
+          "メニューバーの上限・5時間予測に使われます。")
+    }
+    var trackedAccountAutomatic: String { t("자동 (마지막 사용)", "Automatic (last used)", "自動（最後に使用）") }
+    var trackedAccountHighest: String { t("사용률 최고", "Highest usage", "使用率が最大") }
+    var additionalClaudeAccountsPlaceholder: String { t("~/.claude-work", "~/.claude-work", "~/.claude-work") }
+    func additionalClaudeAccountsFound(_ n: Int) -> String {
+        t("계정 폴더 \(n)개 찾음", "\(n) account folder(s) found", "アカウントフォルダが\(n)個見つかりました")
+    }
+    func additionalAccountExpiredHint(_ folder: String) -> String {
+        t("CLAUDE_CONFIG_DIR=\(folder) 로 Claude Code 를 한 번 실행한 뒤 다시 시도하세요.",
+          "Run Claude Code once with CLAUDE_CONFIG_DIR=\(folder), then retry.",
+          "CLAUDE_CONFIG_DIR=\(folder) で Claude Code を一度実行してから再試行してください。")
+    }
+
     // MARK: claude.ai 세션 키 (Keychain 프롬프트 없는 한도 경로)
     var sessionKeyLabel: String { t("claude.ai 세션 키", "claude.ai session key", "claude.ai セッションキー") }
     var sessionKeyHint: String {

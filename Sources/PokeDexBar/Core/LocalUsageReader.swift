@@ -37,6 +37,9 @@ enum LocalUsageReader {
         var costIsEstimate: Bool? = nil
         /// The source cannot reconstruct model/request token buckets for a price-table estimate.
         var costUnavailable: Bool? = nil
+        /// Claude only: the session the turn belongs to, from the transcript path. Lets usage be split
+        /// between Claude accounts (`ClaudeAccountUsageAttribution`).
+        var sessionID: String? = nil
         var total: Int { input + output + cacheWrite + cacheRead }
     }
 
@@ -96,6 +99,7 @@ enum LocalUsageReader {
     /// 테스트·진단용 — 캐시를 무시하고 지금 상태로 계산한다.
     static func computeClaudeProjectRoots(
         configDirValue: String? = shellAwareClaudeConfigDir(),
+        accountRoots: [URL] = [],
         home: URL = FileManager.default.homeDirectoryForCurrentUser) -> [URL]
     {
         var roots: [URL] = []
@@ -107,6 +111,9 @@ enum LocalUsageReader {
                     .appendingPathComponent("projects"))
             }
         }
+        // Other Claude accounts (`ClaudeAccountRoots`) log to their own folder unless its
+        // `projects/` links to a shared one, which `normalizedRoots` folds.
+        roots.append(contentsOf: accountRoots.map { $0.appendingPathComponent("projects") })
         roots.append(home.appendingPathComponent(Self.configRelativeProjectsPath))
         roots.append(home.appendingPathComponent(Self.defaultRelativeProjectsPath))
 
@@ -146,14 +153,26 @@ enum LocalUsageReader {
             lock.unlock()
             if let cached = hit.0, let at = hit.1, Date().timeIntervalSince(at) < ttl { return cached }
 
-            let fresh = computeClaudeProjectRoots()
+            let fresh = computeClaudeProjectRoots(
+                accountRoots: ClaudeAccountRoots.installedAccountRoots())
             lock.lock()
             cached = fresh
             computedAt = Date()
             lock.unlock()
             return fresh
         }
+
+        func invalidate() {
+            lock.lock()
+            cached = nil
+            computedAt = nil
+            lock.unlock()
+        }
     }
+
+    /// 설정의 추가 계정 폴더가 바뀌면 루트 캐시를 비운다 — TTL(5분)을 기다리면 새 폴더의
+    /// 사용량이 그만큼 늦게 잡힌다(#327).
+    static func invalidateProjectRootsCache() { rootsCache.invalidate() }
 
     /// Claude Desktop 임베디드 세션 스토어에서 `.claude/projects` 디렉터리를 찾는다.
     /// 세션 경로는 `<store>/<uuid>/<uuid>/local_<uuid>/.claude/projects` 처럼 UUID 단계가 여러 겹이라
@@ -307,16 +326,30 @@ enum LocalUsageReader {
     /// Claude 파일 하나를 파싱(파일 내 dedup). 캐시가 파일 단위로 호출.
     static func parseClaudeFile(_ url: URL, fmt: DateFormatter) -> [Entry] {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        let session = claudeSessionID(forTranscript: url)
         var out: [Entry] = []
         for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
             guard line.contains("\"usage\""), line.contains("\"assistant\"") else { continue }
             // 라인마다 autoreleasepool — JSONSerialization 이 만드는 autoreleased NSDictionary/NSString 가
             // 수천 파일·수만 라인에 걸쳐 배출 없이 누적돼 콜드 파싱 피크를 키우던 것을 즉시 배출.
             autoreleasepool {
-                if let e = parseClaudeLine(String(line), fmt: fmt) { out.append(e) }
+                if var e = parseClaudeLine(String(line), fmt: fmt) {
+                    e.sessionID = session
+                    out.append(e)
+                }
             }
         }
         return dedupKeepMax(out)
+    }
+
+    /// Session of a Claude transcript: `<project>/<session>.jsonl`, or
+    /// `<project>/<session>/subagents/<agent>.jsonl` for a subagent (counted with its parent session).
+    static func claudeSessionID(forTranscript url: URL) -> String? {
+        let parent = url.deletingLastPathComponent()
+        let name = parent.lastPathComponent == "subagents"
+            ? parent.deletingLastPathComponent().lastPathComponent
+            : url.deletingPathExtension().lastPathComponent
+        return name.isEmpty ? nil : name
     }
 
     /// `modifiedSince` 이후 파일에서 Claude 사용 엔트리(전역 dedup) — 테스트/캐시 미사용 경로.

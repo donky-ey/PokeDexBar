@@ -91,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func observeStore() {
         withObservationTracking {
             _ = store.menuTitle
+            _ = store.menuToolTip
             // 모드·임계만 바뀌어도 글자색이 변한다 — 수동 관찰 표면은 파생 원천을 직접 추적.
             _ = store.menuLimitColorRuns()
         } onChange: { [weak self] in
@@ -125,6 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
         // 매 갱신 재계산 — 시계만 움직여도 티어가 변하면 글자색이 다시 그려진다.
         Self.applyMenuText(store.menuLines, to: button, colors: store.menuLimitColorRuns())
+        button.toolTip = store.menuToolTip
         // stale 시각 dim 제거 — 슬립/런치 직후 refresh 완료 전 몇 초간 회색으로 보여 '고장/비활성'
         // 으로 오인되던 것 방지(사용자 반복 지적). 데이터가 오래됐다는 신호가 필요하면 팝오버
         // (limitsUpdatedAt 등)에서 제공하고, 메뉴바 아이콘·숫자는 흐리게 하지 않는다.
