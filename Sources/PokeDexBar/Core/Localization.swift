@@ -693,6 +693,13 @@ struct L {
         case .year: t("작년 같은 기간과 비교", "Compared with the same days last year", "昨年の同じ期間と比較")
         }
     }
+    func recapCurrentPeriod(_ scope: RecapScope) -> String {
+        switch scope {
+        case .week: thisWeek
+        case .month: thisMonth
+        case .year: t("올해", "This year", "今年")
+        }
+    }
     var recapPrevious: String { t("이전", "Previous", "前へ") }
     var recapNext: String { t("다음", "Next", "次へ") }
     var recapBestDay: String { t("최고의 날", "Best day", "最高の日") }
