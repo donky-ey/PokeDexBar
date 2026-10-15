@@ -561,16 +561,94 @@ final class ScreenshotGeneratorTests: XCTestCase {
         limits.subscriptionType = "max"
         limits.rateLimitTier = "default_claude_max_20x"
 
+        let defaults = UserDefaults(suiteName: "ptb-shot-usage-\(UUID().uuidString)")!
+        // 리캡(#332)용 일별 원장 — 지난 5주를 "주중 많고 주말 쉬는" 리듬으로 시드한다.
+        var ledger = UsageLedger()
+        let dayFmt = LocalUsageReader.localDayFormatter()
+        let calendar = Calendar.current
+        ledger.merge((0..<35).reversed().map { back -> DailyUsage in
+            let date = calendar.date(byAdding: .day, value: -back, to: now)!
+            let weekday = calendar.component(.weekday, from: date)
+            let weekend = weekday == 1 || weekday == 7
+            let tokens = weekend ? (back % 3 == 0 ? 2_400_000 : 0)
+                                 : (14_000_000 + (back * 37 % 11) * 2_600_000)
+            return DailyUsage(date: dayFmt.string(from: date), inputTokens: tokens / 2,
+                              outputTokens: tokens / 2, cacheCreationTokens: 0, cacheReadTokens: 0,
+                              totalTokens: tokens, totalCost: 0)
+        })
+        ledger.save(to: defaults)
         let store = UsageStore(providers: providers,
                                claudeLimitsProvider: StubClaudeLimits(status: limits),
                                codexLimitsProvider: StubCodexLimits(),
                                statusProvider: StubStatusProvider(),
                                autoRefresh: false,
-                               defaults: UserDefaults(suiteName: "ptb-shot-usage-\(UUID().uuidString)")!)
+                               defaults: defaults)
         await store.refresh(scheduleEmptyRetry: false)
         XCTAssertGreaterThan(store.todayTotalTokens, 0, "사용량 시드가 안 들어갔다")
         XCTAssertNotNil(store.limits?.fiveHour?.utilization, "공식 한도 시드가 안 들어갔다")
         XCTAssertNotNil(store.fiveHourForecast, "소진 예측 줄이 안 나온다 — 블록/한도 시드가 어긋났다")
+        return store
+    }
+
+    /// 다중 계정 샷(#327)용 — 기본 계정(개인 Max) + 회사 폴더 계정. 폴더·자격증명은 전부 스텁이라
+    /// 실 디스크·Keychain 을 건드리지 않는다.
+    private func makeMultiAccountUsageStore() async throws -> UsageStore {
+        let base = try await makeUsageStore()
+        _ = base   // 시드 검증 재사용 목적 없음 — 아래는 별도 스토어
+
+        let iso = ISO8601DateFormatter()
+        let now = Date()
+        func status(fiveHour: Double, sevenDay: Double, email: String, org: String?) throws -> LimitStatus {
+            let json = """
+            {"five_hour":{"utilization":\(fiveHour),
+              "resets_at":"\(iso.string(from: now.addingTimeInterval(96 * 60)))"},
+             "seven_day":{"utilization":\(sevenDay),
+              "resets_at":"\(iso.string(from: now.addingTimeInterval(3.2 * 86_400)))"}}
+            """
+            var s = try JSONDecoder().decode(LimitStatus.self, from: Data(json.utf8))
+            s.accountEmail = email
+            s.accountOrganizationName = org
+            return s
+        }
+        var personal = try status(fiveHour: ScreenshotFixture.fiveHourUtilization,
+                                  sevenDay: ScreenshotFixture.sevenDayUtilization,
+                                  email: "mina@example.com", org: nil)
+        personal.subscriptionType = "max"
+        personal.rateLimitTier = "default_claude_max_20x"
+        let work = try status(fiveHour: 71, sevenDay: 48, email: "mina@acme.dev", org: "Acme")
+
+        let workRoot = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".claude-work")
+        let providers: [any UsageProvider] = ScreenshotFixture.usage.map { entry in
+            var enrichment = ProviderEnrichment()
+            enrichment.periodsOK = true
+            enrichment.weekTotal = PeriodUsage(period: "week", totalTokens: entry.week,
+                                               totalCost: entry.weekCost)
+            enrichment.monthTotal = PeriodUsage(period: "month", totalTokens: entry.month,
+                                                totalCost: entry.monthCost)
+            let total = entry.input + entry.output + entry.cacheWrite + entry.cacheRead
+            let daily = DailyUsage(date: LocalUsageReader.todayKey(), inputTokens: entry.input,
+                                   outputTokens: entry.output, cacheCreationTokens: entry.cacheWrite,
+                                   cacheReadTokens: entry.cacheRead, totalTokens: total, totalCost: entry.cost)
+            return StubUsageProvider(id: entry.id, displayName: entry.name, daily: daily, enrichment: enrichment)
+        }
+        let store = UsageStore(
+            providers: providers,
+            claudeLimitsProvider: StubClaudeLimits(status: personal),
+            additionalClaudeLimitsProvider: { _ in StubClaudeLimits(status: work) },
+            discoverClaudeConfigDirs: { [workRoot] },
+            readDefaultIdentity: { AccountIdentity(email: "mina@example.com", organizationName: nil) },
+            readLastPrompt: { root in
+                root.lastPathComponent == ".claude-work" ? now.addingTimeInterval(-40 * 60)
+                                                         : now.addingTimeInterval(-6 * 60)
+            },
+            claudeUsageEntries: { _ in [] },
+            readPromptHistory: { _ in [:] },
+            codexLimitsProvider: StubCodexLimits(),
+            statusProvider: StubStatusProvider(),
+            autoRefresh: false,
+            defaults: UserDefaults(suiteName: "ptb-shot-accounts-\(UUID().uuidString)")!)
+        await store.refresh(scheduleEmptyRetry: false)
+        XCTAssertEqual(store.claudeAccounts.count, 2, "계정 탭 시드가 안 들어갔다")
         return store
     }
 
@@ -902,6 +980,14 @@ final class ScreenshotGeneratorTests: XCTestCase {
         }
         defer { AppEnv.appVersionOverride = nil }
 
+        // 크래시 배너는 머신 상태다 — 실 앱의 last-crash 기록이 남아 있으면 모든 홈 계열 샷에
+        // "예기치 않게 종료" 카드가 끼어든다(실측: 1.19.0 재생성 때 홈·계정 샷에 혼입).
+        // 전용 샷(report.png)만 자체 픽스처로 찍고, 나머지는 빈 임시 파일을 보게 한다.
+        let realCrashURL = LastCrash.fileURL
+        LastCrash.fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ptb-shot-lastcrash-\(UUID().uuidString).json")
+        defer { LastCrash.fileURL = realCrashURL }
+
         // 디스크에서 읽어 오는 그림은 **미리 캐시에 올려 둔다.** 첫 접근이 디스크 읽기 + PNG
         // 디코드를 동기로 하는데, 아래 애니메이션 캡처는 `pump(0.05)` 창 안에서 레이아웃이
         // 끝나기를 기대한다 — 그 창에 디코드가 끼면 프레임 간격이 밀리고 연출 단계가 잘린다
@@ -1066,7 +1152,11 @@ final class ScreenshotGeneratorTests: XCTestCase {
         // 심어야 배너가 찍힌다** — 안 심으면 아무리 다시 생성해도 빈 자리만 나온다(설정
         // 스크린샷에 플로팅 펫이 꺼져 있어 새 토글이 영영 안 찍히던 함정과 같은 부류).
         // §릴리스 1 하드 게이트가 요구하는 신규 에셋이 이것이다.
+        // crashReportBanner 는 전역 LastCrash.fileURL 에 미확인 기록을 심는다 — 복원하지 않으면
+        // 이후의 홈 계열 샷(계정 탭·home.gif)에 크래시 배너가 끼어든다(실측).
+        let cleanCrashURL = LastCrash.fileURL
         try write(png(crashReportBanner()), "report.png")
+        LastCrash.fileURL = cleanCrashURL
 
         // 태어날 때 정해지는 겉모습 — 이름 옆 배지가 그 개체가 어떤 무늬로 태어났는지 말한다.
         // 지방 배지와 같은 자리를 쓰므로, 이 그림 하나로 두 규칙이 같이 설명된다.
@@ -1127,6 +1217,29 @@ final class ScreenshotGeneratorTests: XCTestCase {
                           fullScroll: true),
                       "settings\(suffix).png")
         }
+
+        // 사용량 리캡(#332) — 주간 화면. 원장은 makeUsageStore 가 시드한다(오늘 기준 상대 날짜라
+        // 돌릴 때마다 모양이 같다 — 요일 축만 실행 요일을 따른다).
+        setLanguage(.en, fixture)
+        let recapUsage = try waitFor { try await self.makeUsageStore() }
+        recapUsage.localizationLanguage = .en
+        try write(png(RecapScreen(store: recapUsage, player: fixture.player, onBack: {})
+            .environment(recapUsage).environment(fixture.player)
+            .padding(PopoverMetrics.padding)
+            .frame(width: PopoverMetrics.width)
+            .background(Color(nsColor: .windowBackgroundColor))),
+                  "screenshot-usage-recap.png")
+
+        // 다중 Claude 계정(#327) + 계정 라벨(#199) — 홈 탭 한도 섹션의 계정 탭.
+        let accountsUsage = try waitFor { try await self.makeMultiAccountUsageStore() }
+        accountsUsage.localizationLanguage = .en
+        try write(png(PopoverView(player: fixture.player, provider: StubProvider())
+            .environment(accountsUsage).environment(fixture.player)
+            .environment(fixture.updater).environment(PopoverNavigation())
+            .environment(\.locale, Locale(identifier: "en_US"))
+            .background(Color(nsColor: .windowBackgroundColor)),
+                      fullScroll: true),
+                  "screenshot-claude-accounts.png")
 
         try generateAnimations()
     }

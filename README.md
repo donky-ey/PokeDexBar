@@ -55,6 +55,20 @@ Move your companion out of the menu bar and onto the desktop, at any size from 4
 </td>
 </tr>
 <tr>
+<td width="45%" align="center"><img src="assets/screenshot-usage-recap.png" width="340" alt="Usage recap — a week of day-by-day bars on a retro handheld frame, with best day, active days, streak and a comparison with last week"></td>
+<td width="55%" valign="middle">
+<h3>📊 Your usage, replayed</h3>
+A recap for any week, month or year: day-by-day bars, your best day, active days, longest streak, and how the period compares with the one before it. It is built from a local day ledger the app keeps itself, so it reaches past the current month — and days from before the app was installed are shown as unknown, not as zero.
+</td>
+</tr>
+<tr>
+<td width="45%" align="center"><img src="assets/screenshot-claude-accounts.png" width="340" alt="Home tab with two Claude account tabs under Limits (official) — a personal Max plan and a team account, each with its own 5-hour and weekly bars with pace markers"></td>
+<td width="55%" valign="middle">
+<h3>Two Claude logins, two tabs</h3>
+Side-by-side Claude Code logins (<code>CLAUDE_CONFIG_DIR</code>, <code>~/.claude-*</code> folders) each get their own tab in the official limits, with their own alerts and their own share of local usage. The menu bar follows the account you pick in Settings. And if the Keychain prompt bothers you, paste a <b>claude.ai session key</b> instead — limits then refresh in the background with no Keychain at all.
+</td>
+</tr>
+<tr>
 <td width="55%" valign="middle">
 <h3>In your menu bar</h3>
 An animated Gen-V sprite lives next to today's total tokens (compact, e.g. <code>200.7M</code>). Add today's API equivalent (<code>$</code>) or official limit <code>%</code> — or turn everything off for a character-only bar.
@@ -307,7 +321,12 @@ The shop sells seven things. The other 105 items only ever arrive in a partner's
 
 - **Interactive floating pet** — hover for today's usage, click to open the main window, right-click for a menu; limit alerts can pop up as speech bubbles. It also **moves faster while you're burning tokens** and idles at its normal speed (optional, on by default).
 - **Per-service tabs** — when two or more of Claude Code, Codex, Gemini CLI, OpenCode, Hermes Agent, Cursor, and Grok CLI are detected, compact tabs switch between them; today's total stays combined.
-- **Official limits** — Claude & Codex 5-hour / weekly utilization with reset countdowns, right under today's numbers.
+- **Official limits** — Claude & Codex 5-hour / weekly utilization with reset countdowns and the absolute reset time, right under today's numbers. Show percentages as **used or remaining** — your choice.
+- **Pace-aware gauges** — every quota bar carries a tick for where an even burn would be, and the bar (and, if you like, the menu-bar %) is coloured on a six-step scale from way-under to way-over pace.
+- **Daily trend** — this month's day-by-day bars under the totals, laid out on the calendar month and stacked per provider when more than one was used; hover a bar for that day's numbers.
+- **Usage recap** — a week / month / year replay with best day, active days, longest streak and a same-days comparison with the previous period.
+- **Multiple Claude accounts** — extra Claude Code config folders are detected (or listed in Settings) and each account gets its own limits tab, alerts and usage split; forked sessions stay with the account that started them.
+- **claude.ai session key (optional)** — paste the `sessionKey` cookie once and official limits refresh automatically with no Keychain access at all; each extra account can carry its own key.
 - **Burn-rate forecast** — projects when the current 5h window hits 100%.
 - **In-app updates** — one-click update check; current version shown in Settings.
 - **Mega Evolution & Gigantamax** — a Mega Stone or Max Mushroom reshapes a chosen Pokémon into one of 80 catalogued forms (species with two Mega forms, like Charizard, offer both); reverting to normal is free, and evolving clears the form.
@@ -384,8 +403,8 @@ swift test                   # unit tests
 ## Privacy & permissions
 
 - **On-device.** Token usage is read directly from local Claude Code, Codex, Gemini CLI, OpenCode, Hermes Agent, Cursor, and Grok CLI data. The app never uploads usage or runs model turns.
-- **Outbound requests.** The app is not fully offline. It talks to eight hosts: `pokeapi.co` and `graphql.pokeapi.co` (species/evolution data), `play.pokemonshowdown.com` (Pokémon sprites), `raw.githubusercontent.com` (item &amp; egg sprites), `api.anthropic.com` (Claude official limits), `status.claude.com` and `status.openai.com` (incident banner — off switch in Settings), and `api.github.com` (update check). **None of them carry your usage, tokens, prompts, or project paths** — only the request itself.
-- **Keychain (optional).** The Claude OAuth credential is read **only when you press a refresh button** (Settings, or the limits row in the popover). Automatic polling never touches the Keychain, so it never raises a password prompt; when available, the credential is taken from `~/.claude/.credentials.json` instead. The token is held in memory only — the app creates no Keychain item of its own. Once the token expires, limits stay visible but stale until you refresh. Turn it off in Settings — the limits section simply hides.
+- **Outbound requests.** The app is not fully offline. It talks to nine hosts: `pokeapi.co` and `graphql.pokeapi.co` (species/evolution data), `play.pokemonshowdown.com` (Pokémon sprites), `raw.githubusercontent.com` (item &amp; egg sprites), `api.anthropic.com` (Claude official limits), `claude.ai` (official limits via your session key — only if you paste one), `status.claude.com` and `status.openai.com` (incident banner — off switch in Settings), and `api.github.com` (update check). **None of them carry your usage, tokens, prompts, or project paths** — only the request itself.
+- **Keychain (optional).** The Claude OAuth credential is read **only when you press a refresh button** (Settings, or the limits row in the popover). Automatic polling never touches the Keychain, so it never raises a password prompt; when available, the credential is taken from `~/.claude/.credentials.json` instead. The token is held in memory only — the app creates no Keychain item of its own. Once the token expires, limits stay visible but stale until you refresh. Prefer no Keychain at all? Paste a **claude.ai session key** in Settings → Advanced: it is stored as an owner-only plain file in the app folder (not encrypted — Settings says so up front), it is invalidated the moment you log out in your browser, and automatic polling then refreshes limits without ever touching the Keychain. Turn the Keychain off in Settings — the limits section simply hides (unless a session key keeps it alive).
 - **Pokémon assets** are fetched at runtime — species/evolution data from PokéAPI, sprites from Pokémon Showdown — and cached only under `~/Library/Application Support/PokeDexBar/`. The app binary and its release artifacts contain no Pokémon assets.
 
 ## Contributors

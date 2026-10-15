@@ -55,6 +55,20 @@ PokeDexBar는 당신이 이미 태우고 있는 AI 코딩 토큰(Claude Code · 
 </td>
 </tr>
 <tr>
+<td width="45%" align="center"><img src="assets/screenshot-usage-recap.png" width="340" alt="사용량 리캡 — 레트로 휴대기기 프레임 위 일별 막대, 최고의 날·활동한 날·연속 기록·지난주 비교"></td>
+<td width="55%" valign="middle">
+<h3>📊 사용량 다시 보기</h3>
+아무 주·월·연도의 리캡: 일별 막대, 최고의 날, 활동한 날, 최장 연속, 그리고 직전 기간과의 비교. 앱이 스스로 쌓는 로컬 일별 원장으로 그려서 이번 달 너머까지 닿고 — 설치 전의 날들은 0이 아니라 "기록 없음"으로 표시됩니다.
+</td>
+</tr>
+<tr>
+<td width="45%" align="center"><img src="assets/screenshot-claude-accounts.png" width="340" alt="홈 탭의 공식 한도 아래 Claude 계정 탭 두 개 — 개인 Max 플랜과 팀 계정, 각자의 5시간·주간 바와 페이스 눈금"></td>
+<td width="55%" valign="middle">
+<h3>Claude 로그인 두 개, 탭 두 개</h3>
+나란히 쓰는 Claude Code 로그인(<code>CLAUDE_CONFIG_DIR</code>, <code>~/.claude-*</code> 폴더)마다 공식 한도에 전용 탭이 생기고, 알림과 로컬 사용량도 계정별로 갈립니다. 메뉴바는 설정에서 고른 계정을 따라가요. Keychain 프롬프트가 성가시다면 <b>claude.ai 세션 키</b>를 붙여넣으세요 — 그다음부터 한도는 Keychain 없이 백그라운드에서 계속 갱신됩니다.
+</td>
+</tr>
+<tr>
 <td width="55%" valign="middle">
 <h3>메뉴바 속 파트너</h3>
 움직이는 Gen-V 스프라이트가 오늘 토큰 합계(compact, 예: <code>200.7M</code>) 옆에 삽니다. 오늘 API 환산(<code>$</code>)이나 공식 한도 <code>%</code> 를 더하거나 — 전부 꺼서 캐릭터만 남길 수도 있어요.
@@ -307,7 +321,12 @@ PokeDexBar는 당신이 이미 태우고 있는 AI 코딩 토큰(Claude Code · 
 
 - **인터랙티브 플로팅 펫** — 호버로 오늘 사용량, 클릭으로 메인 창, 우클릭 메뉴; 한도 알림은 말풍선으로도 표시. **토큰을 많이 쓰는 동안에는 더 빨리 움직이고** 쉬는 동안엔 원래 속도예요(설정, 기본 켬).
 - **서비스별 탭** — Claude Code·Codex·Gemini CLI·OpenCode·Hermes Agent·Cursor·Grok CLI 중 2개 이상 감지되면 작은 탭으로 상세를 서비스별 전환(오늘 합계는 통합 유지).
-- **공식 한도** — Claude·Codex 5시간/주간 사용률 + 리셋 카운트다운을 오늘 숫자 바로 아래에.
+- **공식 한도** — Claude·Codex 5시간/주간 사용률 + 리셋 카운트다운과 절대 리셋 시각을 오늘 숫자 바로 아래에. 퍼센트는 **사용/잔여** 중 원하는 쪽으로.
+- **페이스 게이지** — 모든 쿼터바에 "균등하게 썼다면 여기" 눈금이 서고, 바(원하면 메뉴바 % 까지)가 페이스 대비 6단계 색으로 칠해집니다.
+- **일별 트렌드** — 합계 아래 이번 달 일별 막대. 달력 월 기준으로 자리 잡고, 두 도구 이상을 쓴 달엔 프로바이더별로 쌓입니다. 막대에 호버하면 그날의 숫자.
+- **사용량 리캡** — 주/월/연 다시 보기: 최고의 날·활동한 날·최장 연속·직전 기간 같은-날짜 비교.
+- **Claude 다중 계정** — 추가 Claude Code 설정 폴더를 자동 감지(또는 설정에 등록)해 계정마다 전용 한도 탭·알림·사용량 분배. 포크된 세션은 원래 계정에 남습니다.
+- **claude.ai 세션 키(선택)** — `sessionKey` 쿠키를 한 번 붙여넣으면 Keychain 접근 없이 공식 한도가 자동 갱신됩니다. 추가 계정도 각자 키를 가질 수 있어요.
 - **소진 예측** — 현재 5시간 창이 100%에 도달할 시각 예측.
 - **인앱 업데이트** — 원클릭 업데이트 확인, 설정에 현재 버전 표시.
 - **메가진화 & 거다이맥스** — 메가스톤이나 다이버섯으로 지정한 포켓몬을 80종의 폼 중 하나로 바꿉니다(리자몽처럼 메가 폼이 둘인 종은 X/Y 모두 제공). 원래 모습으로 되돌리는 건 무료고, 진화하면 폼이 풀립니다.
@@ -385,8 +404,8 @@ swift test                   # 단위 테스트
 ## 프라이버시 & 권한
 
 - **온디바이스.** 토큰 사용량은 로컬 Claude Code·Codex·Gemini CLI·OpenCode·Hermes Agent·Cursor·Grok CLI 데이터에서 직접 읽습니다. 사용량을 업로드하거나 모델 turn을 실행하지 않습니다.
-- **외부 요청.** 앱은 완전 오프라인이 아닙니다. 8개 호스트에 접속합니다 — `pokeapi.co`·`graphql.pokeapi.co`(종·진화 데이터), `play.pokemonshowdown.com`(포켓몬 스프라이트), `raw.githubusercontent.com`(아이템·알 스프라이트), `api.anthropic.com`(Claude 공식 한도), `status.claude.com`·`status.openai.com`(장애 배너 — 설정에서 끌 수 있음), `api.github.com`(업데이트 확인). **어느 요청에도 사용량·토큰·프롬프트·프로젝트 경로는 담기지 않습니다** — 요청 자체만 나갑니다.
-- **Keychain(선택).** Claude OAuth 자격증명은 **갱신 버튼을 누를 때만** 읽습니다(설정, 또는 팝오버의 한도 행). 자동 폴링은 Keychain 을 건드리지 않으므로 비밀번호 프롬프트가 뜨지 않고, `~/.claude/.credentials.json` 이 있으면 그쪽에서 가져옵니다. 토큰은 메모리에만 두며 **앱 자체 Keychain 항목은 만들지 않습니다.** 토큰이 만료되면 한도는 갱신 전까지 이전 값(stale)으로 표시됩니다. 설정에서 끄면 한도 섹션만 숨겨집니다.
+- **외부 요청.** 앱은 완전 오프라인이 아닙니다. 9개 호스트에 접속합니다 — `pokeapi.co`·`graphql.pokeapi.co`(종·진화 데이터), `play.pokemonshowdown.com`(포켓몬 스프라이트), `raw.githubusercontent.com`(아이템·알 스프라이트), `api.anthropic.com`(Claude 공식 한도), `claude.ai`(세션 키로 한도 조회 — 키를 넣었을 때만), `status.claude.com`·`status.openai.com`(장애 배너 — 설정에서 끌 수 있음), `api.github.com`(업데이트 확인). **어느 요청에도 사용량·토큰·프롬프트·프로젝트 경로는 담기지 않습니다** — 요청 자체만 나갑니다.
+- **Keychain(선택).** Claude OAuth 자격증명은 **갱신 버튼을 누를 때만** 읽습니다(설정, 또는 팝오버의 한도 행). 자동 폴링은 Keychain 을 건드리지 않으므로 비밀번호 프롬프트가 뜨지 않고, `~/.claude/.credentials.json` 이 있으면 그쪽에서 가져옵니다. 토큰은 메모리에만 두며 **앱 자체 Keychain 항목은 만들지 않습니다.** 토큰이 만료되면 한도는 갱신 전까지 이전 값(stale)으로 표시됩니다. Keychain 을 아예 쓰고 싶지 않다면 설정 → 고급에 **claude.ai 세션 키**를 붙여넣으세요: 앱 폴더에 본인만 읽을 수 있는 평문 파일로 저장되고(암호화 아님 — 설정이 그 사실을 먼저 알립니다), 브라우저에서 로그아웃하면 즉시 무효화되며, 그다음부터 자동 폴링이 Keychain 을 전혀 건드리지 않고 한도를 갱신합니다. 설정에서 Keychain 을 끄면 한도 섹션만 숨겨집니다(세션 키가 있으면 계속 보입니다).
 - **포켓몬 에셋**은 런타임에 받아오며(종·진화 데이터는 PokéAPI, 스프라이트는 Pokémon Showdown) `~/Library/Application Support/PokeDexBar/`에만 캐시됩니다. 앱 바이너리와 릴리스 아티팩트에는 포켓몬 에셋이 포함되지 않습니다.
 
 ## 기여자
