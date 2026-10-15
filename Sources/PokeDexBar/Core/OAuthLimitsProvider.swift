@@ -1,10 +1,21 @@
 import Foundation
 import Security
 
-enum LimitsError: Error {
+enum LimitsError: Error, Equatable {
     case keychainAccessDisabled
     /// `swift test`·로우 바이너리에서의 라이브 한도 호출 — `AppEnv.allowsLiveLimitsFetch` 참조.
     case liveFetchNotPermitted
+
+    // ── claude.ai 세션 키 경로 (SessionKeyLimitsProvider)
+    /// 세션 키가 저장돼 있지 않다 — 키를 안 쓰는 사용자의 정상 상태다. 체인은 조용히 OAuth 로 내려간다.
+    case sessionKeyMissing
+    /// 붙여넣은 값이 세션 키 형식이 아니다(설정 화면 검증).
+    case sessionKeyMalformed
+    /// 세션 키가 만료·무효 — 브라우저에서 다시 복사해야 한다. claude.ai 는 401 뿐 아니라 **403** 으로도
+    /// 거절하므로(조직 스코프가 아닌 `/api/organizations` 의 403 이 그 신호다) 양쪽을 여기로 접는다.
+    case sessionKeyInvalid
+    /// 키는 유효하지만 한도를 볼 수 있는 조직이 없다(전부 403).
+    case sessionKeyNoOrganization
     case keychainUnavailable(OSStatus)
     case keychainInteractionNotAllowed
     case credentialFormat
