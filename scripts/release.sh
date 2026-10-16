@@ -129,6 +129,9 @@ perl -pi -e "s/VERSION=\"[0-9.]+\"/VERSION=\"$VERSION\"/" scripts/build-app.sh
 
 echo "▶ 4/8 빌드 + zip (push 전 검증 — 실패해도 범프 미커밋이라 origin/main 무손상)"
 ./scripts/build-app.sh >/dev/null
+# arm64 단일 바이너리는 Intel 에서 "bad CPU type" 으로 실행되지 않는다(업스트림 #400) — 공증 전에 막는다.
+lipo build/PokeDexBar.app/Contents/MacOS/PokeDexBar -verify_arch arm64 x86_64 \
+  || { echo "✗ universal 바이너리 아님: $(lipo -archs build/PokeDexBar.app/Contents/MacOS/PokeDexBar) (arm64 + x86_64 필요)"; exit 1; }
 ./scripts/notarize-app.sh
 BUILT=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" build/PokeDexBar.app/Contents/Info.plist)
 [[ "$BUILT" == "$VERSION" ]] || { echo "✗ 빌드 버전 불일치: $BUILT (수동 복구: git checkout scripts/build-app.sh)"; exit 1; }
