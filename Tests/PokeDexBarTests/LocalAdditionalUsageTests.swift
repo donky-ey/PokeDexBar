@@ -65,6 +65,44 @@ final class LocalAdditionalUsageTests: XCTestCase {
         XCTAssertEqual(entries.first?.total, 13)
     }
 
+    /// OpenChamber 의 `@openchamber/opencode-claude` 플러그인은 OpenCode 세션 엔진에 `providerID = "claude-code"`
+    /// 프로바이더를 붙여 실제 일을 Claude Code 에 맡긴다 — 그 요청은 Claude Code 자신의 로그에도 남는다(업스트림
+    /// 이슈 #443: 하루 216M 중 98% 가 그 미러였다). OpenCode 쪽에서 그 행을 무조건 건너뛴다(사용자 결정).
+    /// 대조군: OpenCode 가 Anthropic API 를 직접 부른 `anthropic` 행은 OpenCode 고유 사용량이라 남는다.
+    func testOpenCodeSkipsClaudeCodeMirrorRowsInBothSchemas() throws {
+        let database = temporaryDirectory.appendingPathComponent("opencode.db")
+        try execute(database, sql: """
+        CREATE TABLE message (
+            id TEXT PRIMARY KEY, session_id TEXT NOT NULL, time_created INTEGER NOT NULL, data TEXT NOT NULL
+        );
+        CREATE TABLE session_message (
+            id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT NOT NULL, seq INTEGER NOT NULL,
+            time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL
+        );
+        INSERT INTO message VALUES (
+            'v1-mirror', 's1', 1767312000000,
+            '{"id":"v1-mirror","providerID":"claude-code","modelID":"claude-opus-5-5","time":{"created":1767312000000},"tokens":{"input":100,"output":50,"total":150,"cache":{"read":0,"write":0}}}'
+        );
+        INSERT INTO message VALUES (
+            'v1-native', 's1', 1767312000000,
+            '{"id":"v1-native","providerID":"anthropic","modelID":"claude-opus-5-5","time":{"created":1767312000000},"tokens":{"input":7,"output":3,"total":10,"cache":{"read":0,"write":0}}}'
+        );
+        INSERT INTO session_message VALUES (
+            'v2-mirror', 's2', 'assistant', 1, 1767312000000, 1767312000000,
+            '{"model":{"id":"claude-opus-5-5","providerID":"claude-code"},"time":{"created":1767312000000},"tokens":{"input":100,"output":50,"reasoning":0,"cache":{"read":0,"write":0}}}'
+        );
+        INSERT INTO session_message VALUES (
+            'v2-native', 's2', 'assistant', 2, 1767312000000, 1767312000000,
+            '{"model":{"id":"claude-opus-5-5","providerID":"anthropic"},"time":{"created":1767312000000},"tokens":{"input":5,"output":5,"reasoning":0,"cache":{"read":0,"write":0}}}'
+        );
+        """)
+
+        let entries = LocalAdditionalUsageReader.openCodeEntries(
+            modifiedSince: try date("2026-01-01T00:00:00Z"), roots: [temporaryDirectory])
+        XCTAssertEqual(Set(entries.map(\.id)), ["opencode|v1-native", "opencode|v2-native"],
+                       "claude-code mirror rows are Claude Code's own usage, counted by its provider")
+    }
+
     func testOpenCodeReadsV2SessionMessagesAndMergesLegacyUsage() throws {
         let database = temporaryDirectory.appendingPathComponent("opencode.db")
         try execute(database, sql: """

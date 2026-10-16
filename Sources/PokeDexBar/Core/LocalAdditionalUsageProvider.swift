@@ -186,6 +186,13 @@ enum LocalAdditionalUsageReader {
         return entries
     }
 
+    /// OpenChamber 의 `@openchamber/opencode-claude` 플러그인이 OpenCode 에 붙이는 프로바이더 id. 그 프로바이더는
+    /// 실제 일을 Claude Code 에 맡기므로, 같은 요청이 Claude Code 자신의 로그에도 남는다 — OpenCode 쪽 행은
+    /// 미러다(업스트림 이슈 #443). **무조건** 건너뛴다(사용자 결정): `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1` 로
+    /// Claude Code 가 기록을 남기지 않게 한 사용자는 그 사용량이 어느 쪽에도 안 잡힌다(README 에 안내).
+    /// Claude 로그와 대조해 남기는 방식은 두 프로바이더를 엮어 확장 규약(프로바이더 독립)을 깬다.
+    static let claudeCodeMirrorProviderID = "claude-code"
+
     static func parseOpenCodeMessage(
         _ object: Object,
         fallbackID: String
@@ -193,7 +200,8 @@ enum LocalAdditionalUsageReader {
         guard let tokens = object["tokens"] as? Object,
               let date = dateValue((object["time"] as? Object)?["created"]),
               let model = stringValue(object["modelID"]),
-              stringValue(object["providerID"]) != nil else { return nil }
+              let provider = stringValue(object["providerID"]),
+              provider != claudeCodeMirrorProviderID else { return nil }
         let cache = tokens["cache"] as? Object
         return makeEntry(
             id: "opencode|\(stringValue(object["id"]) ?? fallbackID)",
@@ -279,7 +287,8 @@ enum LocalAdditionalUsageReader {
               let model = object["model"] as? Object,
               let date = dateValue(createdAt),
               let modelID = stringValue(model["id"]),
-              stringValue(model["providerID"]) != nil else { return nil }
+              let provider = stringValue(model["providerID"]),
+              provider != claudeCodeMirrorProviderID else { return nil }
         let cache = tokens["cache"] as? Object
         return makeEntry(
             id: "opencode|\(fallbackID)",
