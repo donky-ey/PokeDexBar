@@ -223,9 +223,43 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertNil(UpdateChecker.normalizedReleaseVersion("v1234567890.0.0"), "component would overflow comparisons")
     }
 
-    /// With no early stamp, overlapping popover opens would each hit GitHub. One fetch at a time.
+    /// 겹친 확인은 조회 하나를 **나눠 쓴다** — 두 번째 호출자도 그 결과를 기다려 본다.
+    ///
+    /// 업스트림 #321 은 진행 중이면 그냥 돌아왔다. 포크에선 그게 퇴행이다: 팝오버 열림이 시작한 조회가 도는
+    /// 동안 설정의 "지금 확인"(`minInterval: 0`)을 누르면 즉시 돌아와, 첫 조회가 끝날 때까지(느린 망에서 최대
+    /// 15초) "최신 버전"을 보였다. main 에서는 수동 확인이 늘 자기 조회를 기다렸다(리뷰 지적).
     @MainActor
     func testOverlappingChecksShareOneFetch() async {
+        var fetches = 0
+        var release: CheckedContinuation<Void, Never>?
+        let checker = UpdateChecker(currentVersion: "2.5.3", defaults: isolatedDefaults()) {
+            fetches += 1
+            if fetches == 1 { await withCheckedContinuation { release = $0 } }
+            return UpdateChecker.LatestRelease(tag: "v2.5.5", url: Self.releaseURL)
+        }
+        let first = Task { await checker.check(minInterval: 1_800) }
+        while release == nil { await Task.yield() }
+
+        var secondReturned = false
+        let second = Task {
+            await checker.check(minInterval: 0)
+            secondReturned = true
+        }
+        for _ in 0..<50 { await Task.yield() }
+        XCTAssertFalse(secondReturned, "the overlapping caller must wait for the in-flight fetch, not return early")
+        XCTAssertEqual(fetches, 1, "a check while one is in flight does not start a second fetch")
+
+        release?.resume()
+        await first.value
+        await second.value
+        XCTAssertTrue(secondReturned)
+        XCTAssertEqual(fetches, 1)
+        XCTAssertEqual(checker.available?.version, "2.5.5", "the waiting caller sees the shared result")
+    }
+
+    /// 진행 중이던 조회가 실패하면 다음 확인은 새로 조회한다(실패는 쿨다운을 시작하지 않는다).
+    @MainActor
+    func testAFailedInFlightCheckLetsTheNextOneFetch() async {
         var fetches = 0
         var release: CheckedContinuation<Void, Never>?
         let checker = UpdateChecker(currentVersion: "2.5.3", defaults: isolatedDefaults()) {
@@ -235,9 +269,6 @@ final class UpdateCheckerTests: XCTestCase {
         }
         let first = Task { await checker.check(minInterval: 1_800) }
         while release == nil { await Task.yield() }
-        await checker.check(minInterval: 1_800)
-        XCTAssertEqual(fetches, 1, "a check while one is in flight returns without fetching")
-
         release?.resume()
         await first.value
         await checker.check(minInterval: 1_800)

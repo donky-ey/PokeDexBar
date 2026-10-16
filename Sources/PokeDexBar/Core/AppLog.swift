@@ -30,12 +30,6 @@ enum AppLog {
         }
     }
 
-    /// 큐에 쌓인 기록이 파일에 닿을 때까지 기다린다 — **곧 프로세스가 끝나는 자리에서만** 쓴다.
-    /// `write` 는 async 라, 기록 직후 `NSApp.terminate` 이 `exit(0)` 에 닿으면 그 줄이 통째로 사라진다.
-    static func flush() {
-        backend.flush()
-    }
-
     /// 종료 경로 한 쌍 — 넣고, 파일에 닿을 때까지 기다린다. 테스트된 `backend.writeAndFlush` 를 거친다:
     /// `write()`+`flush()` 를 따로 부르는 두 번째 쌍은 테스트되지 않고 #174 를 되살린다.
     static func writeAndFlush(_ message: String) {

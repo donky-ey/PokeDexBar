@@ -32,9 +32,9 @@ final class UpdateChecker {
     private let defaults: UserDefaults
     /// 주입받아 테스트가 네트워크 없이 실패·성공을 흉내 낸다.
     private let fetchLatest: () async -> LatestRelease?
-    /// 이른 쿨다운 기록이 사라졌으니(실패는 다음 시도를 막지 않는다) 팝오버를 겹쳐 열어도 GitHub 호출이
-    /// 쌓이지 않게 한 번에 하나만.
-    private var checkInFlight = false
+    /// 진행 중인 조회. 이른 쿨다운 기록이 사라졌으니(실패는 다음 시도를 막지 않는다) 겹친 확인이 GitHub
+    /// 호출을 쌓지 않게 하나를 나눠 쓴다 — 겹친 호출자는 버려지지 않고 이 조회를 기다려 결과를 본다.
+    private var inFlight: Task<Void, Never>?
 
     static let skippedVersionKey = "skippedUpdateVersion"
 
@@ -63,12 +63,22 @@ final class UpdateChecker {
     /// 최신 릴리스 조회. 건너뛴 버전은 배너(`available`)에 안 올리고 설정(`skipped`)에만 남긴다.
     /// minInterval 은 **성공한** 조회 사이에만 적용한다(레이트리밋 보호). 실패 — 네트워크·비정상 응답·
     /// 불안전 URL·지원하지 않는 태그 — 는 쿨다운을 시작하지 않아, 팝오버를 다시 열면 곧장 재시도한다.
+    ///
+    /// 조회가 이미 돌고 있으면 새로 시작하지 않고 **그 조회를 기다린다**(업스트림 #321 은 그냥 돌아왔다 —
+    /// 그러면 팝오버가 시작한 조회 도중 설정의 "지금 확인"이 결과 없이 "최신 버전"을 보인다).
     func check(minInterval: TimeInterval = 1800) async {
-        if checkInFlight { return }
+        if let running = inFlight {
+            await running.value
+            return
+        }
         if let last = lastChecked, clock().timeIntervalSince(last) < minInterval { return }
-        checkInFlight = true
-        defer { checkInFlight = false }
+        let fetch = Task { await fetchAndApply() }
+        inFlight = fetch
+        await fetch.value
+        inFlight = nil
+    }
 
+    private func fetchAndApply() async {
         guard let release = await fetchLatest(),
               Self.isTrustedReleaseURL(release.url),
               let version = Self.normalizedReleaseVersion(release.tag) else { return }
