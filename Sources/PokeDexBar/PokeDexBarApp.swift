@@ -204,7 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// UsageStore 값 → PlayerStore (사용량 적립). 매 관찰 변경 시 호출.
     private func updatePlayer() {
         player.update(
-            todayTokens: store.todayTotalTokens,
+            todayTokensByProvider: store.todayTokensByProvider,
             todayDate: LocalUsageReader.todayKey(),
             hasUsageData: store.hasUsageData)
         // 알은 토큰이 아니라 실시간으로 깬다 — 매 사용량 틱마다 정산해 앱이 유휴여도 반영한다.

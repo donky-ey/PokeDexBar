@@ -354,6 +354,8 @@ PokeDexBar は、あなたがすでに使っている AI コーディングト�
 
 すべてローカルから読み取り — 外部の使用量CLIは不要。ツール追加はプロバイダーファイル1つで完結します（[CONTRIBUTING.ja.md](CONTRIBUTING.ja.md) 参照）。
 
+> **`claude-code` プロバイダーで使う OpenCode**（例: OpenChamber の `opencode-claude` プラグイン）: そのリクエストは Claude Code 自身の使用量で、すでに Claude Code 側に集計されるため、二重に数えないよう OpenCode タブではスキップします。Claude Code を `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1` で実行すると記録が残らず、その使用量はどこにも集計されません。
+
 ## インストール
 
 ### 必要条件

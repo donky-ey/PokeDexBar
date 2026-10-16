@@ -186,6 +186,13 @@ enum LocalAdditionalUsageReader {
         return entries
     }
 
+    /// OpenChamber 의 `@openchamber/opencode-claude` 플러그인이 OpenCode 에 붙이는 프로바이더 id. 그 프로바이더는
+    /// 실제 일을 Claude Code 에 맡기므로, 같은 요청이 Claude Code 자신의 로그에도 남는다 — OpenCode 쪽 행은
+    /// 미러다(업스트림 이슈 #443). **무조건** 건너뛴다(사용자 결정): `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1` 로
+    /// Claude Code 가 기록을 남기지 않게 한 사용자는 그 사용량이 어느 쪽에도 안 잡힌다(README 에 안내).
+    /// Claude 로그와 대조해 남기는 방식은 두 프로바이더를 엮어 확장 규약(프로바이더 독립)을 깬다.
+    static let claudeCodeMirrorProviderID = "claude-code"
+
     static func parseOpenCodeMessage(
         _ object: Object,
         fallbackID: String
@@ -193,7 +200,8 @@ enum LocalAdditionalUsageReader {
         guard let tokens = object["tokens"] as? Object,
               let date = dateValue((object["time"] as? Object)?["created"]),
               let model = stringValue(object["modelID"]),
-              stringValue(object["providerID"]) != nil else { return nil }
+              let provider = stringValue(object["providerID"]),
+              provider != claudeCodeMirrorProviderID else { return nil }
         let cache = tokens["cache"] as? Object
         return makeEntry(
             id: "opencode|\(stringValue(object["id"]) ?? fallbackID)",
@@ -229,6 +237,19 @@ enum LocalAdditionalUsageReader {
         modifiedSince: Date
     ) -> [LocalUsageReader.Entry] {
         let cutoff = Int64(modifiedSince.timeIntervalSince1970 * 1000)
+        // OpenCode V2 writes assistant usage to the event-sourced `session_message` projection
+        // (anomalyco/opencode `packages/core/src/session/sql.ts`): `type` is a column, `data` omits it,
+        // `time_created` is epoch ms with its own index, so this stays bounded to the usage window.
+        // The V1 `message` table still holds older history; both are read and merged.
+        var entries = query(
+            database,
+            sql: """
+            SELECT id, time_created, data FROM session_message
+            WHERE type = 'assistant' AND time_created >= ?1
+            """,
+            bindInt64: cutoff) { statement in
+                parseOpenCodeSessionMessageRow(statement)
+            } ?? []
         let recentSQL = "SELECT id, session_id, data FROM message WHERE time_created >= ?1"
         var rows = query(database, sql: recentSQL, bindInt64: cutoff) { statement in
             parseOpenCodeDatabaseRow(statement)
@@ -239,7 +260,45 @@ enum LocalAdditionalUsageReader {
                 parseOpenCodeDatabaseRow(statement)
             }
         }
-        return rows ?? []
+        entries += rows ?? []
+        return LocalUsageReader.dedupKeepMax(entries)
+    }
+
+    private static func parseOpenCodeSessionMessageRow(_ statement: OpaquePointer) -> LocalUsageReader.Entry? {
+        guard let id = columnText(statement, 0),
+              let payload = columnText(statement, 2),
+              let object = jsonObject(data: Data(payload.utf8)) else { return nil }
+        return parseOpenCodeSessionMessage(
+            object,
+            fallbackID: id,
+            createdAt: sqlite3_column_double(statement, 1))
+    }
+
+    /// One V2 assistant message. Writer contract (anomalyco/opencode `packages/schema/src`):
+    /// `model` is `Model.Ref` `{id, providerID, variant?}`; `tokens` is `TokenUsage.Info`
+    /// `{input, output, reasoning, cache: {read, write}}` with no `total` (its `total()` sums all five,
+    /// so `input` excludes cache); `cost` is `Money.USD`. Reasoning is billed as output.
+    static func parseOpenCodeSessionMessage(
+        _ object: Object,
+        fallbackID: String,
+        createdAt: Any?
+    ) -> LocalUsageReader.Entry? {
+        guard let tokens = object["tokens"] as? Object,
+              let model = object["model"] as? Object,
+              let date = dateValue(createdAt),
+              let modelID = stringValue(model["id"]),
+              let provider = stringValue(model["providerID"]),
+              provider != claudeCodeMirrorProviderID else { return nil }
+        let cache = tokens["cache"] as? Object
+        return makeEntry(
+            id: "opencode|\(fallbackID)",
+            date: date,
+            model: modelID,
+            input: intValue(tokens["input"]),
+            output: intValue(tokens["output"]) + intValue(tokens["reasoning"]),
+            cacheWrite: intValue(cache?["write"]),
+            cacheRead: intValue(cache?["read"]),
+            cost: doubleValue(object["cost"]))
     }
 
     private static func parseOpenCodeDatabaseRow(_ statement: OpaquePointer) -> LocalUsageReader.Entry? {

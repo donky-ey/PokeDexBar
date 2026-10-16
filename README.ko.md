@@ -354,6 +354,8 @@ PokeDexBar는 당신이 이미 태우고 있는 AI 코딩 토큰(Claude Code · 
 
 모두 로컬에서 읽습니다 — 외부 사용량 CLI 불필요. 도구 추가는 프로바이더 파일 하나면 됩니다([CONTRIBUTING.ko.md](CONTRIBUTING.ko.md) 참고).
 
+> **`claude-code` 프로바이더로 쓰는 OpenCode**(예: OpenChamber 의 `opencode-claude` 플러그인): 그 요청은 Claude Code 자신의 사용량이라 이미 Claude Code 에 잡히므로, OpenCode 탭에서는 두 번 세지 않게 건너뜁니다. Claude Code 를 `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1` 로 실행하면 기록이 남지 않아 그 사용량은 어디에도 잡히지 않습니다.
+
 ## 설치
 
 ### 요구사항

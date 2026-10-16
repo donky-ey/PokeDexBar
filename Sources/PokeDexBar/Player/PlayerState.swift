@@ -8,8 +8,12 @@ struct PlayerState: Codable, Sendable {
     var earnedTokens = 0
     /// 상점 지출 누적.
     var spentTokens = 0
-    /// 오늘 어디까지 적립했나(이 기기 장부). 날짜가 바뀌면 0으로.
-    var claimedTodayTokens = 0
+    /// 오늘 어디까지 적립했나 — **프로바이더별** 고점(이 기기 장부). 키는 `UsageProvider.id`.
+    ///
+    /// 합산 고점 하나였을 때는 한 프로바이더의 합계가 줄거나 빠지면 모든 프로바이더의 적립이 그 고점을
+    /// 다시 넘을 때까지 멈췄다(업스트림 #143). 날짜가 바뀌면 알던 프로바이더를 0 으로 다시 연다.
+    /// 1.19.0 이전 세이브의 합산 장부는 `legacyAggregateLedgerKey` 아래로 들어와 첫 갱신에서 한 번 정산된다.
+    var claimedTodayTokensByProvider: [String: Int] = [:]
     var lastDate = ""
     /// 설치 기준선을 잡았나 — 설치 이전 사용량은 세지 않는다.
     var installBaselineSet = false
@@ -91,7 +95,15 @@ struct PlayerState: Codable, Sendable {
     var partner: Individual? { box.first { $0.id == partnerID } }
 
     /// 폼 도감 이전(구 세이브)의 옛 키. `dex` 는 이제 계산 프로퍼티라 합성 CodingKeys 에 없다.
-    private enum LegacyKeys: String, CodingKey { case dex }
+    private enum LegacyKeys: String, CodingKey { case dex, claimedTodayTokens }
+
+    /// 옛 합산 장부(`claimedTodayTokens`)가 원장 안에서 정산을 기다리는 자리. 프로바이더 id 는 `*` 가 아니다.
+    static let legacyAggregateLedgerKey = "*"
+    /// 원장 값의 상한 — 하루 토큰이 닿을 수 없는 크기(약 2.8e14). 디코드 경계에서 이 범위로 잘라, 손상된
+    /// 세이브의 `Int.min`·`Int.max` 가 적립 산술에서 오버플로 트랩을 내지 않게 한다.
+    static let maxLedgerTokens = 1 << 48
+
+    static func clampedLedger(_ value: Int) -> Int { min(max(0, value), maxLedgerTokens) }
 
     init() {}
 
@@ -104,9 +116,17 @@ struct PlayerState: Codable, Sendable {
         starterChosen = value(.starterChosen, false)
         earnedTokens = value(.earnedTokens, 0)
         spentTokens = value(.spentTokens, 0)
-        claimedTodayTokens = value(.claimedTodayTokens, 0)
         lastDate = value(.lastDate, "")
         installBaselineSet = value(.installBaselineSet, false)
+        // 원장 — 값 범위 검증은 디코드 경계 한 곳에서(관대 디코딩의 짝). 새 키가 없으면 1.19.0 이전 세이브다:
+        // 옛 합산 장부를 정산 대기 자리에 넣어 두면 첫 갱신이 그 날의 나머지만 적립한다(같은 날이면).
+        if let ledger = try? c.decode([String: Int].self, forKey: .claimedTodayTokensByProvider) {
+            claimedTodayTokensByProvider = ledger.mapValues(Self.clampedLedger)
+        } else if installBaselineSet {
+            let legacy = (try? decoder.container(keyedBy: LegacyKeys.self))
+                .flatMap { try? $0.decode(Int.self, forKey: .claimedTodayTokens) } ?? 0
+            claimedTodayTokensByProvider = [Self.legacyAggregateLedgerKey: Self.clampedLedger(legacy)]
+        }
         tampered = value(.tampered, false)
         // 옛 부적 불리언 넷은 **아래 이전 블록보다 먼저** 읽어야 한다. 흩어져 있던 것을 여기로
         // 모은 이유가 그것이다 — 이전이 읽는 값이 아직 디코드 안 된 자리에 있으면 언제나

@@ -353,6 +353,8 @@ The shop sells seven things. The other 105 items only ever arrive in a partner's
 
 All read locally — no external usage CLI required. Adding a tool is one provider file (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
+> **OpenCode with the `claude-code` provider** (e.g. OpenChamber's `opencode-claude` plugin): those requests are Claude Code's own usage and already appear under Claude Code, so the OpenCode tab skips them to avoid counting them twice. If you run Claude Code with `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1`, it writes no transcript and that usage is not counted anywhere.
+
 ## Install
 
 ### Requirements

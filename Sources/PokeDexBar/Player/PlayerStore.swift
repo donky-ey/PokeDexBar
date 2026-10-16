@@ -95,19 +95,26 @@ final class PlayerStore {
     // MARK: 적립
 
     /// 사용량 갱신 — 지갑과 파트너 경험치가 같은 델타를 먹는다(서로 깎지 않는다).
-    func update(todayTokens: Int, todayDate: String, hasUsageData: Bool) {
+    ///
+    /// `todayTokensByProvider` 는 오늘 날짜가 확인된 프로바이더의 오늘 누적 토큰이다(`UsageStore`).
+    /// 적립 기준은 **프로바이더마다 따로 잡은 고점**이다 — 한 프로바이더가 줄거나 빠져도 다른 프로바이더의
+    /// 적립은 계속된다(업스트림 #143). 줄어든 프로바이더는 업스트림처럼 기준을 낮추지 않고 자기 고점에서
+    /// 기다린다: 낮추면 일시적으로 떨어졌다 돌아온 같은 사용량을 두 번 준다.
+    func update(todayTokensByProvider reported: [String: Int], todayDate: String, hasUsageData: Bool) {
+        let current = reported.mapValues(PlayerState.clampedLedger)
         if !state.installBaselineSet {
             // 실제 데이터가 도착한 시점의 오늘 사용량을 기준선으로 — 설치 이전 사용분은 세지 않는다.
-            guard hasUsageData else { return }
+            // 오늘 수치가 있는 프로바이더가 하나도 없으면(어제 스냅숏뿐) 기준선이 아니다.
+            guard hasUsageData, !current.isEmpty else { return }
             state.installBaselineSet = true
-            state.claimedTodayTokens = todayTokens
+            state.claimedTodayTokensByProvider = current
             state.lastDate = todayDate
             save()
             return
         }
+        let dateChanged = todayDate != state.lastDate
         if todayDate != state.lastDate {
             state.lastDate = todayDate
-            state.claimedTodayTokens = 0
             // 오늘의 목표도 여기서 비운다 — 같은 성격의 로컬 장부라 리셋 자리가 하나여야
             // 둘이 어긋나지 않는다(하루가 바뀌는 판정이 두 곳에 있으면 반드시 갈린다).
             state.dailyCounts = [:]
@@ -117,11 +124,10 @@ final class PlayerStore {
             state.freeItemDrawUsed = false
             state.paidItemDraws = 0
         }
+        let delta = settleLedger(with: current, dateChanged: dateChanged)
         // 롤오버로 오늘 총량이 0으로 재설정된 경우도 여기서 걸러진다 — 그래도 위 리셋은
         // save() 로 반드시 디스크에 반영해야 한다(로컬 장부가 메모리에만 남으면 안 된다).
-        if todayTokens > state.claimedTodayTokens {
-            let delta = todayTokens - state.claimedTodayTokens
-            state.claimedTodayTokens = todayTokens
+        if delta > 0 {
             state.earnedTokens += Self.currencyGain(delta, multiplier: charmMultiplier(.fortuneCharm))
             if let index = state.box.firstIndex(where: { $0.id == state.partnerID }) {
                 // 경험치와 알은 **같은 토큰 흐름에서 나란히** 찬다. 서로를 깎지 않는다.
@@ -154,6 +160,47 @@ final class PlayerStore {
         // 일하는 상태에서 영영 안 바뀐다(정확히 반대로 동작한다).
         refreshActivity()
         save()
+    }
+
+    /// 원장을 이번 관측으로 옮기고 새로 적립할 토큰을 돌려준다.
+    ///
+    /// - 날짜가 바뀌었다: 어제 수치와는 비교할 수 없다. 알던 프로바이더를 0 에서 다시 열고, 오늘 누적값
+    ///   전부를 새 사용량으로 친다(이번에 안 보인 프로바이더도 0 으로 열려 있어, 나중에 나타나면 전부 적립된다).
+    /// - 1.19.0 세이브의 같은 날: 합산 장부만 있다 — 오늘 합계에서 그것을 뺀 나머지를 한 번 주고 프로바이더별로 연다.
+    ///   오늘 수치가 아직 없으면 정산을 미룬다.
+    /// - 그 밖: 처음 보는 프로바이더는 기준으로만 잡고(소급 안 함), 고점을 넘은 만큼만 준다. 줄어든 프로바이더는
+    ///   고점을 그대로 둔다.
+    private func settleLedger(with current: [String: Int], dateChanged: Bool) -> Int {
+        var ledger = state.claimedTodayTokensByProvider
+        let legacy = ledger.removeValue(forKey: PlayerState.legacyAggregateLedgerKey)
+        var delta = 0
+        if dateChanged {
+            ledger = ledger.mapValues { _ in 0 }
+            for (provider, tokens) in current {
+                delta += tokens
+                ledger[provider] = tokens
+            }
+        } else if let legacy {
+            if current.isEmpty {
+                ledger[PlayerState.legacyAggregateLedgerKey] = legacy
+            } else {
+                delta = max(0, current.values.reduce(0, +) - legacy)
+                for (provider, tokens) in current { ledger[provider] = tokens }
+            }
+        } else {
+            for (provider, tokens) in current {
+                guard let previous = ledger[provider] else {
+                    ledger[provider] = tokens
+                    continue
+                }
+                if tokens > previous {
+                    delta += tokens - previous
+                    ledger[provider] = tokens
+                }
+            }
+        }
+        state.claimedTodayTokensByProvider = ledger
+        return delta
     }
 
     /// 곁에 둔 아이가 토큰 흐름을 보는 종이면 "지금 일하는 중인가"를 다시 판정한다.
