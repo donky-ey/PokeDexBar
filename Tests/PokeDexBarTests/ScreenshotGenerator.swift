@@ -19,8 +19,9 @@ import XCTest
 // 패턴). 뷰가 바뀌면 다음 실행에서 그림도 같이 바뀌므로 목업처럼 드리프트하지 않는다.
 //
 // 세이브는 절대 건드리지 않는다 — 임시 파일 URL 로 스토어를 만들고 `#if DEBUG` 시드 헬퍼만 쓴다.
-// 스프라이트는 읽기 전용으로 디스크 캐시(`~/Library/Application Support/PokeDexBar/sprites`)에서
-// `SpriteView.init` 이 동기 시드하므로 네트워크 없이도 그림이 나온다.
+// 스프라이트는 설치된 앱의 디스크 캐시(`~/Library/Application Support/PokeDexBar/sprites`)를 임시
+// 캐시로 클론해 두고(`seedSpriteCacheFromTheInstalledApp` — 실 폴더는 읽기만 한다) `SpriteView.init` 이
+// 거기서 동기 시드하므로 네트워크 없이도 그림이 나온다.
 //
 // **UI 를 고칠 때 알아 둘 것 — CALayer 필터는 이 캡처에 안 담긴다.** `cacheDisplay` 는 뷰의
 // *그리기* 경로를 찍으므로, SwiftUI 가 레이어 필터로 내리는 수식어(`.brightness`·`.saturation`·
@@ -971,6 +972,21 @@ final class ScreenshotGeneratorTests: XCTestCase {
         fixture.usage.localizationLanguage = language
     }
 
+    /// 스프라이트는 설치된 앱의 캐시를 **읽기 전용 씨앗**으로 쓴다. 비번들 실행의 저장소는 임시 폴더라
+    /// (`AppEnv.supportDirectory`) 그대로 두면 `SpriteView.init` 의 동기 디스크 시드가 비어 거의 모든
+    /// 칸이 알 자리표시자로 찍힌다. 실 폴더는 복사(APFS 클론)의 원본일 뿐 쓰지 않는다 — 없는 그림은
+    /// 아래 `waitFor` 들이 임시 캐시로 받아 온다.
+    private func seedSpriteCacheFromTheInstalledApp() {
+        let installed = AppEnv.userSupportDirectory.appendingPathComponent("sprites")
+        let files = (try? FileManager.default.contentsOfDirectory(at: installed, includingPropertiesForKeys: nil)) ?? []
+        try? FileManager.default.createDirectory(at: SpriteLoader.cacheDir, withIntermediateDirectories: true)
+        for file in files {
+            let target = SpriteLoader.cacheDir.appendingPathComponent(file.lastPathComponent)
+            guard !FileManager.default.fileExists(atPath: target.path) else { continue }
+            try? FileManager.default.copyItem(at: file, to: target)
+        }
+    }
+
     func testGenerateScreenshots() throws {
         guard ProcessInfo.processInfo.environment["PTB_SCREENSHOTS"] == "1" else {
             throw XCTSkip("set PTB_SCREENSHOTS=1 to regenerate assets/ screenshots")
@@ -987,6 +1003,8 @@ final class ScreenshotGeneratorTests: XCTestCase {
         LastCrash.fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("ptb-shot-lastcrash-\(UUID().uuidString).json")
         defer { LastCrash.fileURL = realCrashURL }
+
+        seedSpriteCacheFromTheInstalledApp()
 
         // 디스크에서 읽어 오는 그림은 **미리 캐시에 올려 둔다.** 첫 접근이 디스크 읽기 + PNG
         // 디코드를 동기로 하는데, 아래 애니메이션 캡처는 `pump(0.05)` 창 안에서 레이아웃이

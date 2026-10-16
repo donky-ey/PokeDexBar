@@ -1767,9 +1767,7 @@ final class UsageStore {
     private func writeParitySnapshot() {
         // .app 번들에서만 기록 — 테스트가 실제 사용자 데이터 디렉토리의 스냅샷을 덮어쓰지 않도록.
         guard AppEnv.isBundledApp else { return }
-        let dir = AppEnv.userDirectory(.applicationSupportDirectory)
-            .appendingPathComponent(AppEnv.storageName)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dir = AppEnv.supportDirectory()
         var providerEntries: [[String: Any]] = []
         for snapshot in snapshots {
             providerEntries.append([

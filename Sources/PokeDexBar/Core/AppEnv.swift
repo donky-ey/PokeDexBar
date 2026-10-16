@@ -64,10 +64,31 @@ enum AppEnv {
         }
     }
 
-    /// 이 빌드의 Application Support 디렉터리. 없으면 만든다.
-    static func supportDirectory() -> URL {
-        let dir = userDirectory(.applicationSupportDirectory)
-            .appendingPathComponent(storageName, isDirectory: true)
+    /// 실 사용자 위치(`~/Library/Application Support/<storageName>`). 번들 앱만 여기를 쓴다.
+    /// 만들지 않는다 — 테스트가 "여기를 안 건드린다"를 단언할 때의 기준점이기도 하다.
+    static var userSupportDirectory: URL {
+        userDirectory(.applicationSupportDirectory).appendingPathComponent(storageName, isDirectory: true)
+    }
+
+    /// 비번들 실행의 저장소 — 프로세스마다 새 임시 폴더라 실행끼리도 섞이지 않는다.
+    private static let isolatedSupportDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("PokeDexBar-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+
+    /// 이 실행이 쓸 Application Support 경로(만들지 않는다).
+    ///
+    /// **비번들 실행(`swift test`·로우 바이너리)은 실 폴더를 쓰지 않는다.** `storageName` 이 비번들에서
+    /// 설치본과 같은 "PokeDexBar" 라, 여기서 가르지 않으면 테스트가 실 세이브·사용량 캐시·스프라이트
+    /// 캐시를 읽고 쓴다(업스트림 #359 는 usage-cache.json 이 테스트 한 번에 다시 써지는 것을 실측했다).
+    /// 경로 주입은 주입한 테스트만 지킨다 — `.shared` 나 기본 프로바이더처럼 기본 경로를 타는 코드는
+    /// 이 뿌리에서만 막힌다. App Support 경로는 반드시 이 함수(또는 `supportDirectory`)로 얻는다
+    /// (`AppStorageIsolationTests` 가 소스를 훑어 강제한다).
+    static func supportDirectoryURL(isBundledApp: Bool = AppEnv.isBundledApp) -> URL {
+        isBundledApp ? userSupportDirectory : isolatedSupportDirectory
+    }
+
+    /// 이 실행의 Application Support 디렉터리. 없으면 만든다.
+    static func supportDirectory(isBundledApp: Bool = AppEnv.isBundledApp) -> URL {
+        let dir = supportDirectoryURL(isBundledApp: isBundledApp)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

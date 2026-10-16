@@ -77,17 +77,12 @@ struct SessionKeyStore: Sendable {
             .appendingPathComponent("session-key.json")
     }
 
-    /// 기본 위치 — 세이브와 같은 Application Support 격리 규약을 따른다(`AppEnv.storageName`:
-    /// Dev 빌드는 "PokeDexBarDev" 로 갈라진다). **비번들 실행(swift test·로우 바이너리)은 임시
-    /// 폴더로 갈라진다** — `swift test` 의 storageName 은 설치본과 같은 "PokeDexBar" 라, 여기서
-    /// 가르지 않으면 테스트가 실 앱의 자격증명 저장소를 읽고 쓴다(최종리뷰에서 실사고로 확인:
-    /// 업스트림 픽스처 키가 실 폴더에 기록됐다). `installedDiscovery` 와 같은 가드 부류.
+    /// 기본 위치 — 세이브와 같은 Application Support(`AppEnv.supportDirectory`). Dev 빌드는
+    /// "PokeDexBarDev" 로, **비번들 실행(swift test·로우 바이너리)은 임시 폴더로** 갈라진다 —
+    /// 최종리뷰에서 업스트림 픽스처 키가 실 폴더에 기록된 실사고가 이 격리를 뿌리로 옮긴 계기다.
+    /// 경로만 계산한다 — 폴더는 `save` 가 쓸 때 만든다.
     static func defaultDirectory(isBundledApp: Bool = AppEnv.isBundledApp) -> URL {
-        guard isBundledApp else {
-            return FileManager.default.temporaryDirectory
-                .appendingPathComponent("PokeDexBarTestKeys", isDirectory: true)
-        }
-        return AppEnv.supportDirectory()
+        AppEnv.supportDirectoryURL(isBundledApp: isBundledApp)
     }
 
     /// An additional Claude account's own key (`ClaudeAccountRoots`), next to the default one.
