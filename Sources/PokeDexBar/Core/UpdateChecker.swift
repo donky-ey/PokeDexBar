@@ -8,25 +8,47 @@ import Observation
 final class UpdateChecker {
     struct Available: Equatable { let version: String; let url: String }
 
+    /// 확인 뒤 설정이 할 말. 건너뛴 릴리스는 "최신"이 아니다.
+    enum SettingsNotice: Equatable {
+        case offer(String)
+        case skipped(String)
+        case current
+    }
+
     private(set) var available: Available?
+    /// 사용자가 건너뛴 새 릴리스. 배너에서는 숨기고 설정에는 남긴다.
+    private(set) var skipped: Available?
     private(set) var isUpdating = false
 
     let currentVersion: String
     private let repo = "donky-ey/PokeDexBar"
     private let clock: () -> Date
     private var lastChecked: Date?
+    private let defaults: UserDefaults
+
+    static let skippedVersionKey = "skippedUpdateVersion"
 
     /// brew cask 이름 — 이 앱 고유의 cask 를 가리켜야 한다(단일 소스: 아래 두 사용처가 여기서만 갈라진다).
     /// 다른 상수로 흩어놓으면 리브랜딩 때 한쪽만 갱신되고 한쪽이 남는 사고가 재발한다(#task1 리뷰 지적).
     nonisolated static let caskName = "poke-dex-bar"
 
-    init(currentVersion: String? = nil, clock: @escaping () -> Date = Date.init) {
+    init(currentVersion: String? = nil, clock: @escaping () -> Date = Date.init, defaults: UserDefaults = .standard) {
         self.currentVersion = currentVersion
             ?? AppEnv.appVersion ?? "0"
         self.clock = clock
+        self.defaults = defaults
     }
 
-    /// 최신 릴리스 조회 → 새 버전이고 사용자가 그 버전을 'skip' 하지 않았으면 available 설정.
+    var settingsNotice: SettingsNotice {
+        if let available { return .offer(available.version) }
+        if let skipped { return .skipped(skipped.version) }
+        return .current
+    }
+
+    /// 설정에서 설치할 수 있는 릴리스. 건너뛰기는 배너를 숨길 뿐 URL 을 버리지 않는다.
+    var updateTarget: Available? { available ?? skipped }
+
+    /// 최신 릴리스 조회. 건너뛴 버전은 배너(`available`)에 안 올리고 설정(`skipped`)에만 남긴다.
     /// minInterval 보다 자주 호출되면 무시(레이트리밋 보호).
     func check(minInterval: TimeInterval = 1800) async {
         if let last = lastChecked, clock().timeIntervalSince(last) < minInterval { return }
@@ -42,24 +64,48 @@ final class UpdateChecker {
               // 응답 필드가 NSWorkspace.open 으로 가므로 https + github.com 만 허용(스킴 하이재킹 방지)
               let htmlURL = URL(string: html), htmlURL.scheme == "https", htmlURL.host == "github.com"
         else { return }
+        consider(latest: tag, url: html)
+    }
+
+    /// 받아 온 릴리스 하나를 반영한다. `latest` 는 태그(`v2.5.4`)여도, 맨 버전이어도 된다.
+    func consider(latest tag: String, url: String) {
         let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-        let skipped = UserDefaults.standard.string(forKey: "skippedUpdateVersion")
-        if Self.isNewer(latest, than: currentVersion), latest != skipped {
-            available = Available(version: latest, url: html)
-        } else {
+        let skippedVersion = defaults.string(forKey: Self.skippedVersionKey)
+        guard Self.isNewer(latest, than: currentVersion) else {
             available = nil
+            skipped = nil
+            return
+        }
+        let release = Available(version: latest, url: url)
+        if latest == skippedVersion {
+            available = nil
+            skipped = release
+        } else {
+            available = release
+            skipped = nil
         }
     }
 
-    /// 이 버전은 다시 알리지 않음.
+    /// 이 버전의 배너를 숨긴다. 설정은 여전히 보고 설치할 수 있다.
     func skipCurrent() {
-        if let v = available?.version { UserDefaults.standard.set(v, forKey: "skippedUpdateVersion") }
+        guard let release = available else { return }
+        defaults.set(release.version, forKey: Self.skippedVersionKey)
+        skipped = release
         available = nil
+    }
+
+    /// 건너뛰기를 되돌려 같은 릴리스의 배너가 다시 뜨게 한다.
+    func showSkippedAgain() {
+        defaults.removeObject(forKey: Self.skippedVersionKey)
+        if let release = skipped {
+            available = release
+            skipped = nil
+        }
     }
 
     /// 업데이트 적용: brew cask 설치본이면 `brew upgrade` 후 재시작, 아니면 릴리스 페이지.
     func applyUpdate() {
-        guard let update = available, !isUpdating else { return }
+        guard let update = updateTarget, !isUpdating else { return }
         isUpdating = true
         Task { @MainActor in
             // brew cask 설치본이면 분리(detached) 스크립트가 앱 종료 후 tap 갱신→업그레이드→재오픈.

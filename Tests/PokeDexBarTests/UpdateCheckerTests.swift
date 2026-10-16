@@ -55,4 +55,66 @@ final class UpdateCheckerTests: XCTestCase {
         // 포크: cask 이름은 단일 상수에서 온다(위 testCaskNameIsOwnApp) — 스크립트가 그 상수를 쓰는지까지.
         XCTAssertTrue(script.contains("--cask \(UpdateChecker.caskName)"), "the script must upgrade this app's cask")
     }
+
+    // MARK: - Skipped release (upstream #311)
+
+    /// "이 버전 건너뛰기"는 배너만 숨긴다 — 다음 확인도 그 릴리스가 있다는 걸 알아야 하고,
+    /// 설정은 그걸 "최신"으로 다뤄선 안 된다.
+    @MainActor
+    func testSkippedReleaseStaysVisibleAndANewerOneReturnsToTheBanner() {
+        let suite = "UpdateCheckerTests.skip.\(UUID().uuidString)"
+        let box = UserDefaults(suiteName: suite)!
+        defer { box.removePersistentDomain(forName: suite) }
+        let checker = UpdateChecker(currentVersion: "2.5.3", defaults: box)
+
+        checker.consider(latest: "2.5.4", url: "https://github.com/donky-ey/PokeDexBar/releases/tag/v2.5.4")
+        XCTAssertEqual(checker.available?.version, "2.5.4")
+        XCTAssertNil(checker.skipped)
+        XCTAssertEqual(checker.settingsNotice, .offer("2.5.4"))
+
+        checker.skipCurrent()
+        XCTAssertNil(checker.available, "the popover banner stays hidden")
+        XCTAssertEqual(checker.skipped?.version, "2.5.4")
+        XCTAssertEqual(checker.settingsNotice, .skipped("2.5.4"))
+        XCTAssertEqual(box.string(forKey: "skippedUpdateVersion"), "2.5.4")
+
+        checker.consider(latest: "v2.5.4", url: "https://github.com/donky-ey/PokeDexBar/releases/tag/v2.5.4")
+        XCTAssertNil(checker.available)
+        XCTAssertEqual(checker.settingsNotice, .skipped("2.5.4"), "a skipped version is not the latest installed")
+
+        checker.consider(latest: "2.5.5", url: "https://github.com/donky-ey/PokeDexBar/releases/tag/v2.5.5")
+        XCTAssertEqual(checker.available?.version, "2.5.5")
+        XCTAssertNil(checker.skipped)
+        XCTAssertEqual(checker.settingsNotice, .offer("2.5.5"))
+
+        checker.consider(latest: "2.5.3", url: "https://github.com/donky-ey/PokeDexBar/releases/tag/v2.5.3")
+        XCTAssertEqual(checker.settingsNotice, .current, "the installed release is the latest")
+    }
+
+    @MainActor
+    func testShowAgainRestoresTheBannerAndUpdateUsesTheSkippedRelease() {
+        let suite = "UpdateCheckerTests.restore.\(UUID().uuidString)"
+        let box = UserDefaults(suiteName: suite)!
+        defer { box.removePersistentDomain(forName: suite) }
+        let checker = UpdateChecker(currentVersion: "2.5.3", defaults: box)
+        let url = "https://github.com/donky-ey/PokeDexBar/releases/tag/v2.5.4"
+        checker.consider(latest: "2.5.4", url: url)
+        checker.skipCurrent()
+
+        XCTAssertEqual(checker.updateTarget?.url, url, "Settings can still install a skipped release")
+
+        checker.showSkippedAgain()
+        XCTAssertEqual(checker.available?.version, "2.5.4")
+        XCTAssertNil(checker.skipped)
+        XCTAssertNil(box.string(forKey: "skippedUpdateVersion"))
+        XCTAssertEqual(checker.settingsNotice, .offer("2.5.4"))
+    }
+
+    /// 포크: 한국어 문구는 버전 끝자리 받침에 맞춰 조사를 고른다("v1.19.0을" / "v1.19.2를").
+    func testSkippedVersionCopyPicksTheParticleAndKeepsTheVersion() {
+        XCTAssertEqual(L(.ko).skippedVersion("1.19.0"), "v1.19.0을 건너뛰었어요")
+        XCTAssertEqual(L(.ko).skippedVersion("1.19.2"), "v1.19.2를 건너뛰었어요")
+        XCTAssertTrue(L(.en).skippedVersion("1.19.2").contains("v1.19.2"))
+        XCTAssertTrue(L(.ja).skippedVersion("1.19.2").contains("v1.19.2"))
+    }
 }
