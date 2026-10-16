@@ -15,16 +15,26 @@ final class UpdateChecker {
         case current
     }
 
+    /// GitHub latest 엔드포인트(또는 테스트 대역)가 준 태그와 릴리스 페이지 URL.
+    struct LatestRelease: Equatable, Sendable {
+        let tag: String
+        let url: String
+    }
+
     private(set) var available: Available?
     /// 사용자가 건너뛴 새 릴리스. 배너에서는 숨기고 설정에는 남긴다.
     private(set) var skipped: Available?
     private(set) var isUpdating = false
 
     let currentVersion: String
-    private let repo = "donky-ey/PokeDexBar"
     private let clock: () -> Date
     private var lastChecked: Date?
     private let defaults: UserDefaults
+    /// 주입받아 테스트가 네트워크 없이 실패·성공을 흉내 낸다.
+    private let fetchLatest: () async -> LatestRelease?
+    /// 이른 쿨다운 기록이 사라졌으니(실패는 다음 시도를 막지 않는다) 팝오버를 겹쳐 열어도 GitHub 호출이
+    /// 쌓이지 않게 한 번에 하나만.
+    private var checkInFlight = false
 
     static let skippedVersionKey = "skippedUpdateVersion"
 
@@ -32,11 +42,13 @@ final class UpdateChecker {
     /// 다른 상수로 흩어놓으면 리브랜딩 때 한쪽만 갱신되고 한쪽이 남는 사고가 재발한다(#task1 리뷰 지적).
     nonisolated static let caskName = "poke-dex-bar"
 
-    init(currentVersion: String? = nil, clock: @escaping () -> Date = Date.init, defaults: UserDefaults = .standard) {
+    init(currentVersion: String? = nil, clock: @escaping () -> Date = Date.init, defaults: UserDefaults = .standard,
+         fetchLatest: (() async -> LatestRelease?)? = nil) {
         self.currentVersion = currentVersion
             ?? AppEnv.appVersion ?? "0"
         self.clock = clock
         self.defaults = defaults
+        self.fetchLatest = fetchLatest ?? { await Self.liveLatestRelease(repo: "donky-ey/PokeDexBar") }
     }
 
     var settingsNotice: SettingsNotice {
@@ -49,22 +61,52 @@ final class UpdateChecker {
     var updateTarget: Available? { available ?? skipped }
 
     /// 최신 릴리스 조회. 건너뛴 버전은 배너(`available`)에 안 올리고 설정(`skipped`)에만 남긴다.
-    /// minInterval 보다 자주 호출되면 무시(레이트리밋 보호).
+    /// minInterval 은 **성공한** 조회 사이에만 적용한다(레이트리밋 보호). 실패 — 네트워크·비정상 응답·
+    /// 불안전 URL·지원하지 않는 태그 — 는 쿨다운을 시작하지 않아, 팝오버를 다시 열면 곧장 재시도한다.
     func check(minInterval: TimeInterval = 1800) async {
+        if checkInFlight { return }
         if let last = lastChecked, clock().timeIntervalSince(last) < minInterval { return }
+        checkInFlight = true
+        defer { checkInFlight = false }
+
+        guard let release = await fetchLatest(),
+              Self.isTrustedReleaseURL(release.url),
+              let version = Self.normalizedReleaseVersion(release.tag) else { return }
         lastChecked = clock()
-        guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest") else { return }
+        consider(latest: version, url: release.url)
+    }
+
+    /// NSWorkspace.open 으로 가는 릴리스 URL — https + github.com 만 허용(스킴 하이재킹 방지).
+    nonisolated static func isTrustedReleaseURL(_ string: String) -> Bool {
+        guard let url = URL(string: string), url.scheme == "https", url.host == "github.com" else { return false }
+        return true
+    }
+
+    /// 릴리스 태그 → 비교 가능한 버전. 태그가 맨 `MAJOR.MINOR.PATCH`(앞의 `v` 허용)가 아니면 nil.
+    /// `isNewer` 는 숫자가 아닌 부분을 0 으로 읽으므로 `v2.6.0-beta.1` 은 `2.6.0` 과 같게, 쓰레기는
+    /// `0.0.0` 으로 비교된다 — 둘 다 적용하거나 성공한 확인으로 세면 안 된다.
+    nonisolated static func normalizedReleaseVersion(_ tag: String) -> String? {
+        var version = Substring(tag.trimmingCharacters(in: .whitespacesAndNewlines))
+        if version.first == "v" || version.first == "V" { version = version.dropFirst() }
+        let parts = version.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              parts.allSatisfy({ part in
+                  !part.isEmpty && part.count <= 9 && part.allSatisfy { $0.isASCII && $0.isNumber }
+              }) else { return nil }
+        return parts.map { String(Int($0)!) }.joined(separator: ".")
+    }
+
+    /// 실 GitHub latest-release 조회. 전송·응답 문제가 있으면 nil.
+    private nonisolated static func liveLatestRelease(repo: String) async -> LatestRelease? {
+        guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest") else { return nil }
         var req = URLRequest(url: url, timeoutInterval: 15)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         guard let (data, resp) = try? await URLSession.shared.data(for: req),
               (resp as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = json["tag_name"] as? String,
-              let html = json["html_url"] as? String,
-              // 응답 필드가 NSWorkspace.open 으로 가므로 https + github.com 만 허용(스킴 하이재킹 방지)
-              let htmlURL = URL(string: html), htmlURL.scheme == "https", htmlURL.host == "github.com"
-        else { return }
-        consider(latest: tag, url: html)
+              let html = json["html_url"] as? String else { return nil }
+        return LatestRelease(tag: tag, url: html)
     }
 
     /// 받아 온 릴리스 하나를 반영한다. `latest` 는 태그(`v2.5.4`)여도, 맨 버전이어도 된다.
