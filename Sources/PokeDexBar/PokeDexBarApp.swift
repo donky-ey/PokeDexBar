@@ -38,10 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // **`CrashReporter.install` 보다도 앞**에 둔다: 뒤면 물러나는 인스턴스가 running 마커를 덮어쓰고
         // 종료 시 `markClean()` 이 발화해, 살아남은 쪽이 나중에 크래시해도 다음 실행이 정상 종료로 읽는다.
         if SingleInstance.shouldYieldToRunningInstance() {
-            AppLog.write("duplicate instance: yielding to the instance already running")
-            // write 는 async — terminate 이 곧 exit(0) 에 닿으므로 이 줄이 파일에 닿을 때까지 기다린다.
-            // 이 로그가 없으면 가드의 오작동("앱이 안 뜬다")과 크래시를 구별할 단서가 사라진다.
-            AppLog.flush()
+            // writeAndFlush: write 는 async 라 terminate 이 같은 턴에 exit(0) 에 닿는다. 배출하지 않으면
+            // 이 줄이 사라지고(업스트림 #163 리뷰 실측 100회 중 42회) 가드의 오작동이 크래시처럼 보인다.
+            AppLog.writeAndFlush("duplicate instance: yielding to the instance already running")
             NSApp.terminate(nil)
             return
         }

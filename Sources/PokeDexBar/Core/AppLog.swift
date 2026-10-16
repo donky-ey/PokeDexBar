@@ -12,13 +12,35 @@ enum AppLog {
         return dir.appendingPathComponent("\(AppEnv.storageName).log")
     }()
 
-    private static let queue = DispatchQueue(label: "pokedexbar.log")
+    private static let backend = AsyncLineLog(queue: DispatchQueue(label: "pokedexbar.log")) { line in
+        if let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
+           size > maxBytes {
+            let old = url.deletingPathExtension().appendingPathExtension("old.log")
+            try? FileManager.default.removeItem(at: old)
+            try? FileManager.default.moveItem(at: url, to: old)
+        }
+        if let data = line.data(using: .utf8) {
+            if let handle = try? FileHandle(forWritingTo: url) {
+                defer { try? handle.close() }
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: data)
+            } else {
+                try? data.write(to: url)
+            }
+        }
+    }
 
     /// 큐에 쌓인 기록이 파일에 닿을 때까지 기다린다 — **곧 프로세스가 끝나는 자리에서만** 쓴다.
     /// `write` 는 async 라, 기록 직후 `NSApp.terminate` 이 `exit(0)` 에 닿으면 그 줄이 통째로 사라진다.
-    /// serial 큐라 빈 블록을 sync 로 넣으면 앞서 넣은 기록이 모두 끝난 뒤에 돌아온다.
     static func flush() {
-        queue.sync {}
+        backend.flush()
+    }
+
+    /// 종료 경로 한 쌍 — 넣고, 파일에 닿을 때까지 기다린다. 테스트된 `backend.writeAndFlush` 를 거친다:
+    /// `write()`+`flush()` 를 따로 부르는 두 번째 쌍은 테스트되지 않고 #174 를 되살린다.
+    static func writeAndFlush(_ message: String) {
+        guard AppEnv.isBundledApp else { return }
+        backend.writeAndFlush(formatted(message))
     }
 
     /// 로그 상한 — 초과 시 .old 로 1세대 회전(무한 증가 방지, 디스크 상한 ≈ 2×maxBytes = 4MB).
@@ -54,23 +76,33 @@ enum AppLog {
         // 않게(형제 write 경로 writeParitySnapshot·checkLimitNotifications 와 동일 가드). 테스트가
         // 크래시 진단 로그에 fixture 값을 남기고 회전으로 실이력을 밀어내던 결함 차단.
         guard AppEnv.isBundledApp else { return }
-        let line = "[\(ISO8601DateFormatter().string(from: Date()))] \(message)\n"
-        queue.async {
-            if let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
-               size > maxBytes {
-                let old = url.deletingPathExtension().appendingPathExtension("old.log")
-                try? FileManager.default.removeItem(at: old)
-                try? FileManager.default.moveItem(at: url, to: old)
-            }
-            if let data = line.data(using: .utf8) {
-                if let handle = try? FileHandle(forWritingTo: url) {
-                    defer { try? handle.close() }
-                    _ = try? handle.seekToEnd()
-                    try? handle.write(contentsOf: data)
-                } else {
-                    try? data.write(to: url)
-                }
-            }
-        }
+        backend.write(formatted(message))
+    }
+
+    private static func formatted(_ message: String) -> String {
+        "[\(ISO8601DateFormatter().string(from: Date()))] \(message)\n"
+    }
+}
+
+/// 직렬 줄 싱크. `write` 는 큐에 넣고, `flush` 는 앞서 넣은 기록이 모두 싱크에 닿을 때까지 기다린다.
+/// 비동기 로거는 종료 경로에서 로거가 아니다(#174) — 같은 턴에 `exit()` 에 닿는 호출부는 반드시 flush 한다.
+///
+/// 싱크를 주입받으므로 테스트가 실 로그를 열지 않고 배출을 증명할 수 있다(`AppLog.write` 는
+/// `swift test` 에서 아무것도 안 한다).
+struct AsyncLineLog: Sendable {
+    let queue: DispatchQueue
+    let sink: @Sendable (String) -> Void
+
+    func write(_ line: String) {
+        queue.async { self.sink(line) }
+    }
+
+    func flush() {
+        queue.sync {}
+    }
+
+    func writeAndFlush(_ line: String) {
+        write(line)
+        flush()
     }
 }
