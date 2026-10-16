@@ -1069,6 +1069,27 @@ final class LocalUsageReaderTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(p.totalTokens, 600_000)
     }
 
+    /// Claude Code 는 요청이 없어도 사용량이 전부 0 인 `<synthetic>` assistant 레코드를 남길 수 있다
+    /// (업스트림 #333). 그건 사용량이 아니다 — 블록을 만들지도, 블록 시작을 앞당겨 분당 토큰을 낮추지도
+    /// 말아야 한다. 스토어 쪽 표시 게이트(`totalTokens > 0`)는 이미 있었고 리더가 빠져 있었다.
+    func testZeroTokenRecordsNeitherStartNorStretchTheActiveBlock() throws {
+        let now = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) ?? Date()
+        let fmt = LocalUsageReader.localDayFormatter()
+        func entry(_ minutesAgo: Double, _ tok: Int) -> LocalUsageReader.Entry {
+            let date = now.addingTimeInterval(-minutesAgo * 60)
+            return LocalUsageReader.Entry(id: UUID().uuidString, date: date, localDay: fmt.string(from: date),
+                                          model: "<synthetic>", input: tok, output: 0, cacheWrite: 0, cacheRead: 0)
+        }
+        XCTAssertNil(LocalUsageReader.activeBlock(entries: [entry(30, 0)], now: now),
+                     "a zero-token record alone is not an active block")
+
+        let real = entry(10, 6_000)
+        let block = try XCTUnwrap(LocalUsageReader.activeBlock(entries: [entry(200, 0), real], now: now))
+        let withoutSynthetic = try XCTUnwrap(LocalUsageReader.activeBlock(entries: [real], now: now))
+        XCTAssertEqual(block.startTime, withoutSynthetic.startTime, "the zero-token record must not move the block start")
+        XCTAssertEqual(block.tokensPerMinute, withoutSynthetic.tokensPerMinute)
+    }
+
     // MARK: enrichment 스캔 하한 (월초 경계 흡수)
 
     /// 스캔 하한은 블록(now-5h)·이번 주(weekStart)·이번 달(monthStart) 세 윈도우 시작을 모두 덮어야

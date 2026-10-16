@@ -1510,7 +1510,10 @@ enum LocalUsageReader {
     /// 최근 5시간 롤링 윈도우 기반 활성 블록(번 레이트 추정용).
     static func activeBlock(entries: [Entry], now: Date) -> BlockUsage? {
         let windowStart = now.addingTimeInterval(-blockWindow)
-        let recent = entries.filter { $0.date >= windowStart }.sorted { $0.date < $1.date }
+        // Claude Code 는 요청이 없어도 사용량이 전부 0 인 `<synthetic>` assistant 레코드를 남길 수 있다.
+        // 파서로는 유효한 메타데이터지 사용량이 아니므로, 블록 존재와 시작 시각 양쪽에서 뺀다 — 안 그러면
+        // 0토큰 블록이 생기거나 블록 시작이 앞당겨져 분당 토큰이 낮아진다(업스트림 #333).
+        let recent = entries.filter { $0.date >= windowStart && $0.total > 0 }.sorted { $0.date < $1.date }
         guard let first = recent.first else { return nil }
         var b = Bucket()
         for e in recent { b.add(e) }
