@@ -33,6 +33,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var displayAwake = true     // 디스플레이 켜짐 여부 (꺼지면 메뉴 애니메이션 정지 — 배터리)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 로그인 에이전트 등록(plist 의 RunAtLoad)이 이미 떠 있는 앱을 한 번 더 실행한다 — 나중에 뜬
+        // 쪽이 물러난다. 메뉴바 항목을 만들기 전에 판정해 아이콘이 떴다 사라지는 깜빡임을 없애고,
+        // **`CrashReporter.install` 보다도 앞**에 둔다: 뒤면 물러나는 인스턴스가 running 마커를 덮어쓰고
+        // 종료 시 `markClean()` 이 발화해, 살아남은 쪽이 나중에 크래시해도 다음 실행이 정상 종료로 읽는다.
+        if SingleInstance.shouldYieldToRunningInstance() {
+            // writeAndFlush: write 는 async 라 terminate 이 같은 턴에 exit(0) 에 닿는다. 배출하지 않으면
+            // 이 줄이 사라지고(업스트림 #163 리뷰 실측 100회 중 42회) 가드의 오작동이 크래시처럼 보인다.
+            AppLog.writeAndFlush("duplicate instance: yielding to the instance already running")
+            NSApp.terminate(nil)
+            return
+        }
         // 서브프로세스(codex app-server 등) 파이프가 조기 종료로 끊겨도 SIGPIPE 로 앱이 죽지 않게
         // 무시한다. ProcessRunner 의 throwing write 와 함께 broken-pipe 크래시를 막는 이중 방어.
         signal(SIGPIPE, SIG_IGN)

@@ -88,12 +88,7 @@ actor PokeAPIClient: PokeProviding {
     private var baseIndexCache: [BaseSpecies]?
     private var restBuildInFlight = false
     private var restBuildTried = false   // 세션당 1회 (GraphQL 다운 시 REST 인덱스 구축 트리거)
-    private static let baseIndexFile: URL = {
-        let dir = AppEnv.userDirectory(.applicationSupportDirectory)
-            .appendingPathComponent(AppEnv.storageName)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("base-index.json")
-    }()
+    static let baseIndexFile: URL = AppEnv.supportDirectory().appendingPathComponent("base-index.json")
     struct BaseIndexSnapshot: Codable {
         let fetchedAt: Date
         let entries: [BaseSpecies]

@@ -110,6 +110,40 @@ final class LocalUsageCacheTests: XCTestCase {
         ]
     }
 
+    // MARK: 실 사용자 파일 격리 (회귀, upstream #359)
+
+    /// 기본 경로 캐시는 실 `usage-cache.json` 을 다시 쓰지 않는다.
+    ///
+    /// 이 파일의 다른 테스트는 전부 `fileURL` 을 주입하지만 그건 그 테스트만 지킨다 — 기본 프로바이더는
+    /// `LocalUsageCache.shared` 를 쓰므로 실 프로바이더로 `refresh()` 를 도는 테스트(기본값으로 만든
+    /// 스토어, 테스트보다 오래 사는 Task)는 기본 경로에 닿는다. 업스트림 실측: 스위트 한 번에 실 파일이
+    /// 다시 써졌다. 그래서 가드는 "테스트가 경로를 주입한다"가 아니라 기본 경로 자체의 격리다.
+    func testDefaultPathCacheNeverRewritesTheUserFile() async throws {
+        _ = try writeFile("a.jsonl", lines: [claudeLine(id: "1", output: 42)])
+        let cache = LocalUsageCache(claudeRoot: root)   // fileURL 없음 = 기본 경로
+
+        // mtime 표본은 **첫 스캔 전에** 뜬다 — 두 번째 호출은 dirty == false 로 저장 전에 돌아오므로,
+        // 그 뒤에 뜨면 쓰기 격리를 지워도 통과한다.
+        let userFile = AppEnv.userSupportDirectory.appendingPathComponent("usage-cache.json")
+        func userFileMtime() -> Date? {
+            (try? FileManager.default.attributesOfItem(atPath: userFile.path))?[.modificationDate] as? Date
+        }
+        let before = userFileMtime()
+
+        let entries = await cache.claudeEntries(modifiedSince: Date(timeIntervalSince1970: 0))
+        XCTAssertEqual(entries.map(\.output), [42], "픽스처 루트만 집계된다")
+        XCTAssertNotEqual(cache.fileURL.standardizedFileURL, userFile.standardizedFileURL)
+        XCTAssertEqual(before, userFileMtime(), "실 usage-cache.json 이 다시 써졌다")
+    }
+
+    /// 반대 방향 — 주입한 경로는 여전히 저장된다. 아니면 이 파일의 영속 테스트가 전부 무의미해진다.
+    func testInjectedPathCacheStillPersists() async throws {
+        _ = try writeFile("a.jsonl", lines: [claudeLine(id: "1", output: 7)])
+        let cache = LocalUsageCache(claudeRoot: root, fileURL: cacheFile)
+        _ = await cache.claudeEntries(modifiedSince: Date(timeIntervalSince1970: 0))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: cacheFile.path), "주입한 경로는 살아 있어야 한다")
+    }
+
     @discardableResult
     private func writeFile(_ name: String, lines: [String], mtime: Date? = nil) throws -> URL {
         let url = root.appendingPathComponent(name)
@@ -757,8 +791,15 @@ final class LocalUsageCacheTests: XCTestCase {
     }
 
     /// 포매터 — grouped/cost/costCompact 경계값(메뉴바·팝오버 표기 계약).
+    ///
+    /// `grouped` 는 로케일을 명시해 단언한다. 기본값(`Locale.current`)으로 두면 쉼표를 쓰지 않는
+    /// 지역 설정의 기여자 머신에서만 빨갛게 뜬다(`253 412 890` — 업스트림 #166 보고). CI(en_US)와
+    /// 국내 머신(ko_KR)은 둘 다 쉼표라 이 실패를 영영 못 본다.
+    /// cost/costCompact/percent 는 `String(format:)` 이라 로케일과 무관하다.
     func testFormatterEdges() {
-        XCTAssertEqual(TokenFormatter.grouped(253_412_890), "253,412,890")
+        XCTAssertEqual(TokenFormatter.grouped(253_412_890, locale: Locale(identifier: "en_US")), "253,412,890")
+        // 구분기호가 지역 설정을 따르는지 — locale 인자가 무시되면 여기서 걸린다.
+        XCTAssertEqual(TokenFormatter.grouped(253_412_890, locale: Locale(identifier: "es_ES")), "253.412.890")
         XCTAssertEqual(TokenFormatter.cost(48.104), "$48.10")
         XCTAssertEqual(TokenFormatter.costCompact(9.54), "$9.5")     // < 100 → 소수 1자리
         XCTAssertEqual(TokenFormatter.costCompact(311.4), "$311")    // < 10K → 정수

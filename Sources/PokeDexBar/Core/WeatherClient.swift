@@ -19,7 +19,12 @@ actor WeatherClient {
     private let fileURL: URL
     private var cache: Cache?
 
-    init(fileURL: URL = AppEnv.supportDirectory().appendingPathComponent("weather.json")) {
+    /// 기본 캐시 자리 — 경로만 계산한다(읽지 않는다). `AppStorageIsolationTests` 가 격리를 확인한다.
+    static func defaultFileURL() -> URL {
+        AppEnv.supportDirectory().appendingPathComponent("weather.json")
+    }
+
+    init(fileURL: URL = WeatherClient.defaultFileURL()) {
         self.fileURL = fileURL
         cache = (try? Data(contentsOf: fileURL)).flatMap { try? JSONDecoder().decode(Cache.self, from: $0) }
     }

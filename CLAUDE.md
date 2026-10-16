@@ -128,12 +128,30 @@
   자동 폴이 프롬프트 없이 한도를 계속 갱신한다. 대가는 평문 보관(소유자 전용 0600 파일, 설정이
   그 사실과 무효화 방법을 안내). Keychain 규율은 폴백 경로에 그대로 적용된다 — 키가 설정돼 있으면
   수동 갱신의 폴백조차 Keychain 을 열지 않는다, `testConfiguredButBrokenKeyNeverLetsFallbackOpenTheKeychain`.)
-- **테스트가 실 앱의 자격증명 저장소를 공유하게 두지 마라.** `swift test` 의 `AppEnv.storageName`
-  은 설치본과 같은 "PokeDexBar" 다 — Dev 빌드 이름 분리는 **테스트를 격리하지 않는다**. 실사고:
-  업스트림 세션 키 픽스처 테스트가 적응 전 1회 돌며 실 `~/Library/Application Support/PokeDexBar/
-  session-key.json` 에 가짜 키를 썼다(XCTAssert 실패는 실행을 멈추지 않아 뒤의 save 가 그대로
-  돌았다). 자격증명류 저장 경로는 `isBundledApp` 으로 가른다(`SessionKeyStore.defaultDirectory` —
-  비번들은 임시 폴더). 회귀 가드: `testANonBundledRunNeverTouchesTheRealAppSupportStore`.
+- **테스트가 실 앱의 저장소를 공유하게 두지 마라 — 자격증명만이 아니라 앱 저장소 전부.** `swift test`
+  의 `AppEnv.storageName` 은 설치본과 같은 "PokeDexBar" 다 — Dev 빌드 이름 분리는 **테스트를 격리하지
+  않는다**. 실사고 둘: ① 업스트림 세션 키 픽스처 테스트가 적응 전 1회 돌며 실 `~/Library/Application
+  Support/PokeDexBar/session-key.json` 에 가짜 키를 썼다(XCTAssert 실패는 실행을 멈추지 않아 뒤의 save
+  가 그대로 돌았다) ② 스윕(SP4 배치 A, 업스트림 #359)에서 같은 부류가 다섯 저장소에 더 있었다 —
+  `usage-cache.json` 은 기본 프로바이더가 `.shared` 로 실 파일을 읽고 다시 썼고, 스프라이트 캐시에는
+  테스트가 가짜 GIF 를 썼고, 세이브·`base-index.json`·`weather.json` 은 "테스트가 경로를 주입한다"는
+  습관 하나로만 버티고 있었다. **경로 주입은 주입한 테스트만 지킨다** — `.shared`·기본 인자처럼 기본
+  경로를 타는 코드는 못 지킨다. 그래서 격리는 저장소마다가 아니라 뿌리에 있다: `AppEnv.supportDirectory()`
+  가 비번들 실행이면 실행마다 임시 폴더(UUID 이름 — PID 는 재사용돼 앞 실행의 잔여를 물려받는다)를
+  돌려주고, App Support 경로는 **반드시 그 함수로만** 얻는다(`userDirectory(.applicationSupportDirectory)`
+  와 실 위치 접근자 `AppEnv.userSupportDirectory` 를 `AppEnv` 밖 소스에서 쓰지 마라 — 후자는 테스트의 비교
+  기준으로만 있다). 회귀 가드는 **각자 다른 것을 막는다**(뮤테이션으로 확인): 뿌리 분기를 되돌리면
+  `testANonBundledRunGetsAnIsolatedSupportDirectory`·`testEveryDefaultStorePathStaysOutsideTheUserLocation`·
+  `testANonBundledRunNeverTouchesTheRealAppSupportStore` 가 깨지고, 소스 스캔
+  (`testNoAppSupportPathIsComposedOutsideAppEnv`)은 거기엔 반응하지 않는 대신 저장소가 경로를 직접 조립하거나
+  `userSupportDirectory` 를 쓸 때 깨진다(옛 `LocalUsageCache.defaultFileURL` 조립을 되살려 확인).
+  **가드가 무엇을 막는지 적을 땐 그 가드를 실제로 깨뜨린 변경으로만 적어라** — 첫 판은 스캔도 뿌리 분기를
+  막는다고 적었다가 리뷰에서 틀린 것이 드러났다. `testDefaultPathCacheNeverRewritesTheUserFile` 은 업스트림 회귀
+  테스트의 포크판이다. 업스트림(#359)과 달리 뿌리를 돌리는 방식이라 **한 테스트 프로세스 안의 기본 경로 저장소들은
+  같은 임시 폴더를 공유한다** — 픽스처가 그 실행의 다른 테스트 데이터와 섞일 수 있으니, 내용을 단언하는 테스트는
+  경로를 주입한다.
+  예외는 테스트 쪽에서 명시적으로만: 스크린샷 생성기는 설치본 스프라이트 캐시를 **읽기 전용 씨앗**으로
+  임시 캐시에 클론한다(`seedSpriteCacheFromTheInstalledApp`).
 - **휘발성 필드를 dedup/identity 키에 쓰지 마라.** 매 fetch/refresh 마다 값이 변하는 필드(예: rolling
   한도 창의 `resets_at`)를 알림 중복방지 키에 넣으면 매번 새 키가 되어 dedup 이 무력화된다 — 주간 한도
   알림이 80·81·84…갱신마다 반복되던 회귀. 임계값 알림은 **엣지 트리거**(직전 tier 보다 높아진 순간만

@@ -20,9 +20,9 @@ PTB_NOTES_FILE=/tmp/notes.md ./scripts/release.sh 2.1.1
 1. **test-gate** (`./scripts/test-gate.sh`) — 전체 테스트 + 로직 커버리지. 실패 시 중단.
 2. **문서 일관성 검토** — 정적 버전 배지·제거된 의존성(예: `ccusage`) 잔존을 자동 경고 + 아래 수동 체크리스트 출력. 경고 시 진행 여부를 묻는다.
 3. **VERSION 범프** (`scripts/build-app.sh`, 아직 미커밋).
-4. **Developer ID 빌드 → Apple 공증 → 티켓 첨부 → ZIP 재생성·검증** (`build/PokeDexBar.zip`) + 버전 일치 확인. 서명·공증·Gatekeeper 검증 실패 시 push 전에 중단.
+4. **universal(arm64 + x86_64) Developer ID 빌드 → Apple 공증 → 티켓 첨부 → ZIP 재생성·검증** (`build/PokeDexBar.zip`) + 버전 일치 확인. universal 이 아니거나 서명·공증·Gatekeeper 검증이 실패하면 push 전에 중단.
 5. **커밋 + push** (`git push origin main`, 빌드 성공 후).
-6. **GitHub Release** 생성 (노트는 `PTB_NOTES_FILE` 또는 최소 노트).
+6. **GitHub Release** 생성 (노트는 `PTB_NOTES_FILE` — **필수**, 없거나 비어 있으면 1단계 전에 중단).
 7. **Homebrew cask** 버전 갱신 (`donky-ey/homebrew-tap`).
 8. **GitHub Pages 재빌드** 요청 (랜딩 동적 배지 갱신 유도).
 

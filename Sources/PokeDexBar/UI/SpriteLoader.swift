@@ -142,10 +142,7 @@ actor SpriteStore {
 
 @MainActor
 enum SpriteLoader {
-    static let cacheDir: URL = {
-        AppEnv.userDirectory(.applicationSupportDirectory)
-            .appendingPathComponent("\(AppEnv.storageName)/sprites")
-    }()
+    static let cacheDir: URL = AppEnv.supportDirectory().appendingPathComponent("sprites")
 
     /// 디스크 캐시에 이미 있으면 동기 반환(네트워크 없음). 없으면 nil.
     /// shiny 캐시 미스는 일반 캐시로 폴백 — 오프라인에서 live mon 이 알 글리프로 보이는 것 방지.

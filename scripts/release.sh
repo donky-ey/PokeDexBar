@@ -3,8 +3,7 @@
 # release.sh — 버전 배포 자동화 + 문서(README/웹페이지/cask) 일관성 검토.
 #
 # 사용:
-#   PTB_NOTES_FILE=/tmp/notes.md ./scripts/release.sh 2.1.1
-#   ./scripts/release.sh 2.1.1            # 노트 파일 없으면 최소 노트
+#   PTB_NOTES_FILE=/tmp/notes.md ./scripts/release.sh 2.1.1   # 노트 파일 필수(없으면 시작 전에 중단)
 #   ./scripts/release.sh --check-only     # 문서 일관성 검토만(배포 안 함)
 #
 # 단계: 1)test-gate 2)문서 검토 3)VERSION 범프 4)build+zip 5)커밋·push
@@ -97,6 +96,11 @@ fi
 
 VERSION="${1:?사용: release.sh <version>  (예: 2.1.1)}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "✗ 버전 형식 오류: $VERSION"; exit 1; }
+# 노트 없는 릴리스는 막는다 — 예전엔 "Release vX" 한 줄짜리로 나갔다(업스트림 #296 의 노트 부분).
+# 테스트 게이트(수 분)보다 먼저 본다: 다 돌고 6단계에서야 빠진 걸 알면 범프가 이미 커밋·push 된 뒤다.
+NOTES_FILE="${PTB_NOTES_FILE:-}"
+[[ -n "$NOTES_FILE" && -s "$NOTES_FILE" ]] || {
+  echo "✗ 릴리스 노트가 없습니다 — PTB_NOTES_FILE=<비어 있지 않은 노트 파일> 로 실행하세요."; exit 1; }
 PREV=$(grep -oE 'VERSION="[0-9.]+"' scripts/build-app.sh | grep -oE '[0-9.]+')
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 [[ "$BRANCH" == "main" ]] || { echo "✗ main 브랜치에서 실행하세요 (현재: $BRANCH) — 커밋/push 대상 일치 보장"; exit 1; }
@@ -129,6 +133,9 @@ perl -pi -e "s/VERSION=\"[0-9.]+\"/VERSION=\"$VERSION\"/" scripts/build-app.sh
 
 echo "▶ 4/8 빌드 + zip (push 전 검증 — 실패해도 범프 미커밋이라 origin/main 무손상)"
 ./scripts/build-app.sh >/dev/null
+# arm64 단일 바이너리는 Intel 에서 "bad CPU type" 으로 실행되지 않는다(업스트림 #400) — 공증 전에 막는다.
+lipo build/PokeDexBar.app/Contents/MacOS/PokeDexBar -verify_arch arm64 x86_64 \
+  || { echo "✗ universal 바이너리 아님: $(lipo -archs build/PokeDexBar.app/Contents/MacOS/PokeDexBar) (arm64 + x86_64 필요)"; exit 1; }
 ./scripts/notarize-app.sh
 BUILT=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" build/PokeDexBar.app/Contents/Info.plist)
 [[ "$BUILT" == "$VERSION" ]] || { echo "✗ 빌드 버전 불일치: $BUILT (수동 복구: git checkout scripts/build-app.sh)"; exit 1; }
@@ -140,14 +147,8 @@ git diff --cached --quiet || git commit -q -m "release: bump version to $VERSION
 git push -q origin main
 
 echo "▶ 6/8 GitHub Release v$VERSION"
-NOTES_FILE="${PTB_NOTES_FILE:-}"
-if [[ -n "$NOTES_FILE" && -f "$NOTES_FILE" ]]; then
-  gh release create "v$VERSION" build/PokeDexBar.zip --repo "$REPO" \
-    --title "PokeDexBar v$VERSION" --target main --notes-file "$NOTES_FILE"
-else
-  gh release create "v$VERSION" build/PokeDexBar.zip --repo "$REPO" \
-    --title "PokeDexBar v$VERSION" --target main --notes "Release v$VERSION"
-fi
+gh release create "v$VERSION" build/PokeDexBar.zip --repo "$REPO" \
+  --title "PokeDexBar v$VERSION" --target main --notes-file "$NOTES_FILE"
 
 echo "▶ 7/8 Homebrew cask $VERSION"
 TMP_CASK=$(mktemp)
