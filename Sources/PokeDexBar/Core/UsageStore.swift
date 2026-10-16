@@ -229,6 +229,17 @@ final class UsageStore {
         return snapshots.reduce(0) { $0 + ($1.today?.date == todayKey ? $1.todayTotalTokens : 0) }
     }
 
+    /// 오늘 사용량을 프로바이더 id 별로 — `PlayerStore.update` 의 적립 장부가 합계가 아니라 이것을 기준으로 한다.
+    /// 오늘 날짜가 아닌 스냅숏(자정 직후 등)과 `today == nil` 캐리어는 빠진다: 그런 프로바이더는 이번
+    /// 관측에 없는 것으로 다뤄져 장부의 기준이 그대로 남는다(업스트림 #143).
+    var todayTokensByProvider: [String: Int] {
+        let todayKey = LocalUsageReader.todayKey()
+        return snapshots.reduce(into: [:]) { result, snapshot in
+            guard snapshot.today?.date == todayKey else { return }
+            result[snapshot.providerID] = snapshot.todayTotalTokens
+        }
+    }
+
     /// 사용량 데이터(스냅샷)가 하나라도 있는가 — PlayerStore.update 의 설치 기준선(installBaselineSet)
     /// 게이트로 쓰인다: 실제 데이터가 처음 도착한 시점을 기준선으로 잡아야 설치 이전 사용량이
     /// 지갑에 잘못 적립되지 않는다.

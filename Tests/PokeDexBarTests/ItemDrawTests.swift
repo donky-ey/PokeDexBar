@@ -126,8 +126,8 @@ final class ItemDrawTests: XCTestCase {
 
     /// 초기화가 **하루 경계 그 한 곳**에서 일어난다. 판정이 두 곳이면 반드시 갈린다.
     ///
-    /// 파일 전체를 훑으면 안 된다 — `update(todayTokens:todayDate:hasUsageData:)` 안에는 리셋
-    /// 줄이 필요 없는 다른 분기(`installBaselineSet`, `todayTokens > claimedTodayTokens`)도 있어서,
+    /// 파일 전체를 훑으면 안 된다 — `update(todayTokensByProvider:todayDate:hasUsageData:)` 안에는 리셋
+    /// 줄이 필요 없는 다른 분기(`installBaselineSet`, 원장 정산 `settleLedger`)도 있어서,
     /// 그 어디든 리셋 줄을 하나 더 추가해도(진짜 결함 — 두 곳에서 초기화) 통짜 검색은 못 잡는다.
     /// 하루 경계 분기(`if todayDate != state.lastDate { … }`) **안**에만 있는지, 그리고 **그 밖에는
     /// 없는지**를 둘 다 확인한다.
@@ -144,7 +144,7 @@ final class ItemDrawTests: XCTestCase {
             XCTFail("하루 경계 분기를 못 찾았다")
             return
         }
-        guard let blockEnd = code.range(of: "if todayTokens > state.claimedTodayTokens {",
+        guard let blockEnd = code.range(of: "let delta = settleLedger(",
                                         range: blockStart.upperBound..<code.endIndex) else {
             XCTFail("하루 경계 분기의 끝(다음 분기의 시작)을 못 찾았다")
             return

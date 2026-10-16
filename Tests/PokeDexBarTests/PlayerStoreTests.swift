@@ -58,7 +58,7 @@ final class PlayerStoreTests: XCTestCase {
         store.update(todayTokens: 5_000, todayDate: "2026-08-05", hasUsageData: true)
         XCTAssertTrue(store.state.installBaselineSet)
         XCTAssertEqual(store.state.earnedTokens, 0)
-        XCTAssertEqual(store.state.claimedTodayTokens, 5_000)
+        XCTAssertEqual(store.state.claimedTodayTokensByProvider, ["claude_code": 5_000])
     }
 
     /// 데이터가 도착하기 전에는 기준선을 잡지 않는다 — 기동 직후 빈 새로고침에 0을 못박으면
@@ -107,7 +107,7 @@ final class PlayerStoreTests: XCTestCase {
     }
 
     /// 새 날짜의 오늘 총량이 0이면(아직 그날 사용량이 안 잡혔거나 새로고침이 빈 값을 보고할 때)
-    /// 델타 적립은 없지만 롤오버로 리셋된 lastDate·claimedTodayTokens 는 그래도 디스크에 남아야
+    /// 델타 적립은 없지만 롤오버로 리셋된 lastDate·원장(claimedTodayTokensByProvider)은 그래도 디스크에 남아야
     /// 한다 — 메모리에만 남으면 프로세스가 죽었을 때 그 리셋이 사라진다.
     func testDayRolloverWithZeroTotalPersists() {
         let (store, url) = makeStore()
@@ -116,7 +116,7 @@ final class PlayerStoreTests: XCTestCase {
         store.update(todayTokens: 0, todayDate: "2026-08-06", hasUsageData: true)
         let reloaded = PlayerStore(fileURL: url, rng: SeededRNG(seed: 1), now: { self.now })
         XCTAssertEqual(reloaded.state.lastDate, "2026-08-06")
-        XCTAssertEqual(reloaded.state.claimedTodayTokens, 0)
+        XCTAssertEqual(reloaded.state.claimedTodayTokensByProvider, ["claude_code": 0])
     }
 
     // MARK: 도감·파트너·영속

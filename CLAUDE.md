@@ -243,9 +243,9 @@
   도감·인벤토리 *항목*은 잘라내면 데이터 손실이다. (딥리뷰 2026-08-03: SIGTRAP 재현.)
 - **상태 파일을 옮기거나 합칠 땐 "진행"과 "이 기기 장부"를 먼저 분류하라.** 같은 파일에 살아도 성격이
   다르다 — `usedSinceInstall`·`dex`·`inventory`·`candyGrantTier` 는 어느 기기에서든 참인 **진행**이고,
-  `claimedTodayTokens`·`lastDate`·`installBaselineSet` 은 *그 기기가* 어디까지 적립했나를 적은 **로컬
+  `claimedTodayTokensByProvider`(프로바이더별 고점)·`lastDate`·`installBaselineSet` 은 *그 기기가* 어디까지 적립했나를 적은 **로컬
   장부**다. 장부를 그대로 들여오면 옛 기기의 오늘 최고치가 문턱이 되어 `update` 의
-  `todayTokens > claimedTodayTokens` 게이트가 이전 당일 내내 거짓 → 새 기기 사용분이 조용히 안 잡힌다
+  고점 비교(`settleLedger`)가 이전 당일 내내 적립을 막는다 → 새 기기 사용분이 조용히 안 잡힌다
   (자정에 저절로 낫기 때문에 버그로 안 보인다). 반대로 계정 전역 근거로 만들어진 원장(`candyGrantTier`
   — 한도 창 key)은 **버리면** 같은 창에서 재지급된다. 이전·병합 경로를 만들 땐 필드를 전수로 이 두 부류에
   넣어 보고, 로컬 장부만 새 기기 기준으로 다시 잡는다.
