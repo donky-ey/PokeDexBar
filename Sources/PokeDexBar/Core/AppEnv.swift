@@ -70,9 +70,10 @@ enum AppEnv {
         userDirectory(.applicationSupportDirectory).appendingPathComponent(storageName, isDirectory: true)
     }
 
-    /// 비번들 실행의 저장소 — 프로세스마다 새 임시 폴더라 실행끼리도 섞이지 않는다.
+    /// 비번들 실행의 저장소 — 실행마다 새 임시 폴더라 실행끼리도 섞이지 않는다. 이름은 UUID 다: PID 는
+    /// 재사용되므로 PID 이름이면 뒤 실행이 앞 실행이 남긴 캐시를 그대로 물려받는다(리뷰에서 실측).
     private static let isolatedSupportDirectory = FileManager.default.temporaryDirectory
-        .appendingPathComponent("PokeDexBar-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+        .appendingPathComponent("PokeDexBar-\(UUID().uuidString)", isDirectory: true)
 
     /// 이 실행이 쓸 Application Support 경로(만들지 않는다).
     ///

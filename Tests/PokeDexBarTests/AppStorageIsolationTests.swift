@@ -42,6 +42,11 @@ final class AppStorageIsolationTests: XCTestCase {
     }
 
     /// 앞으로 생길 저장소까지 — `Application Support` 경로는 `AppEnv` 한 곳에서만 조립한다.
+    ///
+    /// **이 가드가 막는 것은 "우회"다, 뿌리 분기가 아니다.** 저장소가 `userDirectory(.applicationSupportDirectory)`
+    /// 로 경로를 직접 만들거나 실 위치 접근자(`userSupportDirectory`)를 쓰면 위의 격리를 통째로 비껴간다.
+    /// 뿌리 분기(`supportDirectoryURL`) 자체가 틀어진 것은 앞의 두 테스트가 잡는다. (`AppEnv.swift` 는 뿌리라
+    /// 대상에서 뺀다.) 주석은 글자 단위로 걷어낸다 — 문자열 안의 `//` 에서 잘리면 그 뒤 코드가 빠진다.
     func testNoAppSupportPathIsComposedOutsideAppEnv() throws {
         let sources = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -52,14 +57,24 @@ final class AppStorageIsolationTests: XCTestCase {
         where url.pathExtension == "swift" && url.lastPathComponent != "AppEnv.swift" {
             let lines = try String(contentsOf: url, encoding: .utf8).split(separator: "\n", omittingEmptySubsequences: false)
             for (index, line) in lines.enumerated() {
-                // 주석을 먼저 걷어낸다 — 통짜 검색은 주석의 같은 낱말에 걸려, 코드를 지워도 통과한다.
-                let code = line.range(of: "//").map { String(line[..<$0.lowerBound]) } ?? String(line)
-                if code.contains("applicationSupportDirectory") {
+                let code = SourceScan.code(String(line))
+                if Self.bypasses.contains(where: code.contains) {
                     offenders.append("\(url.lastPathComponent):\(index + 1)")
                 }
             }
         }
         XCTAssertTrue(offenders.isEmpty,
                       "Application Support 경로는 AppEnv.supportDirectory() 로만 얻는다: \(offenders.joined(separator: ", "))")
+    }
+
+    /// 격리를 비껴가는 두 길 — 직접 조립, 그리고 실 위치 접근자.
+    private static let bypasses = ["applicationSupportDirectory", "userSupportDirectory"]
+
+    /// 대조군 — 워커가 문자열 안의 `//` 에서 자르지 않고, 진짜 주석은 걷어내는지.
+    func testTheScannerKeepsCodeAfterAURLAndDropsComments() {
+        XCTAssertTrue(SourceScan.code(#"let u = URL(string: "https://x")!; let d = AppEnv.userSupportDirectory"#)
+            .contains("userSupportDirectory"))
+        XCTAssertFalse(SourceScan.code("let d = AppEnv.supportDirectory() // not userSupportDirectory")
+            .contains("userSupportDirectory"))
     }
 }

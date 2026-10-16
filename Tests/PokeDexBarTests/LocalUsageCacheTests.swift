@@ -110,7 +110,6 @@ final class LocalUsageCacheTests: XCTestCase {
         ]
     }
 
-    @discardableResult
     // MARK: 실 사용자 파일 격리 (회귀, upstream #359)
 
     /// 기본 경로 캐시는 실 `usage-cache.json` 을 다시 쓰지 않는다.
@@ -145,6 +144,7 @@ final class LocalUsageCacheTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: cacheFile.path), "주입한 경로는 살아 있어야 한다")
     }
 
+    @discardableResult
     private func writeFile(_ name: String, lines: [String], mtime: Date? = nil) throws -> URL {
         let url = root.appendingPathComponent(name)
         try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)

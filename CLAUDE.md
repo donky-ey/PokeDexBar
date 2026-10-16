@@ -137,11 +137,19 @@
   테스트가 가짜 GIF 를 썼고, 세이브·`base-index.json`·`weather.json` 은 "테스트가 경로를 주입한다"는
   습관 하나로만 버티고 있었다. **경로 주입은 주입한 테스트만 지킨다** — `.shared`·기본 인자처럼 기본
   경로를 타는 코드는 못 지킨다. 그래서 격리는 저장소마다가 아니라 뿌리에 있다: `AppEnv.supportDirectory()`
-  가 비번들 실행이면 프로세스마다 임시 폴더를 돌려주고, App Support 경로는 **반드시 그 함수로만** 얻는다
-  (`userDirectory(.applicationSupportDirectory)` 를 `AppEnv` 밖에서 쓰지 마라). 실 위치가 필요한 비교는
-  `AppEnv.userSupportDirectory`(만들지 않는다). 회귀 가드: `AppStorageIsolationTests`(뿌리 분기·저장소별
-  기본 경로·소스 스캔 — 셋 다 격리 분기를 되돌리면 깨지는 것을 확인했다),
-  `testDefaultPathCacheNeverRewritesTheUserFile`, `testANonBundledRunNeverTouchesTheRealAppSupportStore`.
+  가 비번들 실행이면 실행마다 임시 폴더(UUID 이름 — PID 는 재사용돼 앞 실행의 잔여를 물려받는다)를
+  돌려주고, App Support 경로는 **반드시 그 함수로만** 얻는다(`userDirectory(.applicationSupportDirectory)`
+  와 실 위치 접근자 `AppEnv.userSupportDirectory` 를 `AppEnv` 밖 소스에서 쓰지 마라 — 후자는 테스트의 비교
+  기준으로만 있다). 회귀 가드는 **각자 다른 것을 막는다**(뮤테이션으로 확인): 뿌리 분기를 되돌리면
+  `testANonBundledRunGetsAnIsolatedSupportDirectory`·`testEveryDefaultStorePathStaysOutsideTheUserLocation`·
+  `testANonBundledRunNeverTouchesTheRealAppSupportStore` 가 깨지고, 소스 스캔
+  (`testNoAppSupportPathIsComposedOutsideAppEnv`)은 거기엔 반응하지 않는 대신 저장소가 경로를 직접 조립하거나
+  `userSupportDirectory` 를 쓸 때 깨진다(옛 `LocalUsageCache.defaultFileURL` 조립을 되살려 확인).
+  **가드가 무엇을 막는지 적을 땐 그 가드를 실제로 깨뜨린 변경으로만 적어라** — 첫 판은 스캔도 뿌리 분기를
+  막는다고 적었다가 리뷰에서 틀린 것이 드러났다. `testDefaultPathCacheNeverRewritesTheUserFile` 은 업스트림 회귀
+  테스트의 포크판이다. 업스트림(#359)과 달리 뿌리를 돌리는 방식이라 **한 테스트 프로세스 안의 기본 경로 저장소들은
+  같은 임시 폴더를 공유한다** — 픽스처가 그 실행의 다른 테스트 데이터와 섞일 수 있으니, 내용을 단언하는 테스트는
+  경로를 주입한다.
   예외는 테스트 쪽에서 명시적으로만: 스크린샷 생성기는 설치본 스프라이트 캐시를 **읽기 전용 씨앗**으로
   임시 캐시에 클론한다(`seedSpriteCacheFromTheInstalledApp`).
 - **휘발성 필드를 dedup/identity 키에 쓰지 마라.** 매 fetch/refresh 마다 값이 변하는 필드(예: rolling

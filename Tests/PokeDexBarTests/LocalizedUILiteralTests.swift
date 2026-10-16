@@ -41,21 +41,10 @@ final class LocalizedUILiteralTests: XCTestCase {
         XCTAssertFalse(Self.hasHangulStringLiteral(#"let s = "a\"b" // 따옴표 뒤 주석"#))
     }
 
-    /// 정규식 대신 글자를 걷는다 — 문자열 안의 `//` 와 진짜 줄 끝 주석을 구분해야 한글 주석(관례)이
-    /// 전부 위반으로 읽히지 않는다.
+    /// 글자를 걷는 워커는 `SourceScan` 하나를 공유한다 — 문자열 안의 `//` 와 진짜 줄 끝 주석을 구분해야
+    /// 한글 주석(관례)이 위반으로 읽히지 않는다.
     private static func hasHangulStringLiteral(_ line: String) -> Bool {
-        var inString = false
-        var escaped = false
-        var previous: Character?
-        for character in line {
-            if escaped { escaped = false; previous = character; continue }
-            if character == "\\" && inString { escaped = true; previous = character; continue }
-            if character == "\"" { inString.toggle(); previous = character; continue }
-            if !inString && character == "/" && previous == "/" { return false }  // 줄 끝 주석
-            if inString && isHangul(character) { return true }
-            previous = character
-        }
-        return false
+        SourceScan.stringLiterals(line).contains { $0.contains(where: isHangul) }
     }
 
     private static func isHangul(_ character: Character) -> Bool {
