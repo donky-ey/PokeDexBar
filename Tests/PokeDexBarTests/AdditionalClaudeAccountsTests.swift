@@ -584,7 +584,7 @@ final class AdditionalClaudeAccountsStoreTests: XCTestCase {
         let pollIsParked = await waitUntil { folder.release != nil }
         guard pollIsParked else { return XCTFail("the poll never reached the folder fetch") }
         let manual = Task { await store.refreshLimitTokenFromKeychain() }
-        try await Task.sleep(for: .milliseconds(100))   // fixed-wait: shows the manual refresh did *not* fetch yet
+        try await Task.sleep(for: .milliseconds(100))   // listed in FixedWaitGuardTests.allowedPrimitives
         XCTAssertEqual(folder.calls, 1, "the manual refresh waits for the running one")
 
         folder.release?.resume()

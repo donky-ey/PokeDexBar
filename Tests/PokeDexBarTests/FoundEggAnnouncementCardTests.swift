@@ -180,9 +180,8 @@ final class FoundEggAnnouncementCardTests: XCTestCase {
     /// 렌더해 홈 탭이 실제로 `FoundEggAnnouncementCard` 를 만드는지 본다.
     ///
     /// **라인이 로드되기 전 상태만 잰다.** 라인은 `provider.line(baseSpeciesID:)` 로 비동기로
-    /// 오고, 이 스텁이 실제로 응답을 채워 넣는 시점은 `Task` 스케줄링에 달려 있어 결정적으로
-    /// 기다릴 방법이 이 코드베이스에 없다(`TimelineView` 틱과 달리 이 async 로드를 실제 시간으로
-    /// 기다리는 패턴이 없다 — `pump()` 는 이 저장소에서 `TimelineView`/GIF 프레임 루프에만 쓰인다).
+    /// 오고, 이 스텁이 실제로 응답을 채워 넣는 시점은 `Task` 스케줄링에 달려 있다(이 테스트를 쓸
+    /// 땐 조건 대기 헬퍼가 없었다 — 지금은 `Waiting.swift` 의 `pumpRunLoop(until:)` 로 기다릴 수 있다).
     /// 그래서 이 테스트는 **body 가 최소 한 번은 평가됐다**(=팝오버가 이 뷰를 실제로 만들었다)만
     /// 확인한다 — "라인이 오기 전엔 아무것도 안 보여준다"(`isReady == false`, 라인이 nil 이므로)
     /// 는 이미 컴포넌트 테스트(`testNoCardWithoutTheLine`)가 순수 판정으로 잠갔다.

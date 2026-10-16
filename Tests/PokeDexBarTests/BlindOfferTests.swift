@@ -263,12 +263,6 @@ final class BlindOfferTests: XCTestCase {
         return host
     }
 
-    /// SwiftUI 는 상태가 바뀐 그 자리에서 다시 그리지 않는다 — 런루프를 잠깐 돌려 줘야 한다.
-    /// "뜬다"는 `pumpRunLoop(until:)` 로 그 상태를 기다린다. 이건 "안 뜬다" 대조군 전용이다.
-    private func pump(_ seconds: TimeInterval) {
-        RunLoop.current.run(until: Date().addingTimeInterval(seconds))   // fixed-wait: "안 뜸"은 조건으로 못 기다린다
-    }
-
     /// **세 자리가 서로 다른 등급·이로치를 갖는 제안.** 무작위 뽑기(`prepared`)는 세 자리가 같은
     /// 등급으로 겹치거나 셋 다 이로치가 아닐 수 있다 — 그러면 "엉뚱한 자리를 열어도 등급이 우연히
     /// 맞는다" 류의 결함을 테스트가 못 잡는다. 등급을 common/rare/legendary 로, 이로치는 가운데
@@ -346,7 +340,8 @@ final class BlindOfferTests: XCTestCase {
         let store = distinctOfferStore()
 
         hostedOfferSection(store)
-        pump(0.05)
+        // SwiftUI 는 상태가 바뀐 그 자리에서 다시 그리지 않는다 — 한 턴은 돌려 줘야 새는 연출이 보인다.
+        pumpRunLoop(for: 0.05, because: "nothing is opened, so no event marks when a leaked burst would show")
 
         XCTAssertEqual(OfferRevealBurst.constructed, [], "아무도 안 열었는데 연출이 떴다")
     }
