@@ -182,7 +182,11 @@ git add <paths> && git commit -m "<MESSAGE>"                        # P6
 - [ ] **Step 2:** 포크 다중 루트 `annotate` 경로에서 증분 entries 가 기존 blob entries 와 합쳐지고 파일 내 dedup 이 유지되는지 확인한다.
 - [ ] **Step 3: 커밋** — `perf: parse growing Claude session logs incrementally (upstream issue #337)`
 
-### Task B2: Claude 보고 비용 우선 (`8b2dd95`, #318)
+### Task B2: Claude 보고 비용 우선 (`8b2dd95`, #318) — **보류**
+
+> 실행 결과(2026-10-16): 형식은 실 transcript 로 확정했으나, 원장이 `startTime` 이후 실행분만 담고 서브에이전트·
+> 백그라운드 호출까지 포함해 업스트림의 "파일 전체 비례 배분"이 비용을 지우거나 이중으로 센다. 근거는 spec 배치 B
+> 표. 포팅하지 않고 운영 총괄에게 결정을 올렸다. 다시 한다면 `startTime` 이후 항목만, 서브에이전트 귀속을 설계한 뒤.
 
 - [ ] **Step 1:** 업스트림 writer(Claude Code 의 `cost-state` 기록)나 실 transcript 한 건으로 필드 이름·단위를 확정한다. 확정 못 하면 이 태스크는 보류하고 보고한다.
 - [ ] **Step 2: 절차 P** — HASH=`8b2dd95`. 캐시 스키마 증가는 B1 과 한 번으로 합친다. 포크된 세션 재생 턴의 비용 몫 처리(과소집계 위험)를 테스트로 고정한다.

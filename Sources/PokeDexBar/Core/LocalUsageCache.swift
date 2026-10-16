@@ -8,7 +8,17 @@ import Foundation
 actor LocalUsageCache {
     static let shared = LocalUsageCache()
 
-    private struct Blob: Codable { let mtime: Date; let size: Int; let entries: [LocalUsageReader.Entry] }
+    private struct Blob: Codable {
+        let mtime: Date
+        let size: Int
+        let entries: [LocalUsageReader.Entry]
+        /// 덧붙기만 하는 로그(Claude)에서 이미 파싱한 바이트 수 — 마지막 완성 줄의 끝. 다른 프로바이더와
+        /// 이 필드가 생기기 전의 캐시 파일에서는 nil 이라, 그 blob 은 파일이 바뀌면 처음부터 다시 읽는다.
+        var offset: Int? = nil
+        /// `offset` 바로 앞 바이트들의 지문. 파일이 자랐어도 앞부분이 다시 쓰였으면(복사·재기록 경로)
+        /// 지문이 달라져 꼬리만 읽지 않고 처음부터 읽는다.
+        var boundary: UInt64? = nil
+    }
     private struct CodexBlob: Codable {
         let mtime: Date
         let size: Int
@@ -83,6 +93,8 @@ actor LocalUsageCache {
     private var loaded = false
     private var dirty = false
     private var lastSave: Date?
+    /// 마지막 `claudeEntries` 가 실제로 읽은 바이트 수 — 테스트가 "꼬리만 읽었다"를 관측한다.
+    private var claudeBytesParsed = 0
 
     // 테스트 시임 — 기본값은 실환경(실 로그 루트·Application Support·실시간).
     private let claudeRoot: URL?
@@ -131,6 +143,7 @@ actor LocalUsageCache {
         // 복사돼 있어도 전역 dedup 이 한 번만 센다.
         let roots = claudeRoots ?? claudeRoot.map { [$0] } ?? LocalUsageReader.claudeProjectRoots
         var all: [LocalUsageReader.Entry] = []
+        claudeBytesParsed = 0
         for root in roots {
             // Blobs cached before `Entry.sessionID` existed get it from their path, without a re-parse.
             all += collect(root: root, since: modifiedSince, cache: &claudeCache, annotate: { url, entries in
@@ -141,12 +154,55 @@ actor LocalUsageCache {
                     if entry.sessionID == nil { entry.sessionID = session }
                     return entry
                 }
+            }, incremental: { url, prior, size in
+                self.parseClaudeIncrementally(url, prior: prior, size: size, fmt: fmt)
             }) {
                 LocalUsageReader.parseClaudeFile($0, fmt: fmt)
             }
         }
         saveIfNeeded()
         return LocalUsageReader.dedupKeepMax(all)
+    }
+
+    /// 테스트 관측용 — 마지막 `claudeEntries` 가 읽은 바이트 수(바뀌지 않은 파일은 0).
+    func claudeBytesParsedInLastScan() -> Int { claudeBytesParsed }
+
+    /// 활성 세션 파일은 매 새로고침마다 조금씩 자란다. 덧붙기만 했으면 저장해 둔 오프셋부터 꼬리만 읽어
+    /// 캐시된 항목과 합친다(업스트림 이슈 #337). 그 밖의 변경 — 줄었거나, 크기가 같거나, 오프셋 앞
+    /// 지문이 달라졌거나(앞부분 재기록), 오프셋이 없는 옛 blob — 은 처음부터 읽는다. 스트리밍 응답은 같은
+    /// id 가 경계를 넘어 다시 나오므로 합칠 때 `dedupKeepMax` 를 한 번 더 건다.
+    private func parseClaudeIncrementally(_ url: URL, prior: Blob?, size: Int,
+                                          fmt: DateFormatter) -> Blob? {
+        let start: Int
+        if let prior, let offset = prior.offset, size > prior.size, offset > 0,
+           prior.boundary == Self.boundaryFingerprint(url, endingAt: offset) {
+            start = offset
+        } else {
+            start = 0
+        }
+        guard let tail = LocalUsageReader.parseClaudeFile(url, from: start, fmt: fmt) else { return nil }
+        claudeBytesParsed += size - start
+        let entries = start > 0
+            ? LocalUsageReader.dedupKeepMax((prior?.entries ?? []) + tail.entries)
+            : tail.entries
+        return Blob(mtime: Date.distantPast, size: size, entries: entries, offset: tail.endOffset,
+                    boundary: Self.boundaryFingerprint(url, endingAt: tail.endOffset))
+    }
+
+    /// 오프셋 바로 앞 최대 256바이트의 FNV-1a 지문. 앞부분을 다시 쓰면(다른 직렬화·다른 내용) 경계
+    /// 근처 바이트가 거의 반드시 바뀐다. 오프셋 0 이거나 읽을 수 없으면 nil — 다음엔 처음부터 읽는다.
+    private static func boundaryFingerprint(_ url: URL, endingAt offset: Int) -> UInt64? {
+        guard offset > 0, let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        let length = min(256, offset)
+        guard (try? handle.seek(toOffset: UInt64(offset - length))) != nil,
+              let bytes = try? handle.read(upToCount: length), bytes.count == length else { return nil }
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in bytes {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01b3
+        }
+        return hash
     }
 
     func codexEntries(modifiedSince: Date) -> [LocalUsageReader.Entry] {
@@ -200,9 +256,13 @@ actor LocalUsageCache {
     /// 캐시에 굳히지 않기 위해서다.
     /// `annotate` adjusts what is returned for a file, never what is cached — 파일 밖 상태(계정
     /// 귀속 등)에 의존하는 꼬리표를 blob 에 굳히지 않기 위해서다(#327).
+    /// `incremental` 은 덧붙기만 하는 로그용이다(Claude): 바뀐 파일을 이전 blob 과 함께 넘겨 꼬리만 읽게
+    /// 하고, 새 blob 을 돌려받는다(mtime 은 여기서 채운다). nil 이면 파일을 못 읽은 것 — 이전 blob 이
+    /// 있으면 그것을 그대로 쓴다.
     private func collect(root: URL, since: Date, cache: inout [String: Blob],
                          allowJSON: Bool = false, include: ((URL) -> Bool)? = nil,
                          annotate: ((URL, [LocalUsageReader.Entry]) -> [LocalUsageReader.Entry])? = nil,
+                         incremental: ((URL, Blob?, Int) -> Blob?)? = nil,
                          parse: (URL) -> [LocalUsageReader.Entry]) -> [LocalUsageReader.Entry] {
         let fm = FileManager.default
         guard let en = fm.enumerator(
@@ -222,6 +282,16 @@ actor LocalUsageCache {
             let fileEntries: [LocalUsageReader.Entry]
             if let blob = cache[key], blob.mtime == mtime, blob.size == size {
                 fileEntries = blob.entries            // 변경 없음 → 재파싱 안 함
+            } else if let incremental {
+                if var blob = incremental(url, cache[key], size) {
+                    blob = Blob(mtime: mtime, size: blob.size, entries: blob.entries,
+                                offset: blob.offset, boundary: blob.boundary)
+                    cache[key] = blob
+                    dirty = true
+                    fileEntries = blob.entries
+                } else {
+                    fileEntries = cache[key]?.entries ?? []
+                }
             } else {
                 let entries = parse(url)
                 cache[key] = Blob(mtime: mtime, size: size, entries: entries)

@@ -462,10 +462,14 @@ struct ProviderSnapshot: Sendable, Identifiable {
 
 enum ISO8601Parser {
     /// resets_at 은 마이크로초("...034464+00:00") 또는 밀리초("....303Z") 형태 — 둘 다 처리.
-    /// ISO8601DateFormatter 는 non-Sendable 이라 호출마다 생성 (파싱 빈도 낮음).
+    ///
+    /// **모든 로컬 세션 로그의 줄마다 불리는 파서다**(Claude 는 assistant 줄마다). 예전엔 "파싱 빈도
+    /// 낮음"을 가정하고 호출마다 `ISO8601DateFormatter` 를 만들었는데, 큰 히스토리에서는 그 생성이 콜드
+    /// 스캔의 주 비용이었다(업스트림 이슈 #337). 포매터는 non-Sendable 이고 프로바이더 캐시들이 동시에
+    /// 부르므로 공유 한 쌍을 잠금 뒤에 둔다(`LocalAdditionalUsageProvider.parseISO8601` 과 같은 방식).
     static func date(from string: String) -> Date? {
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        lock.lock()
+        defer { lock.unlock() }
         if let d = fractional.date(from: string) { return d }
         // 소수점 자릿수가 3자리가 아니면 3자리로 절단 후 재시도
         if let dotIndex = string.firstIndex(of: ".") {
@@ -477,8 +481,19 @@ enum ISO8601Parser {
                 if let d = fractional.date(from: rebuilt) { return d }
             }
         }
-        let plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
         return plain.date(from: string)
     }
+
+    private static let lock = NSLock()
+    // ISO8601DateFormatter is not Sendable; every use is serialized by `lock`.
+    nonisolated(unsafe) private static let fractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    nonisolated(unsafe) private static let plain: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 }

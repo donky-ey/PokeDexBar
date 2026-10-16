@@ -37,7 +37,9 @@ final class ModelPricingTests: XCTestCase {
         XCTAssertEqual(ModelPricing.rate(for: "claude-opus-5"), .perMillion(5, 25, 6.25, 0.5))
         XCTAssertEqual(ModelPricing.rate(for: "claude-opus-5-5"), .perMillion(4, 20, 5, 0.2))
         XCTAssertEqual(ModelPricing.rate(for: "claude-sonnet-5"), .perMillion(2, 10, 2.5, 0.2))
-        XCTAssertEqual(ModelPricing.rate(for: "claude-sonnet-5-5"), .perMillion(2, 10, 2.5, 0.2))
+        // 공식 가격표(platform.claude.com/docs/en/about-claude/pricing, 2026-10-16 확인): 캐시 적중은
+        // Opus 5.5·Sonnet 5.5 에서 기본 입력가의 0.05배 — Sonnet 5.5 는 $0.10 / MTok.
+        XCTAssertEqual(ModelPricing.rate(for: "claude-sonnet-5-5"), .perMillion(2, 10, 2.5, 0.1))
     }
 
     /// 최종리뷰 지적 — #289 폴백 제거 후 **실사용 모델이 미가격**으로 남았다: Gemini 3.x(현역
