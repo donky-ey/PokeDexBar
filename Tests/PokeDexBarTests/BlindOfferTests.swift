@@ -264,8 +264,9 @@ final class BlindOfferTests: XCTestCase {
     }
 
     /// SwiftUI 는 상태가 바뀐 그 자리에서 다시 그리지 않는다 — 런루프를 잠깐 돌려 줘야 한다.
+    /// "뜬다"는 `pumpRunLoop(until:)` 로 그 상태를 기다린다. 이건 "안 뜬다" 대조군 전용이다.
     private func pump(_ seconds: TimeInterval) {
-        RunLoop.current.run(until: Date().addingTimeInterval(seconds))
+        RunLoop.current.run(until: Date().addingTimeInterval(seconds))   // fixed-wait: "안 뜸"은 조건으로 못 기다린다
     }
 
     /// **세 자리가 서로 다른 등급·이로치를 갖는 제안.** 무작위 뽑기(`prepared`)는 세 자리가 같은
@@ -333,7 +334,7 @@ final class BlindOfferTests: XCTestCase {
         }
         recorded.action()
         host.layoutSubtreeIfNeeded()
-        pump(0.05)
+        pumpRunLoop(until: { !OfferRevealBurst.constructed.isEmpty })
 
         XCTAssertEqual(OfferRevealBurst.constructed, [target.individual.grade],
                        "연출이 그 자리 등급으로 안 떴다: \(OfferRevealBurst.constructed)")

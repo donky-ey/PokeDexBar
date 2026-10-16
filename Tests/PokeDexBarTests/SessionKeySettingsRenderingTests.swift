@@ -37,17 +37,26 @@ final class SessionKeySettingsRenderingTests: XCTestCase {
             window.orderOut(nil)
             previousKeyWindow?.makeKey()
         }
-        host.view.layoutSubtreeIfNeeded()
-        try await Task.sleep(for: .milliseconds(500))
-        host.view.layoutSubtreeIfNeeded()
+        // The scroll lands after a chain nobody times: first render → onAppear → a main-actor Task
+        // queued behind that render → 80 ms → a 0.25 s animated scroll. Measured ~0.45 s on its own
+        // and 0.58–1.03 s inside the full suite, where a fixed 500 ms sleep failed — wait for the field.
+        func sessionKeyEntry() -> NSSecureTextField? {
+            host.view.layoutSubtreeIfNeeded()
+            return descendants(of: host.view).compactMap { $0 as? NSSecureTextField }.first
+        }
+        func isInsideViewport(_ field: NSSecureTextField) -> Bool {
+            host.view.bounds.contains(field.convert(field.bounds, to: host.view))
+        }
+        let visible = await waitUntil { sessionKeyEntry().map(isInsideViewport) ?? false }
+        XCTAssertTrue(visible, "session key entry must be visible after scrolling")
+        let secure = try XCTUnwrap(sessionKeyEntry())
         let views = descendants(of: host.view)
-        let secure = try XCTUnwrap(views.compactMap { $0 as? NSSecureTextField }.first)
-        let rect = secure.convert(secure.bounds, to: host.view)
-        XCTAssertTrue(host.view.bounds.contains(rect), "session key entry must be visible after scrolling")
         // Hosted CI renders the layout but does not grant this XCTest window an editor.
         // Verify keyboard focus on an interactive Mac with PTB_VERIFY_KEYBOARD_FOCUS=1.
         if ProcessInfo.processInfo.environment["PTB_VERIFY_KEYBOARD_FOCUS"] == "1" {
-            XCTAssertNotNil(secure.currentEditor(), "session key entry must receive keyboard focus")
+            // Focus is set in the same Task as the scroll and reaches AppKit an update later.
+            let focused = await waitUntil { secure.currentEditor() != nil }
+            XCTAssertTrue(focused, "session key entry must receive keyboard focus")
             XCTAssertTrue(secure.currentEditor() === window.firstResponder)
         }
         // 기존 설정 컨트롤(경고/위험 임계 슬라이더 2개 — 펫 크기 슬라이더는 펫이 꺼진 기본값에선

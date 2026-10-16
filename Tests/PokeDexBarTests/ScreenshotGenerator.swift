@@ -812,7 +812,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
         guard seconds > 0 else { return }
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
-            RunLoop.main.run(mode: .default, before: min(deadline, Date().addingTimeInterval(0.01)))
+            RunLoop.main.run(mode: .default, before: min(deadline, Date().addingTimeInterval(0.01)))   // fixed-wait: the capture's wall-clock frame grid
         }
     }
 

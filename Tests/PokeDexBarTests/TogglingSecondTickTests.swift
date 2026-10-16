@@ -57,17 +57,18 @@ final class TogglingSecondTickTests: XCTestCase {
 
         host.rootView = Probe(isOn: true, seen: seen)
         host.layoutSubtreeIfNeeded()
-        pump(2.5)
+        pumpRunLoop(until: { seen.count >= 1 })
         XCTAssertGreaterThanOrEqual(seen.count, 1, "켰는데 안 돈다 — 바뀐 일정을 안 집어 들었다")
     }
 
     /// 참조 하나로 콜백 횟수를 센다(뷰 안에서 지역 변수를 못 잡는다).
     @MainActor final class Counter { var count = 0 }
 
+    /// "안 돈다" 대조군 전용 — "돈다"는 `pumpRunLoop(until:)` 로 그 틱을 기다린다.
     private func pump(_ seconds: TimeInterval) {
         let until = Date().addingTimeInterval(seconds)
         while Date() < until {
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02))
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02))   // fixed-wait: 틱이 *없음*을 보는 창
         }
     }
 }

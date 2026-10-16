@@ -96,13 +96,28 @@ final class ShinySparklesReachabilityTests: XCTestCase {
     }
 
     /// 뷰를 실제로 그려 보고, 그 안에서 `ShinySparkles` 가 만들어졌는지 본다.
-    private func sparkleCount<V: View>(_ view: V, height: CGFloat) -> Int {
+    ///
+    /// 부화 연출은 알이 터진 뒤(`.task` 안의 `Task.sleep`)에야 반짝임을 만들고, 그 시간은 부하에
+    /// 따라 늘어난다 — 그래서 뜰 것을 기대하면 뜰 때까지 기다린다. 예전엔 둘 다 0.9초를 고정으로
+    /// 기다려서, 느린 러너에서는 이로치 쪽이 거짓 실패할 수 있었다.
+    ///
+    /// 다 본 뷰는 **치우고** 돌아간다. 뜨자마자 멈추면 연출이 아직 진행 중이라, 남겨 두면 그 `.task`
+    /// 가 다음 측정 창에서 계속 돌며 같은 기록에 찍힌다 — 실측: 이로치 부화의 0.22초 뒤
+    /// `sparkleBeat` 가 일반 개체 쪽 창에 1로 찍혔다(고정 0.9초 시절엔 연출이 끝까지 돌아 가려졌다).
+    private func sparkleCount<V: View>(_ view: V, height: CGFloat, expectingSparkles: Bool) -> Int {
         ShinySparkles.resetConstructed()
-        let host = NSHostingView(rootView: view.frame(width: PopoverMetrics.width))
+        let host = NSHostingView(rootView: AnyView(view.frame(width: PopoverMetrics.width)))
         host.frame = CGRect(x: 0, y: 0, width: PopoverMetrics.width, height: height)
         host.layoutSubtreeIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.9))
-        return ShinySparkles.constructed.count
+        if expectingSparkles {
+            pumpRunLoop(until: { !ShinySparkles.constructed.isEmpty })
+        } else {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.9))   // fixed-wait: "안 뜸"은 연출이 지나갈 만큼 본다
+        }
+        let count = ShinySparkles.constructed.count
+        host.rootView = AnyView(EmptyView())   // 연출의 `.task` 가 취소된다
+        host.layoutSubtreeIfNeeded()
+        return count
     }
 
     /// 상세 화면 — 이로치만 반짝인다. 일반 개체까지 반짝이면 신호가 아니라 장식이 된다.
@@ -113,9 +128,9 @@ final class ShinySparklesReachabilityTests: XCTestCase {
             IndividualDetailView(store: s, individual: i, line: nil,
                                  onNeedLine: { _ in }, onBack: {})
         }
-        XCTAssertGreaterThan(sparkleCount(detail(shinyStore, shiny), height: 300), 0,
+        XCTAssertGreaterThan(sparkleCount(detail(shinyStore, shiny), height: 300, expectingSparkles: true), 0,
                              "이로치 상세에 반짝임이 안 붙었다")
-        XCTAssertEqual(sparkleCount(detail(plainStore, plain), height: 300), 0,
+        XCTAssertEqual(sparkleCount(detail(plainStore, plain), height: 300, expectingSparkles: false), 0,
                        "일반 개체가 반짝인다")
     }
 
@@ -126,10 +141,10 @@ final class ShinySparklesReachabilityTests: XCTestCase {
         func hatch(_ s: PlayerStore, _ i: Individual) -> some View {
             HatchedRevealView(individual: i, store: s, line: nil, onDone: {})
         }
-        // 알이 터진 뒤에 나오므로 연출이 지나갈 만큼 기다린다.
-        XCTAssertGreaterThan(sparkleCount(hatch(shinyStore, shiny), height: 250), 0,
+        // 알이 터진 뒤에 나오므로 뜰 때까지 기다린다(`sparkleCount`).
+        XCTAssertGreaterThan(sparkleCount(hatch(shinyStore, shiny), height: 250, expectingSparkles: true), 0,
                              "이로치 부화에 반짝임이 안 붙었다")
-        XCTAssertEqual(sparkleCount(hatch(plainStore, plain), height: 250), 0,
+        XCTAssertEqual(sparkleCount(hatch(plainStore, plain), height: 250, expectingSparkles: false), 0,
                        "일반 개체 부화가 반짝인다")
     }
 }
