@@ -14,6 +14,12 @@ private final class SessionKeyTestWindow: NSWindow {
 @MainActor
 final class SessionKeySettingsRenderingTests: XCTestCase {
     func testSessionKeyEntryOpensInsideViewportAndPreservesExistingControls() async throws {
+        // SwiftUI lands `scrollTo` in the window's display cycle, which stops while the display sleeps.
+        // Measured on a locked Mac: the section still expands, but the scroll never lands, even with
+        // animations disabled (the old fixed-sleep version failed there 3/3 as well). An unattended
+        // local gate run meets this; a hosted runner keeps its display awake.
+        try XCTSkipIf(CGDisplayIsAsleep(CGMainDisplayID()) != 0,
+                      "the display is asleep, so the window never lands its scroll")
         let suite = "SessionKeySettingsRendering-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
