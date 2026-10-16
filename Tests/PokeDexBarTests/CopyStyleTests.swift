@@ -24,6 +24,16 @@ final class JosaTests: XCTestCase {
         XCTAssertEqual(Josa.iGa("#9"), "가")          // 구
     }
 
+    /// 0 으로 끝나는 수는 어떻게 읽어도 받침으로 끝난다 — 영·십·백·천·만. 처음 표에서 0 이 빠져
+    /// "#20가"·"v1.19.0를" 이 됐다(업데이트 건너뛰기 문구를 포팅하다 발견, 업스트림 #311).
+    func testATrailingZeroEndsInAConsonant() {
+        XCTAssertEqual(Josa.iGa("#20"), "이")             // 이십
+        XCTAssertEqual(Josa.iGa("#10"), "이")             // 십
+        XCTAssertEqual(Josa.iGa("#100"), "이")            // 백
+        XCTAssertEqual(Josa.eulReul("1.19.0"), "을")      // 영
+        XCTAssertEqual(Josa.roEuro("#20"), "으로")        // 십(ㅂ) — ㄹ 이 아니다
+    }
+
     /// ㄹ받침은 "로" 다 — 받침 유무만 보면 "천둥의돌으로"가 된다.
     func testTheRoParticleTreatsRieulAsNoFinalConsonant() {
         XCTAssertEqual(Josa.roEuro("천둥의돌"), "로")       // ㄹ
