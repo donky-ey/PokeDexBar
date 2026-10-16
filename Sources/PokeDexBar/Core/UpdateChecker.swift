@@ -8,58 +8,156 @@ import Observation
 final class UpdateChecker {
     struct Available: Equatable { let version: String; let url: String }
 
+    /// 확인 뒤 설정이 할 말. 건너뛴 릴리스는 "최신"이 아니다.
+    enum SettingsNotice: Equatable {
+        case offer(String)
+        case skipped(String)
+        case current
+    }
+
+    /// GitHub latest 엔드포인트(또는 테스트 대역)가 준 태그와 릴리스 페이지 URL.
+    struct LatestRelease: Equatable, Sendable {
+        let tag: String
+        let url: String
+    }
+
     private(set) var available: Available?
+    /// 사용자가 건너뛴 새 릴리스. 배너에서는 숨기고 설정에는 남긴다.
+    private(set) var skipped: Available?
     private(set) var isUpdating = false
 
     let currentVersion: String
-    private let repo = "donky-ey/PokeDexBar"
     private let clock: () -> Date
     private var lastChecked: Date?
+    private let defaults: UserDefaults
+    /// 주입받아 테스트가 네트워크 없이 실패·성공을 흉내 낸다.
+    private let fetchLatest: () async -> LatestRelease?
+    /// 진행 중인 조회. 이른 쿨다운 기록이 사라졌으니(실패는 다음 시도를 막지 않는다) 겹친 확인이 GitHub
+    /// 호출을 쌓지 않게 하나를 나눠 쓴다 — 겹친 호출자는 버려지지 않고 이 조회를 기다려 결과를 본다.
+    private var inFlight: Task<Void, Never>?
+
+    static let skippedVersionKey = "skippedUpdateVersion"
 
     /// brew cask 이름 — 이 앱 고유의 cask 를 가리켜야 한다(단일 소스: 아래 두 사용처가 여기서만 갈라진다).
     /// 다른 상수로 흩어놓으면 리브랜딩 때 한쪽만 갱신되고 한쪽이 남는 사고가 재발한다(#task1 리뷰 지적).
     nonisolated static let caskName = "poke-dex-bar"
 
-    init(currentVersion: String? = nil, clock: @escaping () -> Date = Date.init) {
+    init(currentVersion: String? = nil, clock: @escaping () -> Date = Date.init, defaults: UserDefaults = .standard,
+         fetchLatest: (() async -> LatestRelease?)? = nil) {
         self.currentVersion = currentVersion
             ?? AppEnv.appVersion ?? "0"
         self.clock = clock
+        self.defaults = defaults
+        self.fetchLatest = fetchLatest ?? { await Self.liveLatestRelease(repo: "donky-ey/PokeDexBar") }
     }
 
-    /// 최신 릴리스 조회 → 새 버전이고 사용자가 그 버전을 'skip' 하지 않았으면 available 설정.
-    /// minInterval 보다 자주 호출되면 무시(레이트리밋 보호).
+    var settingsNotice: SettingsNotice {
+        if let available { return .offer(available.version) }
+        if let skipped { return .skipped(skipped.version) }
+        return .current
+    }
+
+    /// 설정에서 설치할 수 있는 릴리스. 건너뛰기는 배너를 숨길 뿐 URL 을 버리지 않는다.
+    var updateTarget: Available? { available ?? skipped }
+
+    /// 최신 릴리스 조회. 건너뛴 버전은 배너(`available`)에 안 올리고 설정(`skipped`)에만 남긴다.
+    /// minInterval 은 **성공한** 조회 사이에만 적용한다(레이트리밋 보호). 실패 — 네트워크·비정상 응답·
+    /// 불안전 URL·지원하지 않는 태그 — 는 쿨다운을 시작하지 않아, 팝오버를 다시 열면 곧장 재시도한다.
+    ///
+    /// 조회가 이미 돌고 있으면 새로 시작하지 않고 **그 조회를 기다린다**(업스트림 #321 은 그냥 돌아왔다 —
+    /// 그러면 팝오버가 시작한 조회 도중 설정의 "지금 확인"이 결과 없이 "최신 버전"을 보인다).
     func check(minInterval: TimeInterval = 1800) async {
+        if let running = inFlight {
+            await running.value
+            return
+        }
         if let last = lastChecked, clock().timeIntervalSince(last) < minInterval { return }
+        let fetch = Task { await fetchAndApply() }
+        inFlight = fetch
+        await fetch.value
+        inFlight = nil
+    }
+
+    private func fetchAndApply() async {
+        guard let release = await fetchLatest(),
+              Self.isTrustedReleaseURL(release.url),
+              let version = Self.normalizedReleaseVersion(release.tag) else { return }
         lastChecked = clock()
-        guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest") else { return }
+        consider(latest: version, url: release.url)
+    }
+
+    /// NSWorkspace.open 으로 가는 릴리스 URL — https + github.com 만 허용(스킴 하이재킹 방지).
+    nonisolated static func isTrustedReleaseURL(_ string: String) -> Bool {
+        guard let url = URL(string: string), url.scheme == "https", url.host == "github.com" else { return false }
+        return true
+    }
+
+    /// 릴리스 태그 → 비교 가능한 버전. 태그가 맨 `MAJOR.MINOR.PATCH`(앞의 `v` 허용)가 아니면 nil.
+    /// `isNewer` 는 숫자가 아닌 부분을 0 으로 읽으므로 `v2.6.0-beta.1` 은 `2.6.0` 과 같게, 쓰레기는
+    /// `0.0.0` 으로 비교된다 — 둘 다 적용하거나 성공한 확인으로 세면 안 된다.
+    nonisolated static func normalizedReleaseVersion(_ tag: String) -> String? {
+        var version = Substring(tag.trimmingCharacters(in: .whitespacesAndNewlines))
+        if version.first == "v" || version.first == "V" { version = version.dropFirst() }
+        let parts = version.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              parts.allSatisfy({ part in
+                  !part.isEmpty && part.count <= 9 && part.allSatisfy { $0.isASCII && $0.isNumber }
+              }) else { return nil }
+        return parts.map { String(Int($0)!) }.joined(separator: ".")
+    }
+
+    /// 실 GitHub latest-release 조회. 전송·응답 문제가 있으면 nil.
+    private nonisolated static func liveLatestRelease(repo: String) async -> LatestRelease? {
+        guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest") else { return nil }
         var req = URLRequest(url: url, timeoutInterval: 15)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         guard let (data, resp) = try? await URLSession.shared.data(for: req),
               (resp as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = json["tag_name"] as? String,
-              let html = json["html_url"] as? String,
-              // 응답 필드가 NSWorkspace.open 으로 가므로 https + github.com 만 허용(스킴 하이재킹 방지)
-              let htmlURL = URL(string: html), htmlURL.scheme == "https", htmlURL.host == "github.com"
-        else { return }
+              let html = json["html_url"] as? String else { return nil }
+        return LatestRelease(tag: tag, url: html)
+    }
+
+    /// 받아 온 릴리스 하나를 반영한다. `latest` 는 태그(`v2.5.4`)여도, 맨 버전이어도 된다.
+    func consider(latest tag: String, url: String) {
         let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-        let skipped = UserDefaults.standard.string(forKey: "skippedUpdateVersion")
-        if Self.isNewer(latest, than: currentVersion), latest != skipped {
-            available = Available(version: latest, url: html)
-        } else {
+        let skippedVersion = defaults.string(forKey: Self.skippedVersionKey)
+        guard Self.isNewer(latest, than: currentVersion) else {
             available = nil
+            skipped = nil
+            return
+        }
+        let release = Available(version: latest, url: url)
+        if latest == skippedVersion {
+            available = nil
+            skipped = release
+        } else {
+            available = release
+            skipped = nil
         }
     }
 
-    /// 이 버전은 다시 알리지 않음.
+    /// 이 버전의 배너를 숨긴다. 설정은 여전히 보고 설치할 수 있다.
     func skipCurrent() {
-        if let v = available?.version { UserDefaults.standard.set(v, forKey: "skippedUpdateVersion") }
+        guard let release = available else { return }
+        defaults.set(release.version, forKey: Self.skippedVersionKey)
+        skipped = release
         available = nil
+    }
+
+    /// 건너뛰기를 되돌려 같은 릴리스의 배너가 다시 뜨게 한다.
+    func showSkippedAgain() {
+        defaults.removeObject(forKey: Self.skippedVersionKey)
+        if let release = skipped {
+            available = release
+            skipped = nil
+        }
     }
 
     /// 업데이트 적용: brew cask 설치본이면 `brew upgrade` 후 재시작, 아니면 릴리스 페이지.
     func applyUpdate() {
-        guard let update = available, !isUpdating else { return }
+        guard let update = updateTarget, !isUpdating else { return }
         isUpdating = true
         Task { @MainActor in
             // brew cask 설치본이면 분리(detached) 스크립트가 앱 종료 후 tap 갱신→업그레이드→재오픈.
@@ -114,31 +212,37 @@ final class UpdateChecker {
         return process.terminationStatus == 0
     }
 
-    /// 앱이 완전히 종료된 뒤 tap 갱신 + cask 업그레이드 + 재오픈을 수행하는 분리(detached) 스크립트.
+    /// 앱이 완전히 종료된 뒤 tap 갱신 + cask 업그레이드 + 재오픈을 수행하는 분리(detached) 스크립트 본문.
     /// - `brew update` 선행: auto-update 빈도 제한(기본 24h)으로 stale 한 로컬 tap 때문에 `brew upgrade`
     ///   가 no-op(exit 0) 되어 "업데이트 안 됨 + 앱만 종료"가 나던 문제를 막는다.
-    /// - 앱 종료를 기다림(pgrep): 실행 중 번들 교체 레이스 + 재오픈 LaunchServices(-600) 레이스 회피.
+    /// - 앱 종료를 기다림(`kill -0 $3`): 실행 중 번들 교체 레이스 + 재오픈 LaunchServices(-600) 레이스 회피.
+    ///   `pgrep -x` 대신 **종료하는 그 PID** 를 본다 — 이름으로 보면 중복 인스턴스가 떠 있을 때 20초를 꽉
+    ///   채워 기다린 뒤에야 진행해, 그 사이 번들 교체가 실행 중인 앱과 경합한다(업스트림 #175).
     /// - brew 를 백그라운드+워치독(≤300s)으로 감싸 hang 시에도 reopen 이 반드시 실행되게 함
     ///   (앱이 종료된 채 영영 안 돌아오는 것 방지). 종료 직후 재오픈 실패 대비 `open` 재시도.
-    /// 인자는 positional($1=brew, $2=bundlePath)로 전달 — 셸 인젝션 차단.
-    private static func launchDetachedUpgrade(brew: String) {
-        let bundlePath = Bundle.main.bundlePath
-        let script = """
-        for i in $(seq 1 40); do pgrep -x PokeDexBar >/dev/null 2>&1 || break; sleep 0.5; done
-        export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
-        ( "$1" update; "$1" upgrade --cask \(caskName) ) &
-        brew_pid=$!
-        for i in $(seq 1 300); do kill -0 "$brew_pid" 2>/dev/null || break; sleep 1; done
-        kill "$brew_pid" 2>/dev/null
-        for i in $(seq 1 15); do
-          launchctl kickstart -k "gui/$(id -u)/io.github.donky-ey.pokedexbar.login" 2>/dev/null && break
-          open "$2" 2>/dev/null && break
-          sleep 1
-        done
-        """
+    /// 인자는 positional($1=brew, $2=bundlePath, $3=pid)로 전달 — 셸 인젝션 차단.
+    nonisolated static let detachedUpgradeScript = """
+    for i in $(seq 1 40); do kill -0 "$3" 2>/dev/null || break; sleep 0.5; done
+    export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+    ( "$1" update; "$1" upgrade --cask \(caskName) ) &
+    brew_pid=$!
+    for i in $(seq 1 300); do kill -0 "$brew_pid" 2>/dev/null || break; sleep 1; done
+    kill "$brew_pid" 2>/dev/null
+    for i in $(seq 1 15); do
+      launchctl kickstart -k "gui/$(id -u)/io.github.donky-ey.pokedexbar.login" 2>/dev/null && break
+      open "$2" 2>/dev/null && break
+      sleep 1
+    done
+    """
+
+    private nonisolated static func launchDetachedUpgrade(
+        brew: String,
+        pid: pid_t = ProcessInfo.processInfo.processIdentifier,
+        bundlePath: String = Bundle.main.bundlePath
+    ) {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
-        task.arguments = ["-c", script, "sh", brew, bundlePath]
+        task.arguments = ["-c", detachedUpgradeScript, "sh", brew, bundlePath, String(pid)]
         try? task.run()
     }
 }

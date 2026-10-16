@@ -34,9 +34,10 @@ enum Josa {
     static func hasFinalConsonant(_ word: String) -> Bool {
         guard let last = word.unicodeScalars.last else { return false }
         if (0xAC00...0xD7A3).contains(last.value) { return (last.value - 0xAC00) % 28 != 0 }
-        // 0 영, 1 일(ㄹ), 2 이, 3 삼(ㅁ), 4 사, 5 오, 6 육(ㄱ), 7 칠(ㄹ), 8 팔(ㄹ), 9 구
+        // 0 영(ㅇ), 1 일(ㄹ), 2 이, 3 삼(ㅁ), 4 사, 5 오, 6 육(ㄱ), 7 칠(ㄹ), 8 팔(ㄹ), 9 구.
+        // 끝자리 0 은 자릿수와 무관하게 받침이다 — 영·십·백·천·만이 모두 받침으로 끝난다("#20이").
         if let digit = last.properties.numericValue, (0...9).contains(digit) {
-            return [1, 3, 6, 7, 8].contains(Int(digit))
+            return [0, 1, 3, 6, 7, 8].contains(Int(digit))
         }
         return false
     }
