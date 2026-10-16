@@ -14,6 +14,13 @@ enum AppLog {
 
     private static let queue = DispatchQueue(label: "pokedexbar.log")
 
+    /// 큐에 쌓인 기록이 파일에 닿을 때까지 기다린다 — **곧 프로세스가 끝나는 자리에서만** 쓴다.
+    /// `write` 는 async 라, 기록 직후 `NSApp.terminate` 이 `exit(0)` 에 닿으면 그 줄이 통째로 사라진다.
+    /// serial 큐라 빈 블록을 sync 로 넣으면 앞서 넣은 기록이 모두 끝난 뒤에 돌아온다.
+    static func flush() {
+        queue.sync {}
+    }
+
     /// 로그 상한 — 초과 시 .old 로 1세대 회전(무한 증가 방지, 디스크 상한 ≈ 2×maxBytes = 4MB).
     /// 24/7 메뉴바 앱이라 회전이 잦아 진단 이력이 금방 사라지던 것 완화(장애 직전 컨텍스트 보존).
     /// 레퍼런스(size-capped 회전, 수 MB)에 맞춤 — 일자별 폴더는 무한 성장/정리 필요라 채택 안 함.
