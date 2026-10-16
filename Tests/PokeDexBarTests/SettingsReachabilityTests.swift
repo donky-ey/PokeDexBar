@@ -68,12 +68,14 @@ final class StorageNamespaceTests: XCTestCase {
 
     /// 저장 경로가 이름에서 파생돼야 개발 빌드가 자동으로 갈라진다 —
     /// 어느 한 곳이라도 "PokeDexBar" 를 직접 적어 두면 그 파일만 두 앱이 공유하게 된다.
+    /// 번들 앱의 저장소가 이름 공간 폴더다 — 비번들 실행(이 테스트)은 임시 폴더로 격리되므로
+    /// 번들 경로는 순수 계산(`supportDirectoryURL(isBundledApp: true)`)으로 확인한다(`AppStorageIsolationTests`).
     @MainActor
     func testEveryStoredPathDerivesFromTheNamespace() {
-        let support = AppEnv.supportDirectory().path
-        XCTAssertTrue(support.hasSuffix("/\(AppEnv.storageName)"), support)
-        XCTAssertTrue(PlayerStore.defaultURL().path.hasPrefix(support),
-                      "세이브가 이름 공간 밖에 있다 — 두 빌드가 같은 파일을 쓴다")
+        let bundled = AppEnv.supportDirectoryURL(isBundledApp: true).path
+        XCTAssertTrue(bundled.hasSuffix("/\(AppEnv.storageName)"), bundled)
+        XCTAssertTrue(PlayerStore.defaultURL().path.hasPrefix(AppEnv.supportDirectory().path),
+                      "세이브가 저장소 뿌리 밖에 있다 — 두 빌드가 같은 파일을 쓴다")
     }
 
     /// 로그인 항목 레이블은 번들 ID 를 따라가야 한다 — 고정이면 한쪽을 켤 때 다른 쪽이 꺼진다.
