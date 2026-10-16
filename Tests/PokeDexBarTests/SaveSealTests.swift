@@ -19,9 +19,12 @@ final class SaveSealTests: XCTestCase {
 
     /// 본문은 안 보여야 한다 — 그래야 "사탕 개수 5로 바꿔줘"가 곧바로 되지 않는다.
     func testPayloadIsNotReadableInTheFile() throws {
-        let text = String(decoding: try SaveSeal.seal(payload), as: UTF8.self)
+        let sealed = try SaveSeal.seal(payload)
+        let text = String(decoding: sealed, as: UTF8.self)
         XCTAssertFalse(text.contains("earnedTokens"), "본문이 평문으로 새어 나온다")
-        XCTAssertFalse(text.contains("42"))
+        // 값은 "42" 같은 짧은 조각으로 찾지 않는다 — 봉인은 매번 새 nonce 라 base64 에 그 두 글자가
+        // 우연히 나온다(약 1.5% — 게이트를 가끔 깨던 원인). 평문 본문 바이트가 봉투 어디에도 없는지로 본다.
+        XCTAssertNil(sealed.range(of: payload), "본문 바이트가 그대로 들어 있다")
     }
 
     /// 봉인된 본문을 한 글자만 바꿔도 안 열려야 한다.
