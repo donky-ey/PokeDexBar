@@ -110,6 +110,8 @@ final class BattleStateFormTests: XCTestCase {
             s.partnerID = morpeko.id
             s.installBaselineSet = true
             s.lastDate = "2026-01-01"
+            // 오늘 이 프로바이더로 적립한 것이 0 — 원장이 비어 있으면 처음 보는 프로바이더라 기준으로만 잡힌다.
+            s.claimedTodayTokensByProvider = ["claude_code": 0]
         }
         store.update(todayTokens: 1_000, todayDate: "2026-01-01", hasUsageData: true)
         XCTAssertEqual(store.state.box[0].recentlyActive, true, "방금 일했는데 쉬는 중이다")
@@ -173,6 +175,7 @@ final class BattleStateFormTests: XCTestCase {
         store.mutate { s in
             s.box = [aegis]; s.partnerID = aegis.id
             s.installBaselineSet = true; s.lastDate = "2026-01-01"
+            s.claimedTodayTokensByProvider = ["claude_code": 0]
         }
         store.update(todayTokens: 1_000, todayDate: "2026-01-01", hasUsageData: true)
         XCTAssertEqual(store.state.box[0].recentlyActive, true)
