@@ -32,4 +32,27 @@ final class UpdateCheckerTests: XCTestCase {
     func testCaskNameIsOwnApp() {
         XCTAssertEqual(UpdateChecker.caskName, "poke-dex-bar")
     }
+
+    // MARK: - Detached upgrade script wait loop (upstream #175)
+
+    func testDetachedUpgradeScriptWaitsOnPidNotProcessName() {
+        let script = UpdateChecker.detachedUpgradeScript
+        XCTAssertFalse(
+            script.contains("pgrep -x"),
+            "pgrep -x matches any instance by name and always times out when a duplicate runs"
+        )
+        XCTAssertTrue(
+            script.contains("kill -0 \"$3\""),
+            "the wait loop must wait on the specific terminating PID via $3"
+        )
+    }
+
+    func testDetachedUpgradeScriptUsesPositionalParameters() {
+        let script = UpdateChecker.detachedUpgradeScript
+        XCTAssertTrue(script.contains("\"$1\" update"), "must execute brew via $1 positional arg")
+        XCTAssertTrue(script.contains("\"$1\" upgrade"), "must execute brew upgrade via $1 positional arg")
+        XCTAssertTrue(script.contains("open \"$2\""), "must open bundlePath via $2 positional arg")
+        // 포크: cask 이름은 단일 상수에서 온다(위 testCaskNameIsOwnApp) — 스크립트가 그 상수를 쓰는지까지.
+        XCTAssertTrue(script.contains("--cask \(UpdateChecker.caskName)"), "the script must upgrade this app's cask")
+    }
 }
