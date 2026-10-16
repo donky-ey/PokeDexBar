@@ -24,13 +24,30 @@ else
 fi
 APP="$BUILD_DIR/$APP_NAME.app"
 
-echo "==> swift build -c $SWIFT_CONFIG"
-swift build -c "$SWIFT_CONFIG"
+# README 가 Apple Silicon 과 Intel 을 모두 약속하므로 배포 바이너리는 universal(arm64 + x86_64)이어야 한다
+# (업스트림 #400 — arm64 단일 바이너리가 Intel 에서 "bad CPU type" 으로 실행되지 않았다). 다중 `--arch` 한 번은
+# Xcode(xcbuild)가 필요해 Command Line Tools 만으로는 실패하므로 아키텍처별로 짓고 lipo 로 합친다.
+# 개발 빌드(PTB_DEV=1)와 PTB_NATIVE_ARCH_ONLY=1 은 이 기기 아키텍처만 짓는다(빌드 시간 절반) — 배포는
+# release.sh 의 lipo 게이트가 universal 이 아니면 공증 전에 막는다.
+ARCHS=(arm64 x86_64)
+if [[ "${PTB_DEV:-0}" == "1" || "${PTB_NATIVE_ARCH_ONLY:-0}" == "1" ]]; then
+    ARCHS=("$(uname -m)")
+fi
+SLICES=()
+BIN_PATH=""
+for arch in "${ARCHS[@]}"; do
+    echo "==> swift build -c $SWIFT_CONFIG --arch $arch"
+    swift build -c "$SWIFT_CONFIG" --arch "$arch"
+    BIN_PATH="$(swift build -c "$SWIFT_CONFIG" --arch "$arch" --show-bin-path)"
+    SLICES+=("$BIN_PATH/PokeDexBar")
+done
 
 echo "==> $APP 조립"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp ".build/$SWIFT_CONFIG/PokeDexBar" "$APP/Contents/MacOS/$APP_NAME"
+lipo -create "${SLICES[@]}" -output "$APP/Contents/MacOS/$APP_NAME"
+lipo "$APP/Contents/MacOS/$APP_NAME" -verify_arch "${ARCHS[@]}"
+echo "   archs: $(lipo -archs "$APP/Contents/MacOS/$APP_NAME")"
 # 심볼 strip — 릴리스 바이너리 1.84MB → 0.80MB(-57%). codesign 전에 수행(서명 무효화 방지).
 # 디버그 빌드는 건드리지 않는다: 크기는 어차피 배포 대상이 아니고, 심볼을 지우면 크래시 로그가 안 읽힌다.
 if [[ "$SWIFT_CONFIG" == "release" ]]; then
@@ -48,7 +65,8 @@ cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 # (조용히 깨진 앱을 만들지 않는다).
 # 번들 이름은 SwiftPM 타깃 이름에서 나온다 — 앱 이름(개발 빌드는 "PokeDexBar Dev")이 아니라
 # 항상 "PokeDexBar" 다. 런타임 조회(SpeciesSlug/RibbonIcon)도 이 이름을 그대로 찾는다.
-RESOURCE_BUNDLE=".build/$SWIFT_CONFIG/PokeDexBar_PokeDexBar.bundle"
+# 리소스는 아키텍처와 무관하다 — 마지막으로 지은 슬라이스의 bin 경로에서 가져온다.
+RESOURCE_BUNDLE="$BIN_PATH/PokeDexBar_PokeDexBar.bundle"
 if [[ ! -d "$RESOURCE_BUNDLE" ]]; then
     echo "   ✗ $RESOURCE_BUNDLE 없음 — swift build -c $SWIFT_CONFIG 가 리소스 번들을 못 만들었다. 중단." >&2
     exit 1
