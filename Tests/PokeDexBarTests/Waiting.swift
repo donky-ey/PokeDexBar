@@ -65,6 +65,10 @@ final class FixedWaitGuardTests: XCTestCase {
         "AdditionalClaudeAccountsTests.swift": [
             "100 ms showing a manual refresh has not fetched yet: async, and nothing marks when it would have",
         ],
+        "AppLogTests.swift": [
+            "a slow sink, so a flush that returns before the queued write lands is caught",
+            "a slow sink, so a writeAndFlush that returns before the line lands is caught",
+        ],
         "CodexLargeRolloutPerformanceTests.swift": [
             "joining the RSS sampler thread, polled on `isFinished`",
             "the RSS sampling interval itself",
@@ -83,7 +87,8 @@ final class FixedWaitGuardTests: XCTestCase {
         for file in files {
             for line in try String(contentsOf: file, encoding: .utf8).components(separatedBy: "\n") {
                 // Words inside comments do not count: a comment may describe a wait it does not make.
-                let code = line.components(separatedBy: "//")[0]
+                // `SourceScan` cuts at a real `//`, not at one inside a string such as "https://…".
+                let code = SourceScan.code(line)
                 let matches = primitive.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
                 if matches > 0 { found[file.lastPathComponent, default: 0] += matches }
             }

@@ -15,13 +15,19 @@ final class AppLogTests: XCTestCase {
     func testFlushDrainsAQueuedWriteBeforeReturning() {
         let queue = DispatchQueue(label: "poketokenbar.log.test")
         let landed = LineSink()
+        let looked = DispatchSemaphore(value: 0)
         let log = AsyncLineLog(queue: queue) { line in
-            Thread.sleep(forTimeInterval: 0.03)
+            // Parked until the first assert has looked, so "not landed yet" does not depend on how soon
+            // this thread is scheduled (#21 review). A `write` that ran the sink inline would block here:
+            // the wait gives up after 5 s and the assert fails instead of hanging.
+            _ = looked.wait(timeout: .now() + 5)
+            Thread.sleep(forTimeInterval: 0.03)   // a slow sink, so a flush that returns early is caught
             landed.append(line)
         }
 
         log.write("clean shutdown")
         XCTAssertTrue(landed.lines.isEmpty, "write must return before the sink runs — otherwise flush is untestable")
+        looked.signal()
         log.flush()
         XCTAssertEqual(landed.lines, ["clean shutdown"], "flush must wait for the queued write, not return while it is still in flight")
     }
@@ -47,7 +53,7 @@ final class AppLogTests: XCTestCase {
         let queue = DispatchQueue(label: "poketokenbar.log.test.pair")
         let landed = LineSink()
         let log = AsyncLineLog(queue: queue) { line in
-            Thread.sleep(forTimeInterval: 0.03)
+            Thread.sleep(forTimeInterval: 0.03)   // a slow sink, so a pair that returns early is caught
             landed.append(line)
         }
 
