@@ -22,7 +22,7 @@ PTB_NOTES_FILE=/tmp/notes.md ./scripts/release.sh 2.1.1
 3. **VERSION 범프** (`scripts/build-app.sh`, 아직 미커밋).
 4. **universal(arm64 + x86_64) Developer ID 빌드 → Apple 공증 → 티켓 첨부 → ZIP 재생성·검증** (`build/PokeDexBar.zip`) + 버전 일치 확인. universal 이 아니거나 서명·공증·Gatekeeper 검증이 실패하면 push 전에 중단.
 5. **커밋 + push** (`git push origin main`, 빌드 성공 후).
-6. **GitHub Release** 생성 (노트는 `PTB_NOTES_FILE` 또는 최소 노트).
+6. **GitHub Release** 생성 (노트는 `PTB_NOTES_FILE` — **필수**, 없거나 비어 있으면 1단계 전에 중단).
 7. **Homebrew cask** 버전 갱신 (`donky-ey/homebrew-tap`).
 8. **GitHub Pages 재빌드** 요청 (랜딩 동적 배지 갱신 유도).
 
