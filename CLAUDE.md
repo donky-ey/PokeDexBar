@@ -429,3 +429,35 @@
   픽스처(이브이)가 **모든 종류를 동시에** 막고 있어 어떤 문장을 내도 참이었다 — 한 종류만 막힌 픽스처가
   있어야 이 부류가 걸린다. 회귀 가드: `testFriendshipOnlyBranchNeverMentionsItems` + 대조군
   `testItemBlockedBranchStillSaysWhereItemsComeFrom`(게이트가 늘 꺼져 있지 않은지).
+- **비동기 UI 상태를 고정 시간으로 기다리지 마라 — 그 상태 자체를 기다려라.** 테스트에서 `Task.sleep(500ms)`
+  뒤에 "스크롤됐다/떴다"를 단언하면 그 숫자는 *조용한 개발 기기에서 잰 추측*이다. 걸리는 시간은 코드가
+  아니라 메인 런루프 대기열이 정하고, 전체 스위트에서는 그 대기열에 **앞선 테스트가 남긴 일감**이 있다.
+  `SessionKeySettingsRenderingTests` 가 그랬다: 첫 렌더 → `onAppear` → 그 렌더 뒤에 줄 선 메인 액터 Task →
+  80ms → 0.25초 애니메이션 스크롤. 단독 실행은 ~0.45초라 20/20 통과(CPU 를 꽉 채워도 통과)했지만 전체
+  스위트+커버리지에선 0.58~1.03초가 걸려 4회 중 2회 떨어졌다. **"단독으로 돌리면 통과"는 결함 아님의 증거가
+  아니다** — 단독 실행은 트리거(붐비는 메인 런루프)를 밟지 않는다. → 뜰 것은 `waitUntil`(async)·
+  `pumpRunLoop(until:)`(동기, `Tests/PokeDexBarTests/Waiting.swift`)로 기다린다. 참이 되는 즉시 끝나므로
+  넉넉한 제한 시간은 실패할 때만 쓰인다. **"안 일어남"도 대개 조건이 된다** — 그것이 일어났을 사건(연출의
+  `onDone`, 첫 렌더)까지 기다린 뒤 안 일어났는지 본다. 이로치 대조군의 고정 0.9초 창은 부하가 걸리면 반짝임이
+  날 시점(`.task` 의 0.62초 대기 뒤)에 못 미쳐 아무것도 증명하지 못했다. 그런 사건이 없을 때만 고정 창
+  `pumpRunLoop(for:because:)` 를 쓰고, 사유 인자가 호출부에 남는다. **"스크롤됐다"는 "멈춘 뒤 안에 있다"로
+  본다** — 한 프레임이라도 안에 들었다는 조건은 뷰포트를 지나쳐 가는 스크롤도 통과시킨다.
+  **가드가 막는 범위(실제보다 강하게 적지 마라):** `FixedWaitGuardTests` 는 `Waiting.swift` 밖의 대기
+  프리미티브(`.sleep(`·맨 `sleep(`/`usleep(`·`.run(until:`/`.run(mode:`·`CFRunLoopRunInMode`·`asyncAfter`)를
+  파일별로 세어 닫힌 목록 `allowedPrimitives` 와 대조한다 — 새 고정 대기는 그 목록을 고치는 diff 로만 들어온다.
+  처음 판(같은 줄 `fixed-wait:` 표시)은 헬퍼 *정의*에 표시가 붙으면 그 헬퍼의 호출부가 전부 안 보였다(#23 리뷰).
+  **못 막는 것:** `because:` 사유가 타당한지(리뷰 몫), `XCTestExpectation` 기반 대기(아무도 fulfill 하지 않는
+  기대·inverted 기대는 사실상 고정 창이다), 프로덕션 코드 안의 sleep.
+  **일찍 끝내면 뒷정리가 따라온다:** 고정 대기는 연출을 끝까지 돌려 남은 일감을 우연히 가려 주고 있었다.
+  이로치 부화 측정을 뜨자마자 끊자 진행 중이던 `.task` 가 다음 대조군 창에 찍혀 대조군이 5/5 떨어졌다 —
+  측정이 끝난 뷰는 `rootView` 를 비워 치운다(`ShinySparklesReachabilityTests.sparkleCount`). 테스트 공백의
+  정체: 이 포크에서 CI 가 한 번도 안 돌아, 수동 게이트의 간헐 실패가 "다시 돌리면 통과"로 넘어갔다.
+  **조건 대기로도 못 버티는 조건이 하나 있다 — 디스플레이가 꺼져 있을 때.** SwiftUI 는 `scrollTo` 를 창의
+  디스플레이 사이클에서 반영하는데, 디스플레이가 잠들면 그 사이클이 멈춘다. 실측(화면 잠김): 섹션은 펼쳐지지만
+  스크롤은 끝내 안 일어난다 — 애니메이션을 꺼도, `display()`·`CATransaction.flush()` 를 불러도 마찬가지고,
+  옛 500ms 판도 3/3 실패했다. **사용자가 자리를 비운 사이 세션이 게이트를 돌리면 정확히 이 조건을 밟는다.**
+  그래서 skip 하되 좁게: **대기가 타임아웃 난 그 시점에** `CGDisplayIsAsleep` 이 참일 때만(시작할 때 한 번 보면
+  대기 중 잠든 경우가 10초 실패가 된다), 디스플레이와 무관한 단언(섹션 펼침·슬라이더·내비게이션)은 skip 앞에
+  두고, `CI`·`GITHUB_ACTIONS` 가 있으면 **절대** skip 하지 않는다 — CI 에서 검사가 조용히 사라지면 안 된다
+  (판정은 순수 함수 `SessionKeySettingsRenderingTests.excusesMissingScroll`, 단위 테스트로 잠금). 실패 시각이
+  "Display is turned off"(`pmset -g log`) 직후라면 이 부류다.

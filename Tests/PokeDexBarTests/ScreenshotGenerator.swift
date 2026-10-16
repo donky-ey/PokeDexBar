@@ -801,20 +801,8 @@ final class ScreenshotGeneratorTests: XCTestCase {
         Task { @MainActor in
             do { box.value = .success(try await operation()) } catch { box.value = .failure(error) }
         }
-        let deadline = Date().addingTimeInterval(60)
-        while box.value == nil, Date() < deadline { pump(0.01) }
+        pumpRunLoop(until: { box.value != nil }, timeout: 60)
         return try XCTUnwrap(box.value, "비동기 작업이 제한 시간 안에 안 끝났다").get()
-    }
-
-    /// 런루프를 실제 시간만큼 돌린다. 스프라이트 GIF 루프(`SpriteView` 의 `.task`)와 알 카운트다운
-    /// (`TimelineView` 1초 틱)은 메인 런루프가 돌아야 진행한다 — 정적 PNG 경로는 런루프를 돌리지
-    /// 않아서 이 애니메이션들이 첫 프레임에 멈춘 채로 찍힌다.
-    private func pump(_ seconds: TimeInterval) {
-        guard seconds > 0 else { return }
-        let deadline = Date().addingTimeInterval(seconds)
-        while Date() < deadline {
-            RunLoop.main.run(mode: .default, before: min(deadline, Date().addingTimeInterval(0.01)))
-        }
     }
 
     /// 살아 있는 뷰를 일정 간격으로 샘플링해 프레임을 모은다.
@@ -848,13 +836,15 @@ final class ScreenshotGeneratorTests: XCTestCase {
         defer { window.orderOut(nil); window.contentView = nil }
         host.frame = CGRect(origin: .zero, size: size)
         host.layoutSubtreeIfNeeded()
-        pump(warmup)
+        // 스프라이트 GIF 루프(`SpriteView` 의 `.task`)와 알 카운트다운(`TimelineView` 1초 틱)은 메인
+        // 런루프가 돌아야 진행한다 — 정적 PNG 경로는 런루프를 돌리지 않아서 첫 프레임에 멈춘 채로 찍힌다.
+        pumpRunLoop(for: warmup, because: "sprite load, GIF decode and loop start signal no completion")
         if let onReady {
             onReady(host)
             // SwiftUI 가 켜진 뷰를 실제로 얹는 데는 런루프 한 턴 + 레이아웃이 필요하다. 이걸
             // 빼먹으면 오버레이가 끝까지 안 붙어 프레임이 전부 같은 그림으로 나온다(실측).
             host.layoutSubtreeIfNeeded()
-            pump(0.05)
+            pumpRunLoop(for: 0.05, because: "SwiftUI attaches the armed overlay a run loop turn later")
             host.layoutSubtreeIfNeeded()
         }
         // **프레임은 벽시계 격자에 맞춰 찍는다.** 찍는 일 자체가 공짜가 아니라서(리빌 합성 화면은
@@ -864,7 +854,8 @@ final class ScreenshotGeneratorTests: XCTestCase {
         var frames: [NSBitmapImageRep] = []
         let start = Date()
         for index in 0..<motion.frames {
-            pump(start.addingTimeInterval(Double(index) * motion.delay).timeIntervalSinceNow)
+            pumpRunLoop(for: start.addingTimeInterval(Double(index) * motion.delay).timeIntervalSinceNow,
+                        because: "the capture's wall-clock frame grid")
             frames.append(try snapshot(host))
         }
         // 격자를 못 지켰다면(한 장 찍는 값이 간격보다 크다) 재생 속도가 실제와 어긋난 GIF 가 된다.
@@ -1007,7 +998,7 @@ final class ScreenshotGeneratorTests: XCTestCase {
         seedSpriteCacheFromTheInstalledApp()
 
         // 디스크에서 읽어 오는 그림은 **미리 캐시에 올려 둔다.** 첫 접근이 디스크 읽기 + PNG
-        // 디코드를 동기로 하는데, 아래 애니메이션 캡처는 `pump(0.05)` 창 안에서 레이아웃이
+        // 디코드를 동기로 하는데, 아래 애니메이션 캡처는 `pumpRunLoop(for: 0.05, …)` 창 안에서 레이아웃이
         // 끝나기를 기대한다 — 그 창에 디코드가 끼면 프레임 간격이 밀리고 연출 단계가 잘린다
         // (박사 얼굴을 상점 헤더에 붙였을 때 실제로 두 단언이 깨졌다). 실앱에서는 상점을 한 번
         // 열고 나면 이미 캐시돼 있어 이 비용이 사용자에게 보이지 않는다.

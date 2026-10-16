@@ -168,7 +168,7 @@ private final class PeakResidentSampler: @unchecked Sendable {
         lock.unlock()
 
         while !thread.isFinished {
-            Thread.sleep(forTimeInterval: 0.005)
+            Thread.sleep(forTimeInterval: 0.005)   // listed in FixedWaitGuardTests.allowedPrimitives
         }
         return peak
     }
@@ -181,7 +181,7 @@ private final class PeakResidentSampler: @unchecked Sendable {
             if done { return }
 
             sample()
-            usleep(10_000)
+            usleep(10_000)   // listed in FixedWaitGuardTests.allowedPrimitives
         }
     }
 

@@ -580,9 +580,11 @@ final class AdditionalClaudeAccountsStoreTests: XCTestCase {
             defaults: testDefaults)
 
         let poll = Task { await store.refresh(scheduleEmptyRetry: false) }
-        for _ in 0..<200 where folder.release == nil { try await Task.sleep(for: .milliseconds(5)) }
+        // Not parked in the folder fetch, the poll would never be resumed below: fail, do not hang.
+        let pollIsParked = await waitUntil { folder.release != nil }
+        guard pollIsParked else { return XCTFail("the poll never reached the folder fetch") }
         let manual = Task { await store.refreshLimitTokenFromKeychain() }
-        try await Task.sleep(for: .milliseconds(100))
+        try await Task.sleep(for: .milliseconds(100))   // listed in FixedWaitGuardTests.allowedPrimitives
         XCTAssertEqual(folder.calls, 1, "the manual refresh waits for the running one")
 
         folder.release?.resume()
@@ -801,11 +803,7 @@ final class AdditionalClaudeAccountsStoreTests: XCTestCase {
         // The setter refreshes on its own. Wait for that refresh inside the test: left running,
         // it outlives the test and breaks the timing of later UI tests.
         store.additionalClaudeConfigDirs = ""
-        for _ in 0..<100 where store.additionalLimitsPending || store.isRefreshing {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        // The setter also starts a refresh; let it finish inside this test.
-        for _ in 0..<50 where store.isRefreshing { try? await Task.sleep(for: .milliseconds(20)) }
+        _ = await waitUntil { !store.additionalLimitsPending && !store.isRefreshing }
         XCTAssertTrue(store.additionalLimits.isEmpty)
         XCTAssertFalse(store.additionalLimitsPending)
         XCTAssertEqual(testDefaults.string(forKey: ClaudeAccountRoots.defaultsKey), "")
@@ -1798,9 +1796,7 @@ final class ClaudeAccountUsageStoreTests: XCTestCase {
         XCTAssertEqual(scannedFrom.timeIntervalSince1970, expected.timeIntervalSince1970, accuracy: 5)
 
         store.additionalClaudeConfigDirs = ""
-        for _ in 0..<100 where !store.claudeAccountUsage.isEmpty || store.isRefreshing {
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        _ = await waitUntil { store.claudeAccountUsage.isEmpty && !store.isRefreshing }
         XCTAssertTrue(store.claudeAccountUsage.isEmpty, "a single account needs no split")
         XCTAssertEqual(store.unattributedClaudeUsage, ClaudeAccountUsage())
     }
