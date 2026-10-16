@@ -90,7 +90,8 @@ actor LocalUsageCache {
     private let codexRoots: [URL]?
     private let geminiRoot: URL?
     private let grokRoot: URL?
-    private let fileURL: URL
+    /// 영속 파일. 테스트가 기본 경로의 격리를 IO 없이 확인할 수 있게 노출한다(`AppStorageIsolationTests`).
+    nonisolated let fileURL: URL
     private let now: @Sendable () -> Date
     /// throwing probe 를 쓴다 — 읽기 실패(throw)와 "metadata 없음"(`nil`)은 인덱스에 남길지가 다르다.
     private let codexProbe: @Sendable (URL) throws -> String?
@@ -120,12 +121,7 @@ actor LocalUsageCache {
         self.codexProbe = codexProbe
     }
 
-    private static let defaultFileURL: URL = {
-        let dir = AppEnv.userDirectory(.applicationSupportDirectory)
-            .appendingPathComponent(AppEnv.storageName)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("usage-cache.json")
-    }()
+    private static let defaultFileURL: URL = AppEnv.supportDirectory().appendingPathComponent("usage-cache.json")
 
     func claudeEntries(modifiedSince: Date) -> [LocalUsageReader.Entry] {
         ensureLoaded()
